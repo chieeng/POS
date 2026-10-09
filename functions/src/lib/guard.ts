@@ -33,7 +33,8 @@ export async function requireOwner(request: CallableRequest<unknown>): Promise<O
   if (!claims || claims.role !== 'owner') {
     throw new HttpsError('permission-denied', 'Only the Owner can do this.');
   }
-  if (token.firebase?.sign_in_second_factor !== 'totp') {
+  // The Auth emulator cannot do TOTP, so this check is skipped there and only there.
+  if (!inEmulator() && token.firebase?.sign_in_second_factor !== 'totp') {
     throw new HttpsError('permission-denied', 'Two-step sign-in is required for the Owner.');
   }
 

@@ -6,3 +6,5 @@ coverage
 .emulator-data
 package-lock.json
 docs/SRS.md
+.emulator
+firebase.emulator.json
