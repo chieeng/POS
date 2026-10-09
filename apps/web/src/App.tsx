@@ -1,3 +1,10 @@
+import { useEffect, useState } from 'react';
+import { RouterProvider } from 'react-router-dom';
+import { startAuthListener } from '@/features/auth/authService';
+import { createAppRouter } from '@/routes/router';
+
 export function App() {
-  return <h1>POS</h1>;
+  const [router] = useState(createAppRouter);
+  useEffect(() => startAuthListener(), []);
+  return <RouterProvider router={router} />;
 }
