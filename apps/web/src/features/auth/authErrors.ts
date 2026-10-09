@@ -1,6 +1,7 @@
 export type AuthErrorKind =
   | 'wrong-credentials'
   | 'disabled'
+  | 'no-access'
   | 'too-many-attempts'
   | 'offline'
   | 'wrong-code'
@@ -22,6 +23,10 @@ const MESSAGES: Record<AuthErrorKind, Omit<AuthErrorMessage, 'kind'>> = {
     title: 'This account is turned off.',
     detail: 'Ask the Owner to turn it back on.',
   },
+  'no-access': {
+    title: 'This account has no access to POS.',
+    detail: 'Ask the Owner to check your account.',
+  },
   'too-many-attempts': {
     title: 'Too many tries.',
     detail: 'This account is locked for a while. Wait a few minutes, then try again.',
@@ -39,7 +44,7 @@ const MESSAGES: Record<AuthErrorKind, Omit<AuthErrorMessage, 'kind'>> = {
     detail: 'For your security this step needs a fresh sign-in.',
   },
   unknown: {
-    title: "Couldn't sign in.",
+    title: 'Something went wrong.',
     detail: 'Try again. If it keeps happening, tell the Owner.',
   },
 };
@@ -69,8 +74,17 @@ export function errorCodeOf(error: unknown): string | undefined {
   return undefined;
 }
 
+/** The sign-in blocking function (recordSignIn) refused the account: no valid role (SEC-02). */
+function blockedAtSignIn(error: unknown): boolean {
+  // Firebase reports a refusal by a blocking function as auth/internal-error and carries
+  // the function's PERMISSION_DENIED status in the message.
+  if (errorCodeOf(error) !== 'auth/internal-error') return false;
+  const message = error instanceof Error ? error.message : '';
+  return message.includes('PERMISSION_DENIED');
+}
+
 export function describeAuthError(error: unknown): AuthErrorMessage {
   const code = errorCodeOf(error);
-  const kind = (code && CODE_TO_KIND[code]) || 'unknown';
+  const kind = blockedAtSignIn(error) ? 'no-access' : (code && CODE_TO_KIND[code]) || 'unknown';
   return { kind, ...MESSAGES[kind] };
 }
