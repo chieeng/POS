@@ -4,8 +4,8 @@ POS, inventory, attendance and lightweight payroll for a single retail store.
 Requirements live in [docs/SRS.md](docs/SRS.md); IDs such as `AUTH-01` or `SEC-04` in code
 comments and commit messages refer to it.
 
-**Status: Phase 0 (foundation) and the sign-in screen.** Selling, inventory and the other
-screens are not built yet.
+**Status: Phase 0 (foundation).** Sign-in, user management, device tags and the audit log
+are built. Store settings, selling, inventory and the other screens are not built yet.
 
 ## What is in the repository
 
@@ -35,8 +35,7 @@ firebase.json          emulators, Hosting security headers
 
 ```bash
 npm install
-npm run build -w functions   # the Functions emulator runs the compiled code
-npm run emulators            # Auth, Firestore, Functions, Storage; UI on http://localhost:4000
+npm run emulators            # builds functions, then Auth, Firestore, Functions, Storage; UI on http://localhost:4000
 npm run dev                  # in a second terminal; http://localhost:5173
 ```
 
@@ -54,21 +53,27 @@ npm run bootstrap-owner -- --project demo-pos --email owner@example.com --name "
 
 Open the printed link and add `&newPassword=<at least 10 characters>` to set the password.
 
-**Emulator limit:** the Auth emulator cannot do authenticator-app (TOTP) codes. A local Owner
-can sign in but stops at "Turn on two-step sign-in", and Owner-only functions and rules refuse
-them. Test Owner flows on staging. Staff accounts work fully locally; create one from the
-Emulator UI (Authentication > Add user) with custom claims
-`{"role":"sales","branchId":"main","active":true}`.
+Sign in as that Owner and add staff under Settings > Users. After changing functions code,
+run `npm run build -w functions`; the emulator reloads it.
+
+**Local emulator profile.** The Auth emulator cannot do authenticator-app (TOTP) codes and
+cannot issue App Check tokens. So that Owner screens can be used locally, `npm run emulators`
+runs [scripts/emulator-profile.mjs](scripts/emulator-profile.mjs), which writes a git-ignored
+copy of the rules with only the second-factor check relaxed; inside the emulator the functions
+also skip that check and App Check. None of this exists outside the emulator: deploys, CI and
+`npm run test:emulators` use the real `firestore.rules`. Two-step sign-in itself can only
+be tested on staging.
 
 ## Checks
 
-| Command                  | What it does                                                         |
-| ------------------------ | -------------------------------------------------------------------- |
-| `npm run lint`           | ESLint and Prettier                                                  |
-| `npm run typecheck`      | TypeScript for the web app, functions, scripts and tests             |
-| `npm test`               | Unit tests (Vitest)                                                  |
-| `npm run test:emulators` | Security Rules tests and Cloud Functions tests in the Emulator Suite |
-| `npm run build`          | Builds functions and the web app                                     |
+| Command                      | What it does                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `npm run lint`               | ESLint and Prettier                                                            |
+| `npm run typecheck`          | TypeScript for the web app, functions, scripts and tests                       |
+| `npm test`                   | Unit tests (Vitest)                                                            |
+| `npm run test:emulators`     | Security Rules tests and Cloud Functions tests in the Emulator Suite           |
+| `npm run test:emulators:alt` | The same tests on spare ports, for when `npm run emulators` is already running |
+| `npm run build`              | Builds functions and the web app                                               |
 
 CI runs all of them on every pull request, plus `npm audit` on production dependencies.
 
@@ -85,10 +90,11 @@ The Firebase web config is public, so the app itself is never trusted (SRS 6.3).
   sign-in (SYS-03).
 - **Owner two-step.** Rules and functions accept an Owner only if that sign-in passed the
   authenticator-app step (SEC-05). The app walks a new Owner through setting it up.
-- **Functions.** `createUser`, `setUserRole`, `deactivateUser`, `signOutEverywhere` and
-  `createPasswordResetLink` are Owner-only, enforce App Check, validate input with Zod and
+- **Functions.** `createUser`, `updateUser`, `setUserRole`, `deactivateUser`,
+  `signOutEverywhere` and `createPasswordResetLink` are Owner-only, enforce App Check, validate input with Zod and
   write `auditLogs` (SEC-08). The Owner cannot demote or turn off their own account.
-- **Rules.** Default deny. `users` and `auditLogs` are read-only from clients.
+- **Rules.** Default deny. `users` and `auditLogs` are read-only from clients. A user may
+  write only their own device record (SYS-02), validated field by field.
 - **Client routing is for navigation only.**
 
 Known limits, to be aware of:
@@ -98,7 +104,9 @@ Known limits, to be aware of:
   revocation. New sign-ins and token refreshes are refused immediately.
 - The idle lock (AUTH-05) asks for the password. The design also shows a 4-digit staff PIN;
   the SRS does not define where a PIN would be stored or checked, so it is not built.
-- `deviceTag` in audit logs is `null` until device tags (SYS-02) are built.
+- The device tag in audit logs is reported by the client, so it is a label, not proof. Sign-in
+  entries have none. Devices cannot be signed out one at a time; Firebase revokes per account.
+- A deactivated account cannot be turned back on from the app yet.
 - The idle time is fixed at 15 minutes until the settings screen (SYS-01) exists.
 
 ## Design system
@@ -149,6 +157,9 @@ and none may be added (SEC-10).
 - push to `dev` deploys to staging
 - a `v*` tag on `main` deploys to production
 - a pull request into `dev` gets a staging preview channel
+
+Deploys are **off** until the repository variable `DEPLOY_ENABLED` is set to `true`; until
+then the workflow is skipped.
 
 One-time setup per project:
 
