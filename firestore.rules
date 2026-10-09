@@ -63,6 +63,32 @@ service cloud.firestore {
       allow get: if hasAccess() && inMyBranch(resource.data) && (isSelf(uid) || isOwner());
       allow list: if isOwner() && inMyBranch(resource.data) && limitedTo(100);
       allow create, update, delete: if false;
+
+      // SYS-02: each device registers its own short tag. A user writes only their own
+      // device records; the Owner reads them. Records are never deleted from a client.
+      match /devices/{tag} {
+        allow get: if hasAccess() && inMyBranch(resource.data) && (isSelf(uid) || isOwner());
+        allow create, update: if hasAccess() && isSelf(uid) && validDevice(tag);
+        allow delete: if false;
+      }
+    }
+
+    function validDevice(tag) {
+      let data = request.resource.data;
+      return data.keys().hasOnly(['deviceTag', 'uid', 'branchId', 'label', 'lastSeenAt'])
+        && data.keys().hasAll(['deviceTag', 'uid', 'branchId', 'label', 'lastSeenAt'])
+        && tag.matches('^[A-Z0-9]{4}$')
+        && data.deviceTag == tag
+        && data.uid == request.auth.uid
+        && data.branchId == claims().branchId
+        && data.label is string
+        && data.label.size() <= 60
+        && data.lastSeenAt == request.time;
+    }
+
+    // The Owner lists the devices of everyone in their branch (collection group query).
+    match /{path=**}/devices/{tag} {
+      allow list: if isOwner() && inMyBranch(resource.data) && limitedTo(300);
     }
 
     // ---- auditLogs -----------------------------------------------------------------------

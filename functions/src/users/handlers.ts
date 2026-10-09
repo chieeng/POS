@@ -9,6 +9,7 @@ import {
   createUserSchema,
   deactivateUserSchema,
   setUserRoleSchema,
+  updateUserSchema,
   userIdSchema,
 } from './schemas.js';
 
@@ -102,6 +103,7 @@ export async function createUserHandler(request: CallableRequest<unknown>) {
           action: 'user.create',
           actorId: owner.uid,
           branchId: owner.branchId,
+          deviceTag: input.deviceTag,
           targetType: 'user',
           targetId: uid,
           after: {
@@ -121,6 +123,64 @@ export async function createUserHandler(request: CallableRequest<unknown>) {
 
   const resetLink = await auth.generatePasswordResetLink(input.email);
   return { uid, resetLink };
+}
+
+/** AUTH-02: the Owner edits a user's name and user code. */
+export async function updateUserHandler(request: CallableRequest<unknown>) {
+  const owner = await requireOwner(request);
+  const input = parseInput(updateUserSchema, request.data);
+
+  const users = db().collection('users');
+  const ref = users.doc(input.uid);
+  const changes: { displayName?: string; userCode?: string } = {};
+
+  await db().runTransaction(async (tx) => {
+    const user = (await tx.get(ref)).data() as UserDoc | undefined;
+    if (!user || user.branchId !== owner.branchId) {
+      throw new HttpsError('not-found', 'User not found.');
+    }
+    delete changes.displayName;
+    delete changes.userCode;
+    if (input.displayName !== undefined && input.displayName !== user.displayName) {
+      changes.displayName = input.displayName;
+    }
+    if (input.userCode !== undefined && input.userCode !== user.userCode) {
+      const sameCode = await tx.get(
+        users
+          .where('branchId', '==', owner.branchId)
+          .where('userCode', '==', input.userCode)
+          .limit(1),
+      );
+      if (!sameCode.empty) {
+        throw new HttpsError('already-exists', 'This user code is already taken.');
+      }
+      changes.userCode = input.userCode;
+    }
+    if (Object.keys(changes).length === 0) return;
+
+    const before: Record<string, unknown> = {};
+    if (changes.displayName !== undefined) before.displayName = user.displayName;
+    if (changes.userCode !== undefined) before.userCode = user.userCode;
+    tx.update(ref, changes);
+    tx.create(
+      db().collection('auditLogs').doc(),
+      auditEntry({
+        action: 'user.update',
+        actorId: owner.uid,
+        branchId: owner.branchId,
+        deviceTag: input.deviceTag,
+        targetType: 'user',
+        targetId: input.uid,
+        before,
+        after: { ...changes },
+      }),
+    );
+  });
+
+  if (changes.displayName !== undefined) {
+    await adminAuth().updateUser(input.uid, { displayName: changes.displayName });
+  }
+  return { uid: input.uid, ...changes };
 }
 
 /** AUTH-03: the role claim is set only here, by the Owner. */
@@ -147,6 +207,7 @@ export async function setUserRoleHandler(request: CallableRequest<unknown>) {
       action: 'user.setRole',
       actorId: owner.uid,
       branchId: owner.branchId,
+      deviceTag: input.deviceTag,
       targetType: 'user',
       targetId: input.uid,
       before: { role: user.role },
@@ -179,6 +240,7 @@ export async function deactivateUserHandler(request: CallableRequest<unknown>) {
       action: 'user.deactivate',
       actorId: owner.uid,
       branchId: owner.branchId,
+      deviceTag: input.deviceTag,
       targetType: 'user',
       targetId: input.uid,
       before: { active: user.active, role: user.role },
@@ -205,6 +267,7 @@ export async function signOutEverywhereHandler(request: CallableRequest<unknown>
         action: 'user.signOutEverywhere',
         actorId: owner.uid,
         branchId: owner.branchId,
+        deviceTag: input.deviceTag,
         targetType: 'user',
         targetId: input.uid,
       }),
@@ -231,6 +294,7 @@ export async function createPasswordResetLinkHandler(request: CallableRequest<un
         action: 'user.passwordResetLink',
         actorId: owner.uid,
         branchId: owner.branchId,
+        deviceTag: input.deviceTag,
         targetType: 'user',
         targetId: input.uid,
       }),
