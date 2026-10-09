@@ -359,7 +359,7 @@ A React PWA talks straight to Firestore through the Firebase SDK, with its local
 | Location | Browser Geolocation API (`enableHighAccuracy`, 10 s timeout); haversine distance on both client and server |
 | Receipts | On-screen slip rendered to image or PDF and shared with the Web Share API; browser print as a fallback |
 | Notifications | Firebase Cloud Messaging web push for approval requests |
-| Backend | Cloud Functions (Node 20, TypeScript): user admin, approval decisions, void/refund, sale trigger, attendance computation, payroll drafting, daily backup |
+| Backend | Cloud Functions (Node 22, TypeScript): user admin, approval decisions, void/refund, sale trigger, attendance computation, payroll drafting, daily backup |
 | Testing | Vitest, Firebase Emulator Suite, `@firebase/rules-unit-testing`, Playwright for checkout flow |
 
 ### 7.2 Repository layout (monorepo)
