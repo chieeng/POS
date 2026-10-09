@@ -5,7 +5,17 @@ import type { Role } from '@/features/auth/roles';
 import { useSession, type SessionUser } from '@/stores/session';
 import { routes } from './router';
 
-vi.mock('@/lib/firebase', () => ({ env: {} }));
+vi.mock('@/lib/firebase', () => ({ env: {}, db: {}, functions: {} }));
+vi.mock('@/lib/device', () => ({
+  registerDevice: vi.fn(() => Promise.resolve()),
+  getDeviceTag: () => 'A1B2',
+}));
+vi.mock('@/features/users/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/users/data')>()),
+  useUsers: () => ({ data: [], loading: false, error: false }),
+  useDevices: () => ({ data: [], loading: false, error: false }),
+  useAuditLogs: () => ({ data: [], loading: false, error: false }),
+}));
 vi.mock('@/features/auth/authService', () => ({
   signIn: vi.fn(),
   verifyTotp: vi.fn(),
@@ -71,4 +81,16 @@ test('an Owner without the authenticator step can only set it up (SEC-05)', asyn
 test('there is no sign-up route (SEC-01)', async () => {
   const router = renderAt('/sign-up');
   await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sign-in'));
+});
+
+test.each(['sales', 'specialSales'] as const)('%s cannot open Settings', async (role) => {
+  useSession.setState({ status: 'signedIn', user: userWith(role) });
+  const router = renderAt('/settings/users');
+  await vi.waitFor(() => expect(router.state.location.pathname).not.toContain('/settings'));
+});
+
+test('the Owner opens Settings > Users', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('owner') });
+  renderAt('/settings/users');
+  expect(await screen.findByRole('link', { name: /Add user/ })).toBeInTheDocument();
 });

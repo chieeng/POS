@@ -1,6 +1,7 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { ROLE_HOME, type Role } from '@/features/auth/roles';
 import { SignInPage } from '@/features/auth/SignInPage';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSession } from '@/stores/session';
 import { SplashScreen } from './ProtectedLayout';
 
@@ -22,4 +23,10 @@ export function RequireRole({ role }: { role: Role }) {
 export function SignInRoute() {
   const status = useSession((s) => s.status);
   return status === 'loading' ? <SplashScreen /> : <SignInPage />;
+}
+
+/** /settings itself: phones show the section list; wider screens open the first section. */
+export function SettingsIndex() {
+  const wide = useMediaQuery('(min-width: 768px)');
+  return wide ? <Navigate to="users" replace /> : null;
 }
