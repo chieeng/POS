@@ -16,7 +16,7 @@ apps/web/              React 18 + TypeScript + Vite PWA
   src/components/ui/   shadcn-style components on the design tokens
   src/lib/firebase.ts  Firebase client (App Check, offline cache, emulators)
   src/styles/          design tokens (CSS variables + Tailwind theme), light and dark
-functions/             Cloud Functions (Node 20, asia-southeast1)
+functions/             Cloud Functions (Node 22, asia-southeast1)
 tests/rules/           Security Rules tests
 scripts/               one-time bootstrap script for the first Owner
 firestore.rules        default deny; users and auditLogs
@@ -27,7 +27,7 @@ firebase.json          emulators, Hosting security headers
 
 ## Requirements
 
-- Node 20 or newer (Cloud Functions run on Node 20; see `.nvmrc`)
+- Node 22 or newer (Cloud Functions run on Node 22; see `.nvmrc`)
 - **Java 21 or newer** for the Firebase emulators
 - For real projects only: the [gcloud CLI](https://cloud.google.com/sdk/docs/install)
 

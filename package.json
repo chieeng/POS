@@ -8,7 +8,7 @@
     "functions"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "type": "module",
   "scripts": {
@@ -26,12 +26,12 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@firebase/rules-unit-testing": "^6.0.0",
-    "@types/node": "^20.19.43",
+    "@types/node": "^22.20.5",
     "eslint": "^10.12.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "firebase": "^13.0.0",
-    "firebase-admin": "^13.10.0",
+    "firebase-admin": "^14.5.0",
     "firebase-tools": "^15.33.0",
     "globals": "^17.13.0",
     "prettier": "^3.9.9",
