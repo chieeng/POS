@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+functions/lib/
+*.tsbuildinfo
+coverage/
+
+# Environment files: never commit real values, only .env.example (NFR-04)
+.env
+.env.*
+!.env.example
+
+# Credentials: no service account keys anywhere (SEC-10)
+*service-account*.json
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
+*credentials*.json
+gcloud-key*.json
+*.pem
+*.p12
+*.key
+
+# Firebase CLI and emulator data
+.firebase/
+.emulator-data/
+emulator-data/
+firebase-export-*/
+*-debug.log
+firebase-debug.*.log
+ui-debug.log
+.runtimeconfig.json
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

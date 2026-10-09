@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "staging": "pos-staging",
+    "production": "pos-prod"
+  }
+}

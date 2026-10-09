@@ -1,0 +1,8 @@
+node_modules
+dist
+functions/lib
+coverage
+.firebase
+.emulator-data
+package-lock.json
+docs/SRS.md
