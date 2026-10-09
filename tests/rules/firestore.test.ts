@@ -6,13 +6,16 @@ import {
 import {
   addDoc,
   collection,
+  collectionGroup,
   deleteDoc,
   doc,
   getDoc,
   getDocs,
   limit,
   query,
+  serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
   where,
 } from 'firebase/firestore';
@@ -124,12 +127,96 @@ describe('users', () => {
     await assertFails(updateDoc(doc(db, 'users/owner1'), { displayName: 'x' }));
     await assertFails(deleteDoc(doc(db, 'users/sales1')));
   });
+});
 
-  test('device records are closed until device tags are built', async () => {
-    const db = who.sales.firestore();
-    await assertFails(getDoc(doc(db, 'users/sales1/devices/d1')));
-    await assertFails(setDoc(doc(db, 'users/sales1/devices/d1'), { deviceTag: 'A1' }));
+describe('devices (SYS-02)', () => {
+  const device = (uid: string, tag = 'A1B2', branchId = 'main') => ({
+    deviceTag: tag,
+    uid,
+    branchId,
+    label: 'Android phone · Chrome',
+    lastSeenAt: serverTimestamp(),
   });
+
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (admin) => {
+      const db = admin.firestore();
+      await setDoc(doc(db, 'users/sales1/devices/S1S1'), device('sales1', 'S1S1'));
+      await setDoc(doc(db, 'users/sales9/devices/S9S9'), device('sales9', 'S9S9', 'other'));
+    });
+  });
+
+  test.each([
+    ['sales', 'sales1'],
+    ['specialSales', 'special1'],
+    ['owner', 'owner1'],
+  ] as const)('%s registers and refreshes their own device', async (name, uid) => {
+    const ref = doc(who[name].firestore(), `users/${uid}/devices/A1B2`);
+    await assertSucceeds(setDoc(ref, device(uid)));
+    await assertSucceeds(setDoc(ref, device(uid)));
+    await assertSucceeds(getDoc(ref));
+  });
+
+  test('a user cannot register a device for someone else', async () => {
+    const db = who.sales.firestore();
+    await assertFails(setDoc(doc(db, 'users/special1/devices/A1B2'), device('special1')));
+    await assertFails(setDoc(doc(db, 'users/special1/devices/A1B2'), device('sales1')));
+    await assertFails(
+      setDoc(doc(who.owner.firestore(), 'users/sales1/devices/A1B2'), device('sales1')),
+    );
+  });
+
+  test('device records are validated field by field (SEC-07)', async () => {
+    const db = who.sales.firestore();
+    const ref = doc(db, 'users/sales1/devices/A1B2');
+    await assertFails(setDoc(ref, { ...device('sales1'), role: 'owner' }));
+    await assertFails(setDoc(ref, { ...device('sales1'), deviceTag: 'ZZZZ' }));
+    await assertFails(setDoc(ref, { ...device('sales1'), uid: 'owner1' }));
+    await assertFails(setDoc(ref, device('sales1', 'A1B2', 'other')));
+    await assertFails(setDoc(ref, { ...device('sales1'), label: 'x'.repeat(61) }));
+    await assertFails(setDoc(ref, { ...device('sales1'), label: 42 }));
+    await assertFails(setDoc(ref, { ...device('sales1'), lastSeenAt: Timestamp.fromMillis(0) }));
+    await assertFails(setDoc(ref, { deviceTag: 'A1B2', uid: 'sales1', branchId: 'main' }));
+    await assertFails(setDoc(doc(db, 'users/sales1/devices/toolong'), device('sales1', 'toolong')));
+    await assertFails(setDoc(doc(db, 'users/sales1/devices/a1b2'), device('sales1', 'a1b2')));
+  });
+
+  test.each(NO_ACCESS)('%s cannot register or read devices', async (name) => {
+    const db = who[name].firestore();
+    for (const uid of ['sales1', 'owner1', 'nobody', 'former1']) {
+      await assertFails(setDoc(doc(db, `users/${uid}/devices/A1B2`), device(uid)));
+    }
+    await assertFails(getDoc(doc(db, 'users/sales1/devices/S1S1')));
+  });
+
+  test('nobody deletes a device record', async () => {
+    await assertFails(deleteDoc(doc(who.sales.firestore(), 'users/sales1/devices/S1S1')));
+    await assertFails(deleteDoc(doc(who.owner.firestore(), 'users/sales1/devices/S1S1')));
+  });
+
+  test('a user reads their own device; staff cannot read others', async () => {
+    await assertSucceeds(getDoc(doc(who.sales.firestore(), 'users/sales1/devices/S1S1')));
+    await assertFails(getDoc(doc(who.specialSales.firestore(), 'users/sales1/devices/S1S1')));
+  });
+
+  test('the Owner lists the devices of their branch only', async () => {
+    const db = who.owner.firestore();
+    await assertSucceeds(getDoc(doc(db, 'users/sales1/devices/S1S1')));
+    await assertFails(getDoc(doc(db, 'users/sales9/devices/S9S9')));
+    const all = collectionGroup(db, 'devices');
+    await assertSucceeds(getDocs(query(all, where('branchId', '==', 'main'), limit(300))));
+    await assertFails(getDocs(query(all, where('branchId', '==', 'main'))));
+    await assertFails(getDocs(query(all, where('branchId', '==', 'other'), limit(300))));
+    await assertFails(getDocs(query(all, limit(300))));
+  });
+
+  test.each(['sales', 'specialSales', ...NO_ACCESS] as const)(
+    '%s cannot list devices across users',
+    async (name) => {
+      const all = collectionGroup(who[name].firestore(), 'devices');
+      await assertFails(getDocs(query(all, where('branchId', '==', 'main'), limit(10))));
+    },
+  );
 });
 
 describe('auditLogs', () => {

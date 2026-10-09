@@ -25,6 +25,9 @@ gcloud-key*.json
 # Firebase CLI and emulator data
 .firebase/
 .emulator-data/
+.emulator/
+firebase.emulator.json
+firebase.test-ports.json
 emulator-data/
 firebase-export-*/
 *-debug.log

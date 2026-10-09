@@ -9,6 +9,7 @@ import {
   deactivateUserHandler,
   setUserRoleHandler,
   signOutEverywhereHandler,
+  updateUserHandler,
 } from './handlers';
 
 const PROJECT = process.env.GCLOUD_PROJECT ?? 'demo-pos';
@@ -106,6 +107,7 @@ beforeEach(async () => {
 describe('access checks shared by every callable (SEC-08)', () => {
   const handlers = [
     ['createUser', createUserHandler, newUser],
+    ['updateUser', updateUserHandler, { uid: 'sales1', displayName: 'New Name' }],
     ['setUserRole', setUserRoleHandler, { uid: 'sales1', role: 'specialSales' }],
     ['deactivateUser', deactivateUserHandler, { uid: 'sales1' }],
     ['signOutEverywhere', signOutEverywhereHandler, { uid: 'sales1' }],
@@ -187,6 +189,30 @@ describe('access checks shared by every callable (SEC-08)', () => {
   });
 });
 
+describe('inside the local emulator only', () => {
+  test('App Check and the second factor are not required, everything else still is', async () => {
+    process.env.FUNCTIONS_EMULATOR = 'true';
+    const lax = { appCheck: false, secondFactor: false };
+    await seedUser('sales1', { role: 'sales', branchId: 'main', active: true });
+    await expect(
+      signOutEverywhereHandler(requestAs('owner1', OWNER_CLAIMS, { uid: 'sales1' }, lax)),
+    ).resolves.toEqual({ uid: 'sales1' });
+    await expect(
+      signOutEverywhereHandler(
+        requestAs(
+          'sales1',
+          { role: 'sales', branchId: 'main', active: true },
+          { uid: 'sales1' },
+          lax,
+        ),
+      ),
+    ).rejects.toMatchObject({ code: 'permission-denied' });
+    await expect(
+      signOutEverywhereHandler(requestAs(null, {}, { uid: 'sales1' }, lax)),
+    ).rejects.toMatchObject({ code: 'unauthenticated' });
+  });
+});
+
 describe('createUser (AUTH-02, SEC-01)', () => {
   test('creates the account, claims, user document and audit log, and returns a reset link', async () => {
     const result = await createUserHandler(asOwner(newUser));
@@ -234,6 +260,54 @@ describe('createUser (AUTH-02, SEC-01)', () => {
     await expect(adminAuth().getUserByEmail('other@example.com')).rejects.toMatchObject({
       code: 'auth/user-not-found',
     });
+  });
+});
+
+describe('updateUser (AUTH-02)', () => {
+  beforeEach(() => seedUser('sales1', { role: 'sales', branchId: 'main', active: true }));
+
+  test('changes name and user code, logs before and after with the device tag', async () => {
+    await updateUserHandler(
+      asOwner({ uid: 'sales1', displayName: 'Jun R. Reyes', userCode: 'jrr', deviceTag: 'A1B2' }),
+    );
+    expect((await adminAuth().getUser('sales1')).displayName).toBe('Jun R. Reyes');
+    const doc = (await db().collection('users').doc('sales1').get()).data();
+    expect(doc).toMatchObject({ displayName: 'Jun R. Reyes', userCode: 'JRR', role: 'sales' });
+    const [log] = await auditLogs('user.update');
+    expect(log).toMatchObject({
+      actorId: 'owner1',
+      targetId: 'sales1',
+      deviceTag: 'A1B2',
+      before: { displayName: 'sales1', userCode: 'SALE' },
+      after: { displayName: 'Jun R. Reyes', userCode: 'JRR' },
+    });
+  });
+
+  test('writes nothing when nothing changes', async () => {
+    await updateUserHandler(asOwner({ uid: 'sales1', displayName: 'sales1' }));
+    expect(await auditLogs('user.update')).toHaveLength(0);
+  });
+
+  test('refuses a user code that someone else has', async () => {
+    await seedUser('special1', { role: 'specialSales', branchId: 'main', active: true });
+    await expect(
+      updateUserHandler(asOwner({ uid: 'sales1', userCode: 'SPEC' })),
+    ).rejects.toMatchObject({ code: 'already-exists' });
+  });
+
+  test('cannot change role, branch or active flag through this function', async () => {
+    for (const extra of [{ role: 'owner' }, { branchId: 'other' }, { active: false }]) {
+      await expect(
+        updateUserHandler(asOwner({ uid: 'sales1', displayName: 'X', ...extra })),
+      ).rejects.toMatchObject({ code: 'invalid-argument' });
+    }
+  });
+
+  test('cannot reach a user of another branch', async () => {
+    await seedUser('other1', { role: 'sales', branchId: 'other', active: true });
+    await expect(
+      updateUserHandler(asOwner({ uid: 'other1', displayName: 'X' })),
+    ).rejects.toMatchObject({ code: 'not-found' });
   });
 });
 

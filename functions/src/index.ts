@@ -8,6 +8,7 @@ import {
   deactivateUserHandler,
   setUserRoleHandler,
   signOutEverywhereHandler,
+  updateUserHandler,
 } from './users/handlers.js';
 
 // SRS section 2: every function runs in Singapore.
@@ -18,6 +19,7 @@ setGlobalOptions({ region: 'asia-southeast1', maxInstances: 10 });
 const callable: CallableOptions = { enforceAppCheck: true };
 
 export const createUser = onCall(callable, createUserHandler);
+export const updateUser = onCall(callable, updateUserHandler);
 export const setUserRole = onCall(callable, setUserRoleHandler);
 export const deactivateUser = onCall(callable, deactivateUserHandler);
 export const signOutEverywhere = onCall(callable, signOutEverywhereHandler);

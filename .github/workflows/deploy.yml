@@ -8,6 +8,10 @@ name: Deploy
 # SEC-10: authentication is Workload Identity Federation only. There is no service account
 # key anywhere, and none may ever be added as a secret.
 #
+# Deploys are OFF until the repository variable DEPLOY_ENABLED is set to "true"
+# (GitHub > Settings > Secrets and variables > Actions > Variables). Until then the jobs
+# are skipped instead of failing.
+#
 # FILL IN (GitHub > Settings > Environments > "staging" and "production" > Variables):
 #   GCP_WORKLOAD_IDENTITY_PROVIDER   projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID
 #   GCP_DEPLOY_SERVICE_ACCOUNT       DEPLOYER_NAME@PROJECT_ID.iam.gserviceaccount.com
@@ -33,7 +37,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy to ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
-    if: github.event_name == 'push'
+    if: vars.DEPLOY_ENABLED == 'true' && github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
@@ -101,7 +105,8 @@ jobs:
     name: Staging preview channel
     # Pull requests from forks get no credentials.
     if: >-
-      github.event_name == 'pull_request'
+      vars.DEPLOY_ENABLED == 'true'
+      && github.event_name == 'pull_request'
       && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20

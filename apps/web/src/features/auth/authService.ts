@@ -12,7 +12,7 @@ import {
   type TotpSecret,
   type User,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, env } from '@/lib/firebase';
 import { useSession, type SessionUser, type SignInNotice } from '@/stores/session';
 import { errorCodeOf } from './authErrors';
 import { clearIdleState } from './idleStorage';
@@ -143,6 +143,9 @@ async function resolveSession(user: User): Promise<SessionUser | null> {
     const token = await user.getIdTokenResult();
     const access = parseAccessClaims(token.claims);
     if (!access) return null;
+    // The Auth emulator cannot do TOTP; local development treats the step as passed.
+    // Removed from production bundles (build-time constant).
+    if (import.meta.env.DEV && env.useEmulators) access.secondFactor = true;
     return {
       uid: user.uid,
       email: user.email ?? '',

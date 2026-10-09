@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { env } from '@/lib/firebase';
 import { ICON_STROKE } from '@/lib/utils';
 import { AuthLayout } from './AuthLayout';
 import { describeAuthError, type AuthErrorMessage } from './authErrors';
@@ -83,12 +82,6 @@ export function EnrollTotpPage() {
           every sign-in.
         </p>
 
-        {import.meta.env.DEV && env.useEmulators && (
-          <Alert variant="warn">
-            The local Auth emulator does not support authenticator apps, so this step only works
-            against a real Firebase project (staging).
-          </Alert>
-        )}
         {error && (
           <Alert variant="danger">
             <b>{error.title}</b> {error.detail}
