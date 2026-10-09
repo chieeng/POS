@@ -1,10 +1,76 @@
 rules_version = '2';
 
+// Security Rules for POS (SRS section 6).
+//
+// The web config is public, so anyone can call Firestore without the app. Everything below
+// assumes a hostile client: nothing is readable or writable unless a rule here opens it, and
+// every rule requires a valid, active account with the right role (SEC-02, SEC-07).
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default deny (SRS 6.2): every collection is closed unless a rule opens it.
+    // ---- Helpers -------------------------------------------------------------------------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function claims() {
+      return request.auth.token;
+    }
+
+    // SEC-05: an Owner session only counts if it passed the authenticator-app step.
+    function passedSecondFactor() {
+      return claims().firebase.get('sign_in_second_factor', '') == 'totp';
+    }
+
+    // SEC-02: a valid role claim AND active == true AND a branch. An account without
+    // claims (never set up, or deactivated: SEC-04 removes them) fails here.
+    function hasAccess() {
+      return signedIn()
+        && claims().get('active', false) == true
+        && claims().get('role', '') in ['owner', 'specialSales', 'sales']
+        && claims().get('branchId', '') is string
+        && claims().get('branchId', '') != ''
+        && (claims().role != 'owner' || passedSecondFactor());
+    }
+
+    function isOwner() {
+      return hasAccess() && claims().role == 'owner';
+    }
+
+    function isSelf(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function inMyBranch(data) {
+      return data.branchId == claims().branchId;
+    }
+
+    // SEC-07: no unbounded list reads.
+    function limitedTo(max) {
+      return request.query.limit != null && request.query.limit <= max;
+    }
+
+    // ---- Default deny (SRS 6.2) ----------------------------------------------------------
+
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // ---- users ---------------------------------------------------------------------------
+    // Written only by Cloud Functions through the Admin SDK (AUTH-02, AUTH-03). A user reads
+    // their own profile; the Owner reads the profiles of their branch.
+    match /users/{uid} {
+      allow get: if hasAccess() && inMyBranch(resource.data) && (isSelf(uid) || isOwner());
+      allow list: if isOwner() && inMyBranch(resource.data) && limitedTo(100);
+      allow create, update, delete: if false;
+    }
+
+    // ---- auditLogs -----------------------------------------------------------------------
+    // Append-only and read-only (SYS-03). Owner reads; nobody writes from a client yet.
+    match /auditLogs/{logId} {
+      allow get: if isOwner() && inMyBranch(resource.data);
+      allow list: if isOwner() && inMyBranch(resource.data) && limitedTo(200);
+      allow create, update, delete: if false;
     }
   }
 }
