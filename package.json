@@ -17,11 +17,11 @@
     "build": "npm run build -w functions && npm run build -w apps/web",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w functions",
+    "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w functions && tsc -p tsconfig.tools.json",
     "test": "npm run test -w apps/web && npm run test -w functions",
     "bootstrap-owner": "tsx scripts/bootstrap-owner.ts",
     "test:emulators": "firebase emulators:exec --only auth,firestore,storage --project demo-pos \"npm run test:emulators:run\"",
-    "test:emulators:run": "npm run test:emu -w functions"
+    "test:emulators:run": "vitest run --config tests/rules/vitest.config.ts && npm run test:emu -w functions"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
