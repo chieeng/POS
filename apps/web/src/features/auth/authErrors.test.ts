@@ -23,3 +23,20 @@ test('a wrong email and a wrong password read the same (no account enumeration)'
 test('non-Firebase errors are unknown', () => {
   expect(describeAuthError(new Error('boom')).kind).toBe('unknown');
 });
+
+test('a sign-in refused by the blocking function reads as no access', () => {
+  const error = Object.assign(
+    new Error(
+      'Firebase: HTTP Cloud Function returned an error: {"error":{"message":"This account has no access.","status":"PERMISSION_DENIED"}} (auth/internal-error).',
+    ),
+    { code: 'auth/internal-error' },
+  );
+  expect(describeAuthError(error).kind).toBe('no-access');
+});
+
+test('other internal errors stay unknown', () => {
+  const error = Object.assign(new Error('Firebase: Error (auth/internal-error).'), {
+    code: 'auth/internal-error',
+  });
+  expect(describeAuthError(error).kind).toBe('unknown');
+});
