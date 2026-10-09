@@ -19,8 +19,9 @@
     "format": "prettier --write .",
     "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w functions",
     "test": "npm run test -w apps/web && npm run test -w functions",
-    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-pos \"vitest run --config tests/rules/vitest.config.ts\"",
-    "bootstrap-owner": "tsx scripts/bootstrap-owner.ts"
+    "bootstrap-owner": "tsx scripts/bootstrap-owner.ts",
+    "test:emulators": "firebase emulators:exec --only auth,firestore,storage --project demo-pos \"npm run test:emulators:run\"",
+    "test:emulators:run": "npm run test:emu -w functions"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
