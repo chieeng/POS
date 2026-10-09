@@ -10,7 +10,8 @@
     "build": "tsc -p tsconfig.build.json",
     "build:watch": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run",
+    "test:emu": "vitest run --config vitest.emu.config.ts"
   },
   "dependencies": {
     "firebase-admin": "^14.5.0",
