@@ -83,7 +83,7 @@ export function EnrollTotpPage() {
           every sign-in.
         </p>
 
-        {env.useEmulators && (
+        {import.meta.env.DEV && env.useEmulators && (
           <Alert variant="warn">
             The local Auth emulator does not support authenticator apps, so this step only works
             against a real Firebase project (staging).

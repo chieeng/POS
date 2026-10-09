@@ -37,7 +37,8 @@ export const db = initializeFirestore(app, {
 
 export const functions = getFunctions(app, 'asia-southeast1');
 
-if (env.useEmulators) {
+// import.meta.env.DEV is a build-time constant, so this block is removed from production bundles.
+if (import.meta.env.DEV && env.useEmulators) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
   connectFunctionsEmulator(functions, '127.0.0.1', 5001);
