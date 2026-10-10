@@ -22,7 +22,9 @@
     "bootstrap-owner": "tsx scripts/bootstrap-owner.ts",
     "test:emulators": "firebase emulators:exec --only auth,firestore,storage --project demo-pos \"npm run test:emulators:run\"",
     "test:emulators:run": "vitest run --config tests/rules/vitest.config.ts && npm run test:emu -w functions",
-    "test:emulators:alt": "node scripts/test-emulators-alt-ports.mjs"
+    "test:emulators:alt": "node scripts/test-emulators-alt-ports.mjs",
+    "test:db": "supabase test db",
+    "test:functions": "node scripts/test-functions.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

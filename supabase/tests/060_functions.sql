@@ -167,7 +167,7 @@ select is(
   'an edit that changes nothing succeeds'
 );
 select is(
-  (select count(*) from public.audit_logs where action = 'user.update'),
+  (select count(*) from public.audit_logs where action = 'user.update' and branch_id = 'tmain'),
   1::bigint,
   'and writes no second audit entry'
 );
@@ -358,7 +358,7 @@ select is(
   'the action is logged'
 );
 select is(
-  (select count(*) from public.audit_logs where action = 'user.passwordResetLink' and (before is not null or after is not null or reason is not null)),
+  (select count(*) from public.audit_logs where action = 'user.passwordResetLink' and branch_id = 'tmain' and (before is not null or after is not null or reason is not null)),
   0::bigint,
   'and the entry holds no link or other detail'
 );
