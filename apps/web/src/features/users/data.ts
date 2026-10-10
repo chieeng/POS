@@ -1,17 +1,6 @@
-import {
-  collection,
-  collectionGroup,
-  limit,
-  orderBy,
-  query,
-  where,
-  type DocumentData,
-  type Timestamp,
-} from 'firebase/firestore';
-import { useMemo } from 'react';
 import type { Role } from '@/features/auth/roles';
-import { useQuerySnapshot } from '@/hooks/useQuerySnapshot';
-import { db } from '@/lib/firebase';
+import { useLiveRows } from '@/hooks/useLiveRows';
+import { supabase } from '@/lib/supabase';
 
 export interface UserRecord {
   uid: string;
@@ -41,70 +30,89 @@ export interface AuditRecord {
   createdAt: Date | null;
 }
 
-const toDate = (value: unknown): Date | null =>
-  value && typeof (value as Timestamp).toDate === 'function' ? (value as Timestamp).toDate() : null;
+type Row = Record<string, unknown>;
 
-const toUser = (uid: string, data: DocumentData): UserRecord => ({
-  uid,
-  displayName: String(data.displayName ?? ''),
-  email: String(data.email ?? ''),
-  role: data.role as Role,
-  userCode: String(data.userCode ?? ''),
-  active: data.active === true,
+const toDate = (value: unknown): Date | null => {
+  if (typeof value !== 'string') return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const toObject = (value: unknown): Record<string, unknown> | null =>
+  typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+
+const toUser = (row: Row): UserRecord => ({
+  uid: String(row.id ?? ''),
+  displayName: String(row.display_name ?? ''),
+  email: String(row.email ?? ''),
+  role: row.role as Role,
+  userCode: String(row.user_code ?? ''),
+  active: row.active === true,
 });
 
-const toDevice = (_id: string, data: DocumentData): DeviceRecord => ({
-  uid: String(data.uid ?? ''),
-  deviceTag: String(data.deviceTag ?? ''),
-  label: String(data.label ?? ''),
-  lastSeenAt: toDate(data.lastSeenAt),
+const toDevice = (row: Row): DeviceRecord => ({
+  uid: String(row.user_id ?? ''),
+  deviceTag: String(row.device_tag ?? ''),
+  label: String(row.label ?? ''),
+  lastSeenAt: toDate(row.last_seen_at),
 });
 
-const toAudit = (id: string, data: DocumentData): AuditRecord => ({
-  id,
-  action: String(data.action ?? ''),
-  actorId: String(data.actorId ?? ''),
-  targetId: String(data.targetId ?? ''),
-  deviceTag: typeof data.deviceTag === 'string' ? data.deviceTag : null,
-  before: (data.before as Record<string, unknown> | undefined) ?? null,
-  after: (data.after as Record<string, unknown> | undefined) ?? null,
-  reason: typeof data.reason === 'string' ? data.reason : null,
-  createdAt: toDate(data.createdAt),
+const toAudit = (row: Row): AuditRecord => ({
+  id: String(row.id ?? ''),
+  action: String(row.action ?? ''),
+  actorId: String(row.actor_id ?? ''),
+  targetId: String(row.target_id ?? ''),
+  deviceTag: typeof row.device_tag === 'string' ? row.device_tag : null,
+  before: toObject(row.before),
+  after: toObject(row.after),
+  reason: typeof row.reason === 'string' ? row.reason : null,
+  createdAt: toDate(row.created_at),
 });
 
-// Each query mirrors a Security Rule: own branch only, with the limit the rule demands.
+// Each query asks only for what Row Level Security gives the Owner anyway: their own branch.
 
 export function useUsers(branchId: string) {
-  const q = useMemo(
-    () => query(collection(db, 'users'), where('branchId', '==', branchId), limit(100)),
-    [branchId],
-  );
-  return useQuerySnapshot(q, toUser);
+  return useLiveRows({
+    table: 'profiles',
+    queryKey: branchId,
+    load: () =>
+      supabase
+        .from('profiles')
+        .select('id, display_name, email, role, user_code, active')
+        .eq('branch_id', branchId)
+        .limit(100),
+    map: toUser,
+  });
 }
 
+// `devices` has no branch column: the policy limits the Owner to the users of their branch.
 export function useDevices(branchId: string) {
-  const q = useMemo(
-    () => query(collectionGroup(db, 'devices'), where('branchId', '==', branchId), limit(300)),
-    [branchId],
-  );
-  return useQuerySnapshot(q, toDevice);
+  return useLiveRows({
+    table: 'devices',
+    queryKey: branchId,
+    load: () =>
+      supabase.from('devices').select('user_id, device_tag, label, last_seen_at').limit(300),
+    map: toDevice,
+  });
 }
 
 export const AUDIT_PAGE_SIZE = 100;
 export const AUDIT_MAX = 200;
 
 export function useAuditLogs(branchId: string, count: number) {
-  const q = useMemo(
-    () =>
-      query(
-        collection(db, 'auditLogs'),
-        where('branchId', '==', branchId),
-        orderBy('createdAt', 'desc'),
-        limit(Math.min(count, AUDIT_MAX)),
-      ),
-    [branchId, count],
-  );
-  return useQuerySnapshot(q, toAudit);
+  const size = Math.min(count, AUDIT_MAX);
+  return useLiveRows({
+    table: 'audit_logs',
+    queryKey: `${branchId}:${size}`,
+    load: () =>
+      supabase
+        .from('audit_logs')
+        .select('id, action, actor_id, target_id, device_tag, before, after, reason, created_at')
+        .eq('branch_id', branchId)
+        .order('created_at', { ascending: false })
+        .limit(size),
+    map: toAudit,
+  });
 }
 
 /** "Active now", "12 min ago", "3 hr ago", "Yesterday", "Aug 30". */

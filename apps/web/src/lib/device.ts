@@ -1,5 +1,4 @@
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { supabase } from './supabase';
 
 const TAG_KEY = 'pos.deviceTag';
 // No 0/O or 1/I/L, so a tag read aloud or off a slip is unambiguous.
@@ -66,14 +65,18 @@ export function describeDevice(userAgent: string): string {
   return `${device} · ${browser}`;
 }
 
-/** Records this device under the signed-in user. Queues offline and syncs later. */
-export async function registerDevice(user: { uid: string; branchId: string }): Promise<void> {
-  const deviceTag = getDeviceTag();
-  await setDoc(doc(db, 'users', user.uid, 'devices', deviceTag), {
-    deviceTag,
-    uid: user.uid,
-    branchId: user.branchId,
-    label: describeDevice(navigator.userAgent).slice(0, 60),
-    lastSeenAt: serverTimestamp(),
-  });
+/**
+ * Records this device under the signed-in user (SYS-02). The server stamps the time it was
+ * last seen; Row Level Security lets a user write only their own rows.
+ */
+export async function registerDevice(user: { uid: string }): Promise<void> {
+  const { error } = await supabase.from('devices').upsert(
+    {
+      user_id: user.uid,
+      device_tag: getDeviceTag(),
+      label: describeDevice(navigator.userAgent).slice(0, 60),
+    },
+    { onConflict: 'user_id,device_tag' },
+  );
+  if (error) throw error;
 }

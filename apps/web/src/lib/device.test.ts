@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { describeDevice, generateDeviceTag, getDeviceTag } from './device';
 
-vi.mock('./firebase', () => ({ db: {} }));
+vi.mock('./supabase', () => ({ supabase: {} }));
 
 beforeEach(() => localStorage.clear());
 

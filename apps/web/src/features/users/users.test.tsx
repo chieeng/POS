@@ -46,7 +46,7 @@ const DEVICES: DeviceRecord[] = [
   { uid: 's1', deviceTag: 'A1B2', label: 'Android phone · Chrome', lastSeenAt: new Date() },
 ];
 
-vi.mock('@/lib/firebase', () => ({ env: {}, db: {}, functions: {} }));
+vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
 vi.mock('@/lib/api', () => ({
   api: {
     createUser: vi.fn(),
@@ -115,7 +115,7 @@ describe('AddUserPage (AUTH-02, SEC-01)', () => {
     expect(mocked.createUser).toHaveBeenCalledWith({
       displayName: 'Maricel Dizon',
       email: 'maricel@example.com',
-      role: 'specialSales',
+      role: 'special_sales',
       userCode: 'MD',
     });
     expect(await screen.findByText('https://example.test/reset?oobCode=abc')).toBeInTheDocument();
@@ -142,14 +142,14 @@ describe('AddUserPage (AUTH-02, SEC-01)', () => {
 
 describe('UserDetailPage', () => {
   test('changes the role after confirmation (AUTH-03)', async () => {
-    mocked.setUserRole.mockResolvedValue({ uid: 's1', role: 'specialSales' });
+    mocked.setUserRole.mockResolvedValue({ uid: 's1', role: 'special_sales' });
     const user = renderAt('/settings/users/s1');
     await user.click(screen.getByRole('radio', { name: 'Special Sales' }));
     expect(mocked.setUserRole).not.toHaveBeenCalled();
     await user.click(
       within(screen.getByRole('dialog')).getByRole('button', { name: 'Change role' }),
     );
-    expect(mocked.setUserRole).toHaveBeenCalledWith({ uid: 's1', role: 'specialSales' });
+    expect(mocked.setUserRole).toHaveBeenCalledWith({ uid: 's1', role: 'special_sales' });
   });
 
   test('deactivates with a reason after confirmation (SEC-04)', async () => {
@@ -254,7 +254,7 @@ describe('helpers', () => {
         entry({
           action: 'user.setRole',
           before: { role: 'sales' },
-          after: { role: 'specialSales' },
+          after: { role: 'special_sales' },
         }),
         'Jun Reyes',
       ),
