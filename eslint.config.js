@@ -8,9 +8,9 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
-      'functions/lib/**',
       '**/node_modules/**',
       'coverage/**',
+      'supabase/.temp/**',
       '.claude/skills/**',
     ],
   },
@@ -34,7 +34,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ['functions/**/*.ts', 'scripts/**/*.{ts,mjs}', 'tests/**/*.ts', '*.js', 'apps/web/*.ts'],
+    files: ['scripts/**/*.{ts,mjs}', '*.js', 'apps/web/*.ts'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // Edge Functions run on Deno.
+    files: ['supabase/functions/**/*.ts'],
+    languageOptions: { globals: { Deno: 'readonly' } },
   },
 );

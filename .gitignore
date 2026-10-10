@@ -3,7 +3,6 @@ node_modules/
 
 # Build output
 dist/
-functions/lib/
 *.tsbuildinfo
 coverage/
 
@@ -12,28 +11,22 @@ coverage/
 .env.*
 !.env.example
 
-# Credentials: no service account keys anywhere (SEC-10)
+# Credentials: the service role key and database password are never written to a file
+# in this repository (SEC-10)
 *service-account*.json
 *serviceAccount*.json
-*-firebase-adminsdk-*.json
+*service-role*
 *credentials*.json
-gcloud-key*.json
 *.pem
 *.p12
 *.key
 
-# Firebase CLI and emulator data
-.firebase/
-.emulator-data/
-.emulator/
-firebase.emulator.json
-firebase.test-ports.json
-emulator-data/
-firebase-export-*/
-*-debug.log
-firebase-debug.*.log
-ui-debug.log
-.runtimeconfig.json
+# Supabase CLI working files (see also supabase/.gitignore)
+supabase/.temp/
+supabase/.branches/
+
+# Vercel CLI
+.vercel/
 
 # Editors and OS
 .vscode/*

@@ -1,4 +1,4 @@
-/** Error codes the web app understands. They match the ones the Firebase build used. */
+/** Error codes the web app understands (see apps/web/src/lib/api.ts). */
 export type ErrorCode =
   | 'unauthenticated'
   | 'permission-denied'

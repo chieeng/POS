@@ -7,7 +7,7 @@
  */
 import { spawnSync } from 'node:child_process';
 
-const status = spawnSync('npx', ['supabase', 'status', '-o', 'env'], {
+const status = spawnSync('npx supabase status -o env', {
   encoding: 'utf8',
   shell: true,
   stdio: ['ignore', 'pipe', 'ignore'],
@@ -26,15 +26,8 @@ if (status.status !== 0 || !local.API_URL || !local.ANON_KEY || !local.SERVICE_R
 }
 
 const result = spawnSync(
-  'deno',
-  [
-    'test',
-    '--allow-net=127.0.0.1,localhost',
-    '--allow-env',
-    '--config',
-    'supabase/functions/admin-users/deno.json',
-    'supabase/functions/admin-users',
-  ],
+  'deno test --allow-net=127.0.0.1,localhost --allow-env' +
+    ' --config supabase/functions/admin-users/deno.json supabase/functions/admin-users',
   {
     stdio: 'inherit',
     shell: true,
