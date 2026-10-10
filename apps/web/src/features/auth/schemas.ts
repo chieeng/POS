@@ -11,6 +11,17 @@ export const totpCodeSchema = z.object({
 });
 export type TotpCodeValues = z.infer<typeof totpCodeSchema>;
 
+// SEC-05: the same minimum Supabase Auth enforces on the server.
+export const PASSWORD_MIN_LENGTH = 10;
+
+export const newPasswordSchema = z.object({
+  password: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH, `Use at least ${PASSWORD_MIN_LENGTH} characters.`)
+    .max(72, 'Use 72 characters or fewer.'),
+});
+export type NewPasswordValues = z.infer<typeof newPasswordSchema>;
+
 export const unlockSchema = z.object({
   password: z.string().min(1, 'Enter your password.'),
 });

@@ -49,21 +49,31 @@ const MESSAGES: Record<AuthErrorKind, Omit<AuthErrorMessage, 'kind'>> = {
   },
 };
 
+/** Codes this app raises itself, next to the ones Supabase Auth returns. */
+export const APP_ERROR = {
+  noSession: 'no_session',
+  captchaUnavailable: 'captcha_unavailable',
+} as const;
+
 const CODE_TO_KIND: Record<string, AuthErrorKind> = {
-  // With email enumeration protection on (SEC-05), Firebase reports a wrong email and a
-  // wrong password the same way; the message must not tell them apart either.
-  'auth/invalid-credential': 'wrong-credentials',
-  'auth/invalid-login-credentials': 'wrong-credentials',
-  'auth/wrong-password': 'wrong-credentials',
-  'auth/user-not-found': 'wrong-credentials',
-  'auth/invalid-email': 'wrong-credentials',
-  'auth/user-disabled': 'disabled',
-  'auth/too-many-requests': 'too-many-attempts',
-  'auth/network-request-failed': 'offline',
-  'auth/invalid-verification-code': 'wrong-code',
-  'auth/code-expired': 'wrong-code',
-  'auth/requires-recent-login': 'recent-sign-in-needed',
-  'auth/user-token-expired': 'recent-sign-in-needed',
+  // Supabase Auth reports a wrong email and a wrong password the same way; the message
+  // must not tell them apart either (no account enumeration).
+  invalid_credentials: 'wrong-credentials',
+  validation_failed: 'wrong-credentials',
+  user_not_found: 'wrong-credentials',
+  user_banned: 'disabled',
+  over_request_rate_limit: 'too-many-attempts',
+  mfa_verification_failed: 'wrong-code',
+  mfa_challenge_expired: 'wrong-code',
+  mfa_verification_rejected: 'wrong-code',
+  session_not_found: 'recent-sign-in-needed',
+  session_expired: 'recent-sign-in-needed',
+  refresh_token_not_found: 'recent-sign-in-needed',
+  reauthentication_needed: 'recent-sign-in-needed',
+  insufficient_aal: 'recent-sign-in-needed',
+  [APP_ERROR.noSession]: 'recent-sign-in-needed',
+  // The CAPTCHA script could not be reached: in practice, no connection.
+  [APP_ERROR.captchaUnavailable]: 'offline',
 };
 
 export function errorCodeOf(error: unknown): string | undefined {
@@ -74,17 +84,28 @@ export function errorCodeOf(error: unknown): string | undefined {
   return undefined;
 }
 
-/** The sign-in blocking function (recordSignIn) refused the account: no valid role (SEC-02). */
-function blockedAtSignIn(error: unknown): boolean {
-  // Firebase reports a refusal by a blocking function as auth/internal-error and carries
-  // the function's PERMISSION_DENIED status in the message.
-  if (errorCodeOf(error) !== 'auth/internal-error') return false;
-  const message = error instanceof Error ? error.message : '';
-  return message.includes('PERMISSION_DENIED');
+/** The request never reached Supabase: the device is offline or the network dropped it. */
+export function isNetworkError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const { name, status, message } = error as {
+    name?: unknown;
+    status?: unknown;
+    message?: unknown;
+  };
+  if (name === 'AuthRetryableFetchError' || status === 0) return true;
+  return typeof message === 'string' && /failed to fetch|networkerror|load failed/i.test(message);
+}
+
+function tooManyRequests(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && (error as { status?: unknown }).status === 429
+  );
 }
 
 export function describeAuthError(error: unknown): AuthErrorMessage {
   const code = errorCodeOf(error);
-  const kind = blockedAtSignIn(error) ? 'no-access' : (code && CODE_TO_KIND[code]) || 'unknown';
+  const kind: AuthErrorKind =
+    (code && CODE_TO_KIND[code]) ||
+    (tooManyRequests(error) ? 'too-many-attempts' : isNetworkError(error) ? 'offline' : 'unknown');
   return { kind, ...MESSAGES[kind] };
 }

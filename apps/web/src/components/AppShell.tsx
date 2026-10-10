@@ -11,7 +11,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { signOutUser } from '@/features/auth/authService';
 import { ROLE_HOME, ROLE_LABELS, type Role } from '@/features/auth/roles';
 import { useOnline } from '@/hooks/useOnline';
-import { env } from '@/lib/firebase';
+import { env } from '@/lib/supabase';
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 import { Avatar } from './Avatar';
@@ -56,7 +56,7 @@ function SyncPill({ compact = false }: { compact?: boolean }) {
 /**
  * Navigation frame from the design's Nav component: top bar and bottom tabs on phones, an
  * icon rail on tablets and a full sidebar on laptops. Navigation only; access is enforced
- * by Security Rules and Cloud Functions.
+ * by Row Level Security and server functions.
  */
 export function AppShell() {
   const user = useSession((s) => s.user);

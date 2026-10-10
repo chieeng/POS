@@ -5,16 +5,17 @@ import { IDLE_LOCK_MINUTES_DEFAULT } from '@/features/auth/idleStorage';
 import { useIdleLock } from '@/features/auth/useIdleLock';
 import { registerDevice } from '@/lib/device';
 import { useSession } from '@/stores/session';
-import { TWO_STEP_SETUP_PATH } from './paths';
+import { SET_PASSWORD_PATH, TWO_STEP_SETUP_PATH } from './paths';
 
 /**
  * Wraps every signed-in screen. This is for navigation only: what a user can actually read
- * or change is decided by Security Rules and Cloud Functions (NFR-04).
+ * or change is decided by Row Level Security and server functions (NFR-04).
  */
 export function ProtectedLayout() {
   const status = useSession((s) => s.status);
   const user = useSession((s) => s.user);
   const locked = useSession((s) => s.locked);
+  const passwordSetup = useSession((s) => s.passwordSetup);
   const location = useLocation();
   // The branch's idleLockMinutes setting (SYS-01) replaces this default with the settings screen.
   const idleMinutes = IDLE_LOCK_MINUTES_DEFAULT;
@@ -22,17 +23,19 @@ export function ProtectedLayout() {
 
   // SYS-02: record this device under the signed-in user, once per session.
   const uid = user?.uid;
-  const branchId = user?.branchId;
   const canRegister = status === 'signedIn' && (user?.role !== 'owner' || user.secondFactor);
   useEffect(() => {
-    if (!canRegister || !uid || !branchId) return;
-    registerDevice({ uid, branchId }).catch(() => {
+    if (!canRegister || !uid) return;
+    registerDevice({ uid }).catch(() => {
       // Not critical: the next session tries again.
     });
-  }, [canRegister, uid, branchId]);
+  }, [canRegister, uid]);
 
   if (status === 'loading') return <SplashScreen />;
   if (status === 'signedOut' || !user) return <Navigate to="/sign-in" replace />;
+
+  // AUTH-02: someone who opened a one-time password link chooses their password first.
+  if (passwordSetup) return <Navigate to={SET_PASSWORD_PATH} replace />;
 
   // SEC-05: an Owner session without the authenticator step can only set it up.
   const needsTwoStep = user.role === 'owner' && !user.secondFactor;

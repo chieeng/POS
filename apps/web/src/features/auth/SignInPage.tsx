@@ -12,10 +12,11 @@ import { ICON_STROKE } from '@/lib/utils';
 import { useSession, type SignInNotice } from '@/stores/session';
 import { AuthLayout } from './AuthLayout';
 import { describeAuthError, type AuthErrorMessage } from './authErrors';
-import { signIn, type TotpChallenge } from './authService';
+import { cancelSecondStep, signIn, type TotpChallenge } from './authService';
 import { ROLE_HOME } from './roles';
 import { signInSchema, type SignInValues } from './schemas';
 import { TotpStep } from './TotpStep';
+import { useTurnstile } from './useTurnstile';
 
 const NOTICES: Record<Exclude<SignInNotice, null>, { variant: 'danger' | 'warn'; text: string }> = {
   'no-access': {
@@ -34,6 +35,7 @@ export function SignInPage() {
   const notice = useSession((s) => s.notice);
   const setNotice = useSession((s) => s.setNotice);
   const online = useOnline();
+  const { containerRef, getToken } = useTurnstile();
 
   const [challenge, setChallenge] = useState<TotpChallenge | null>(null);
   const [error, setError] = useState<AuthErrorMessage | null>(null);
@@ -51,14 +53,22 @@ export function SignInPage() {
   if (status === 'signedIn' && user) return <Navigate to={ROLE_HOME[user.role]} replace />;
 
   if (challenge) {
-    return <TotpStep challenge={challenge} onBack={() => setChallenge(null)} />;
+    return (
+      <TotpStep
+        challenge={challenge}
+        onBack={() => {
+          void cancelSecondStep();
+          setChallenge(null);
+        }}
+      />
+    );
   }
 
   const onSubmit = handleSubmit(async ({ email, password }) => {
     setError(null);
     setNotice(null);
     try {
-      const result = await signIn(email, password);
+      const result = await signIn(email, password, await getToken());
       if (result.kind === 'totpRequired') setChallenge(result.challenge);
     } catch (caught) {
       setError(describeAuthError(caught));
@@ -141,6 +151,9 @@ export function SignInPage() {
             </p>
           )}
         </div>
+
+        {/* SEC-06: Turnstile. Empty unless Cloudflare asks this visitor to solve a challenge. */}
+        <div ref={containerRef} className="empty:hidden" />
 
         <Button type="submit" size="lg" className="mt-[6px] md:mt-0" disabled={isSubmitting}>
           {isSubmitting ? 'Signing in…' : 'Sign in'}

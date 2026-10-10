@@ -18,7 +18,7 @@ import { totpCodeSchema, type TotpCodeValues } from './schemas';
 
 /**
  * SEC-05: the Owner must turn on two-step sign-in before using the app. Shown to an Owner
- * whose sign-in had no authenticator step. Rules and functions refuse Owner access without
+ * whose sign-in had no authenticator step. RLS and the Edge Function refuse Owner access without
  * it, so skipping this screen gains nothing.
  */
 export function EnrollTotpPage() {

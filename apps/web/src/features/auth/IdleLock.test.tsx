@@ -6,7 +6,7 @@ import { confirmPassword, signOutUser } from './authService';
 import { IdleLock } from './IdleLock';
 import { isIdleExpired, readLocked, writeLocked } from './idleStorage';
 
-vi.mock('@/lib/firebase', () => ({ env: {} }));
+vi.mock('@/lib/supabase', () => ({ env: {} }));
 vi.mock('./authService', () => ({ confirmPassword: vi.fn(), signOutUser: vi.fn() }));
 
 const owner: SessionUser = {
@@ -33,7 +33,7 @@ test('shows who is locked and for how long', () => {
 });
 
 test('stays locked on a wrong password', async () => {
-  vi.mocked(confirmPassword).mockRejectedValue({ code: 'auth/invalid-credential' });
+  vi.mocked(confirmPassword).mockRejectedValue({ code: 'invalid_credentials' });
   render(<IdleLock user={owner} minutes={15} />);
   const user = userEvent.setup();
   await user.type(screen.getByLabelText('Password'), 'nope{Enter}');
@@ -48,6 +48,7 @@ test('unlocks on the right password', async () => {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText('Password'), 'password12{Enter}');
   await vi.waitFor(() => expect(useSession.getState().locked).toBe(false));
+  expect(confirmPassword).toHaveBeenCalledWith('password12', 'test-captcha-token');
   expect(readLocked()).toBe(false);
 });
 
