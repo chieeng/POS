@@ -8,3 +8,4 @@ package-lock.json
 docs/SRS.md
 .emulator
 firebase.emulator.json
+.claude/skills
