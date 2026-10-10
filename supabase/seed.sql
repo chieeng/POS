@@ -28,7 +28,8 @@ users as (
   select
     '00000000-0000-0000-0000-000000000000', id, 'authenticated', 'authenticated', email,
     extensions.crypt('password1234', extensions.gen_salt('bf')), now(),
-    case when active then null else 'infinity'::timestamptz end,
+    -- Deactivated accounts are banned in Supabase Auth as well (SEC-04).
+    case when active then null else now() + interval '100 years' end,
     '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now(),
     '', '', '', ''
   from seed
