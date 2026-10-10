@@ -1,0 +1,112 @@
+# Local Supabase for POS (`npx supabase start`). Reference:
+# https://supabase.com/docs/guides/local-development/cli/config
+#
+# This file configures the LOCAL stack only. The hosted projects (pos-staging, pos-prod) are
+# configured in the Supabase dashboard; the README lists every setting that must match.
+project_id = "pos"
+
+[api]
+enabled = true
+port = 54321
+# SEC-07: only the schema the app needs. GraphQL is not used, so it is not exposed.
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+# SEC-07: no unbounded list reads. The largest list the app asks for is 300 device rows.
+max_rows = 300
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.migrations]
+enabled = true
+
+[db.seed]
+# Local development data only (SEC-11). `supabase db push` never runs it.
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1"
+
+# Catches every email the local stack would send: http://127.0.0.1:54324
+[local_smtp]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+# SEC-09: product images stay under 2 MB. The bucket itself arrives in Phase 1.
+file_size_limit = "2MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+# One-time password links land on the set-password screen (AUTH-02).
+additional_redirect_urls = [
+  "http://localhost:5173/set-password",
+  "http://127.0.0.1:5173/set-password",
+]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# SEC-01: nobody can create their own account. Accounts come only from the Owner-only
+# `admin-users` Edge Function, which uses the service role on the server.
+enable_signup = false
+enable_anonymous_sign_ins = false
+enable_manual_linking = false
+# SEC-05
+minimum_password_length = 10
+
+[auth.rate_limit]
+email_sent = 2
+token_refresh = 150
+sign_in_sign_ups = 30
+token_verifications = 30
+
+# SEC-06: Cloudflare Turnstile on sign-in. Locally the secret is Cloudflare's published
+# always-pass test key, read from supabase/.env (see supabase/.env.example).
+[auth.captcha]
+enabled = true
+provider = "turnstile"
+secret = "env(TURNSTILE_SECRET_KEY)"
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+enable_confirmations = false
+# Changing a password needs a fresh sign-in; a one-time link counts as one.
+secure_password_change = true
+max_frequency = "1s"
+otp_length = 6
+otp_expiry = 3600
+
+[auth.sms]
+enable_signup = false
+
+# SEC-05: authenticator-app (TOTP) second step for the Owner.
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.mfa.phone]
+enroll_enabled = false
+verify_enabled = false
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+inspector_port = 8083
+deno_version = 2
+
+[analytics]
+enabled = false
