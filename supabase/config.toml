@@ -64,11 +64,13 @@ enable_manual_linking = false
 # SEC-05
 minimum_password_length = 10
 
+# Local limits are loose enough for the test suites to sign in repeatedly. Staging and
+# production are tightened in the dashboard (SEC-06, see README).
 [auth.rate_limit]
 email_sent = 2
 token_refresh = 150
-sign_in_sign_ups = 30
-token_verifications = 30
+sign_in_sign_ups = 300
+token_verifications = 300
 
 # SEC-06: Cloudflare Turnstile on sign-in. Locally the secret is Cloudflare's published
 # always-pass test key, read from supabase/.env (see supabase/.env.example).
@@ -78,7 +80,9 @@ provider = "turnstile"
 secret = "env(TURNSTILE_SECRET_KEY)"
 
 [auth.email]
-enable_signup = false
+# This switch is the email provider itself: false would also block email sign-IN. Sign-UP is
+# already off for every provider through `enable_signup = false` under [auth] above.
+enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
 # Changing a password needs a fresh sign-in; a one-time link counts as one.
@@ -107,6 +111,12 @@ enabled = true
 policy = "per_worker"
 inspector_port = 8083
 deno_version = 2
+
+# SEC-06, SEC-08: the gateway rejects calls without a valid JWT before the function runs; the
+# function then checks role, active flag and the second step itself.
+[functions.admin-users]
+enabled = true
+verify_jwt = true
 
 [analytics]
 enabled = false
