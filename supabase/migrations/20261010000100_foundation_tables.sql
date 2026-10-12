@@ -125,8 +125,15 @@ grant select on table public.devices to authenticated;
 grant insert (user_id, device_tag, label) on table public.devices to authenticated;
 grant update (user_id, device_tag, label) on table public.devices to authenticated;
 
--- Append-only for every API role, the service role included (SRS 6.2).
-revoke update, delete, truncate on table public.audit_logs from service_role;
+-- The service role (the `admin-users` Edge Function and the bootstrap script) is granted
+-- explicitly as well, so nothing depends on the project's "automatically expose new tables"
+-- setting. It never gets UPDATE, DELETE or TRUNCATE on the audit log: append-only for every
+-- API role (SRS 6.2).
+revoke all on table public.branches, public.profiles, public.devices, public.audit_logs
+  from service_role;
+grant select, insert, update, delete on table public.branches, public.profiles, public.devices
+  to service_role;
+grant select, insert on table public.audit_logs to service_role;
 
 -- Row Level Security on every table. Policies are in the next migration; until a policy
 -- opens something, nothing is readable or writable.

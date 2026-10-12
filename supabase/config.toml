@@ -13,6 +13,9 @@ schemas = ["public"]
 extra_search_path = ["public", "extensions"]
 # SEC-07: no unbounded list reads. The largest list the app asks for is 300 device rows.
 max_rows = 300
+# New tables and functions get no API access unless a migration grants it (SRS 6.2). The
+# migrations grant everything explicitly, so the hosted setting can be off as well.
+auto_expose_new_tables = false
 
 [db]
 port = 54322

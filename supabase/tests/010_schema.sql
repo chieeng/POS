@@ -100,6 +100,19 @@ select is(
   'record_sign_in is the only function in public a signed-in user can call'
 );
 
+select is(
+  (
+    select string_agg(table_name || ':' || privilege_type, ' ' order by table_name, privilege_type)
+    from information_schema.role_table_grants
+    where table_schema = 'public' and grantee = 'service_role'
+  ),
+  'audit_logs:INSERT audit_logs:SELECT'
+    || ' branches:DELETE branches:INSERT branches:SELECT branches:UPDATE'
+    || ' devices:DELETE devices:INSERT devices:SELECT devices:UPDATE'
+    || ' profiles:DELETE profiles:INSERT profiles:SELECT profiles:UPDATE',
+  'the service role is granted explicitly, and only what the server code needs'
+);
+
 -- ---- Append-only audit log (SYS-03, NFR-05) -----------------------------------------------
 select is(
   (
