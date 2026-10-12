@@ -1,23 +1,21 @@
-export const ROLES = ['owner', 'specialSales', 'sales'] as const;
+export const ROLES = ['owner', 'special_sales', 'sales'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const ROLE_LABELS: Record<Role, string> = {
   owner: 'Owner',
-  specialSales: 'Special Sales',
+  special_sales: 'Special Sales',
   sales: 'Sales',
 };
 
 export const ROLE_HOME: Record<Role, string> = {
   owner: '/owner',
-  specialSales: '/special-sales',
+  special_sales: '/special-sales',
   sales: '/sales',
 };
 
-export interface AccessClaims {
+export interface Access {
   role: Role;
   branchId: string;
-  /** True when this sign-in passed the authenticator-app step (SEC-05). */
-  secondFactor: boolean;
 }
 
 function isRole(value: unknown): value is Role {
@@ -25,20 +23,18 @@ function isRole(value: unknown): value is Role {
 }
 
 /**
- * Reads the access claims from an ID token (AUTH-03, SEC-02). Returns null unless the token
+ * Reads the access a `profiles` row gives (AUTH-03, SEC-02). Returns null unless the row
  * has a valid role, a branch and active === true. This only decides what the UI shows:
- * Security Rules and Cloud Functions make the same checks on the server.
+ * Row Level Security and the server functions make the same checks on the server.
  */
-export function parseAccessClaims(claims: Record<string, unknown>): AccessClaims | null {
-  if (!isRole(claims.role)) return null;
-  if (claims.active !== true) return null;
-  if (typeof claims.branchId !== 'string' || claims.branchId === '') return null;
-  const firebase = claims.firebase as { sign_in_second_factor?: unknown } | undefined;
-  return {
-    role: claims.role,
-    branchId: claims.branchId,
-    secondFactor: firebase?.sign_in_second_factor === 'totp',
-  };
+export function parseProfileAccess(
+  profile: Record<string, unknown> | null | undefined,
+): Access | null {
+  if (!profile) return null;
+  if (!isRole(profile.role)) return null;
+  if (profile.active !== true) return null;
+  if (typeof profile.branch_id !== 'string' || profile.branch_id === '') return null;
+  return { role: profile.role, branchId: profile.branch_id };
 }
 
 export function initialsOf(name: string): string {

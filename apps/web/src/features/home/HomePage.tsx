@@ -8,7 +8,7 @@ const HOME_COPY: Record<Role, { title: string; body: string }> = {
     title: 'Owner home',
     body: 'The dashboard and approvals will appear here. Users and the audit log are under Settings.',
   },
-  specialSales: {
+  special_sales: {
     title: 'Special Sales home',
     body: 'Selling and inventory check-in will appear here.',
   },

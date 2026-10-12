@@ -3,14 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { useSession } from '@/stores/session';
-import { signIn, verifyTotp } from './authService';
+import { cancelSecondStep, signIn, verifyTotp } from './authService';
 import { SignInPage } from './SignInPage';
 
-vi.mock('@/lib/firebase', () => ({ env: { storeName: 'Test Store', storeAddress: undefined } }));
+vi.mock('@/lib/supabase', () => ({ env: { storeName: 'Test Store', storeAddress: undefined } }));
 vi.mock('./authService', () => ({
   signIn: vi.fn(),
   verifyTotp: vi.fn(),
   signOutUser: vi.fn(),
+  cancelSecondStep: vi.fn(() => Promise.resolve()),
 }));
 
 const signInMock = vi.mocked(signIn);
@@ -45,7 +46,7 @@ describe('SignInPage', () => {
     expect(screen.queryByRole('link')).toBeNull();
   });
 
-  test('validates before calling Firebase', async () => {
+  test('validates before calling Supabase', async () => {
     renderPage();
     await submit('', '');
     expect(await screen.findByText('Enter your email.')).toBeInTheDocument();
@@ -64,14 +65,14 @@ describe('SignInPage', () => {
     signInMock.mockResolvedValue({ kind: 'signedIn' });
     renderPage();
     await submit(' jun@example.com ', 'password12');
-    expect(signInMock).toHaveBeenCalledWith('jun@example.com', 'password12');
+    expect(signInMock).toHaveBeenCalledWith('jun@example.com', 'password12', 'test-captcha-token');
   });
 
   test.each([
-    ['auth/invalid-credential', 'Email or password is wrong.'],
-    ['auth/user-disabled', 'This account is turned off.'],
-    ['auth/too-many-requests', 'Too many tries.'],
-    ['auth/network-request-failed', 'No internet connection.'],
+    ['invalid_credentials', 'Email or password is wrong.'],
+    ['user_banned', 'This account is turned off.'],
+    ['over_request_rate_limit', 'Too many tries.'],
+    ['captcha_unavailable', 'No internet connection.'],
   ])('shows the error for %s', async (code, message) => {
     signInMock.mockRejectedValue({ code });
     renderPage();
@@ -80,7 +81,7 @@ describe('SignInPage', () => {
   });
 
   test('marks the password field after wrong credentials', async () => {
-    signInMock.mockRejectedValue({ code: 'auth/invalid-credential' });
+    signInMock.mockRejectedValue({ code: 'invalid_credentials' });
     renderPage();
     await submit('jun@example.com', 'wrongpass');
     await screen.findByRole('alert');
@@ -88,7 +89,7 @@ describe('SignInPage', () => {
   });
 
   test('asks the Owner for the authenticator code, then verifies it', async () => {
-    const challenge = { resolver: {}, factorUid: 'factor-1' } as never;
+    const challenge = { factorId: 'factor-1' };
     signInMock.mockResolvedValue({ kind: 'totpRequired', challenge });
     verifyTotpMock.mockResolvedValue();
     renderPage();
@@ -103,9 +104,9 @@ describe('SignInPage', () => {
   test('rejects a short code and reports a wrong one', async () => {
     signInMock.mockResolvedValue({
       kind: 'totpRequired',
-      challenge: { resolver: {}, factorUid: 'f' } as never,
+      challenge: { factorId: 'f' },
     });
-    verifyTotpMock.mockRejectedValue({ code: 'auth/invalid-verification-code' });
+    verifyTotpMock.mockRejectedValue({ code: 'mfa_verification_failed' });
     renderPage();
     const user = await submit('owner@example.com', 'password12');
 
@@ -124,4 +125,13 @@ describe('SignInPage', () => {
     renderPage();
     expect(screen.getByRole('alert')).toHaveTextContent('no access');
   });
+});
+
+test('going back from the code step drops the password-only session', async () => {
+  signInMock.mockResolvedValue({ kind: 'totpRequired', challenge: { factorId: 'f' } });
+  renderPage();
+  const user = await submit('owner@example.com', 'password12');
+  await user.click(await screen.findByRole('button', { name: 'Back to sign in' }));
+  expect(cancelSecondStep).toHaveBeenCalled();
+  expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
 });

@@ -8,8 +8,8 @@ updates:
     target-branch: dev
     open-pull-requests-limit: 10
     groups:
-      firebase:
-        patterns: ['firebase', 'firebase-*', '@firebase/*']
+      supabase:
+        patterns: ['supabase', '@supabase/*']
       dev-tooling:
         dependency-type: development
         update-types: [minor, patch]

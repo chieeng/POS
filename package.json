@@ -4,8 +4,7 @@
   "private": true,
   "description": "POS + inventory + attendance + lightweight payroll for a single retail store",
   "workspaces": [
-    "apps/web",
-    "functions"
+    "apps/web"
   ],
   "engines": {
     "node": ">=22"
@@ -13,35 +12,32 @@
   "type": "module",
   "scripts": {
     "dev": "npm run dev -w apps/web",
-    "emulators": "npm run build -w functions && node scripts/emulator-profile.mjs && firebase emulators:start --config firebase.emulator.json --project demo-pos --import .emulator-data --export-on-exit .emulator-data",
-    "build": "npm run build -w functions && npm run build -w apps/web",
+    "build": "npm run build -w apps/web",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w functions && tsc -p tsconfig.tools.json",
-    "test": "npm run test -w apps/web && npm run test -w functions",
-    "bootstrap-owner": "tsx scripts/bootstrap-owner.ts",
-    "test:emulators": "firebase emulators:exec --only auth,firestore,storage --project demo-pos \"npm run test:emulators:run\"",
-    "test:emulators:run": "vitest run --config tests/rules/vitest.config.ts && npm run test:emu -w functions",
-    "test:emulators:alt": "node scripts/test-emulators-alt-ports.mjs"
+    "typecheck": "npm run typecheck -w apps/web && tsc -p tsconfig.tools.json && npm run typecheck:functions",
+    "typecheck:functions": "deno check --config supabase/functions/admin-users/deno.json supabase/functions/admin-users",
+    "test": "npm run test -w apps/web",
+    "test:db": "supabase test db",
+    "test:functions": "node scripts/test-functions.mjs",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "env:local": "node scripts/write-local-env.mjs",
+    "bootstrap-owner": "tsx scripts/bootstrap-owner.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@firebase/rules-unit-testing": "^6.0.0",
+    "@supabase/supabase-js": "^2.117.3",
     "@types/node": "^22.20.5",
     "eslint": "^10.12.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
-    "firebase": "^13.0.0",
-    "firebase-admin": "^14.5.0",
-    "firebase-tools": "^15.33.0",
     "globals": "^17.13.0",
     "prettier": "^3.9.9",
+    "supabase": "^2.120.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.1",
-    "vitest": "^4.1.11"
-  },
-  "overrides": {
-    "@grpc/grpc-js": "^1.14.0"
+    "typescript-eslint": "^8.71.1"
   }
 }

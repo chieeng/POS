@@ -12,7 +12,7 @@ import { describeLastSeen, latestSeen, sortUsers, useDevices, useUsers } from '.
 
 const ROLE_TAG: Record<Role, 'accent' | 'accent-2' | 'neutral'> = {
   owner: 'accent',
-  specialSales: 'accent-2',
+  special_sales: 'accent-2',
   sales: 'neutral',
 };
 
@@ -33,7 +33,7 @@ export function StatusTag({ active }: { active: boolean }) {
 const HEAD = ['Name', 'Role', 'Devices', 'Last active', 'Status'];
 const GRID = 'md:grid md:grid-cols-[1.6fr_1fr_0.8fr_1fr_1fr_28px] md:items-center md:gap-0';
 
-/** Settings > Users (design 15e, AUTH-02). Reads are limited to the Owner by the rules. */
+/** Settings > Users (design 15e, AUTH-02). Reads are limited to the Owner by RLS. */
 export function UsersPage() {
   const branchId = useSession((s) => s.user?.branchId ?? '');
   const users = useUsers(branchId);

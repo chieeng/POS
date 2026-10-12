@@ -11,6 +11,7 @@ import { confirmPassword, signOutUser } from './authService';
 import { initialsOf, ROLE_LABELS } from './roles';
 import { unlockSchema, type UnlockValues } from './schemas';
 import { unlockIdle } from './useIdleLock';
+import { useTurnstile } from './useTurnstile';
 
 interface IdleLockProps {
   user: SessionUser;
@@ -23,6 +24,7 @@ interface IdleLockProps {
  */
 export function IdleLock({ user, minutes }: IdleLockProps) {
   const [error, setError] = useState<AuthErrorMessage | null>(null);
+  const { containerRef, getToken } = useTurnstile();
   const {
     register,
     handleSubmit,
@@ -35,7 +37,7 @@ export function IdleLock({ user, minutes }: IdleLockProps) {
   const onSubmit = handleSubmit(async ({ password }) => {
     setError(null);
     try {
-      await confirmPassword(password);
+      await confirmPassword(password, await getToken());
       unlockIdle();
     } catch (caught) {
       const described = describeAuthError(caught);
@@ -100,6 +102,9 @@ export function IdleLock({ user, minutes }: IdleLockProps) {
             </p>
           )}
         </div>
+
+        {/* SEC-06: Turnstile. Empty unless Cloudflare asks for a challenge. */}
+        <div ref={containerRef} className="empty:hidden" />
 
         <Button
           type="submit"

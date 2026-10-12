@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Mirrors functions/src/users/schemas.ts. The server validates again; this is for feedback.
+// Mirrors supabase/functions/admin-users/schemas.ts. The server validates again; this is for feedback.
 const displayName = z
   .string()
   .trim()
@@ -15,7 +15,7 @@ const userCode = z
 export const addUserSchema = z.object({
   displayName,
   email: z.string().trim().min(1, 'Enter an email.').pipe(z.email('Enter a valid email.')),
-  role: z.enum(['sales', 'specialSales']),
+  role: z.enum(['sales', 'special_sales']),
   userCode,
 });
 export type AddUserValues = z.infer<typeof addUserSchema>;
@@ -25,5 +25,5 @@ export type EditUserValues = z.infer<typeof editUserSchema>;
 
 export const STAFF_ROLE_OPTIONS = [
   { value: 'sales', label: 'Sales' },
-  { value: 'specialSales', label: 'Special Sales' },
+  { value: 'special_sales', label: 'Special Sales' },
 ] as const;

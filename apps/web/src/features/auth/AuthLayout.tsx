@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { env } from '@/lib/firebase';
+import { env } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 
 interface AuthLayoutProps {

@@ -5,7 +5,7 @@ import type { Role } from '@/features/auth/roles';
 import { useSession, type SessionUser } from '@/stores/session';
 import { routes } from './router';
 
-vi.mock('@/lib/firebase', () => ({ env: {}, db: {}, functions: {} }));
+vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {}, passwordLinkFailed: false }));
 vi.mock('@/lib/device', () => ({
   registerDevice: vi.fn(() => Promise.resolve()),
   getDeviceTag: () => 'A1B2',
@@ -23,6 +23,9 @@ vi.mock('@/features/auth/authService', () => ({
   confirmPassword: vi.fn(),
   startTotpEnrollment: vi.fn(() => new Promise(() => {})),
   finishTotpEnrollment: vi.fn(),
+  cancelSecondStep: vi.fn(),
+  pendingSecondStep: vi.fn(() => Promise.resolve(null)),
+  setNewPassword: vi.fn(),
 }));
 
 function userWith(role: Role, secondFactor = role === 'owner'): SessionUser {
@@ -44,7 +47,13 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   localStorage.clear();
-  useSession.setState({ status: 'signedOut', user: null, notice: null, locked: false });
+  useSession.setState({
+    status: 'signedOut',
+    user: null,
+    notice: null,
+    locked: false,
+    passwordSetup: false,
+  });
 });
 
 test('a signed-out visitor is sent to sign-in', async () => {
@@ -54,7 +63,7 @@ test('a signed-out visitor is sent to sign-in', async () => {
 
 test.each([
   ['owner', '/owner', 'Owner home'],
-  ['specialSales', '/special-sales', 'Special Sales home'],
+  ['special_sales', '/special-sales', 'Special Sales home'],
   ['sales', '/sales', 'Sales home'],
 ] as const)('%s lands on their own home', async (role, path, heading) => {
   useSession.setState({ status: 'signedIn', user: userWith(role) });
@@ -83,7 +92,7 @@ test('there is no sign-up route (SEC-01)', async () => {
   await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sign-in'));
 });
 
-test.each(['sales', 'specialSales'] as const)('%s cannot open Settings', async (role) => {
+test.each(['sales', 'special_sales'] as const)('%s cannot open Settings', async (role) => {
   useSession.setState({ status: 'signedIn', user: userWith(role) });
   const router = renderAt('/settings/users');
   await vi.waitFor(() => expect(router.state.location.pathname).not.toContain('/settings'));
