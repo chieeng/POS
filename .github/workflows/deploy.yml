@@ -15,11 +15,22 @@ name: Deploy
 #
 # FILL IN (GitHub > Settings > Environments > "staging" and "production"):
 #   Variable  SUPABASE_PROJECT_REF    the project's reference id (Project Settings > General)
-#   Secret    SUPABASE_ACCESS_TOKEN   a personal access token (Account > Access Tokens)
+#   Variable  SUPABASE_DB_HOST        the SESSION POOLER host, from the dashboard's "Connect"
+#                                     button > Session pooler, for example
+#                                     aws-1-ap-southeast-1.pooler.supabase.com
 #   Secret    SUPABASE_DB_PASSWORD    the project's database password
-# SEC-10: these two secrets exist only here, in environment secrets. The "production"
-# environment must require a reviewer, so nothing reaches pos-prod without approval.
-# The service role key is not needed for deploys and must not be stored in GitHub.
+#   Secret    SUPABASE_ACCESS_TOKEN   an access token scoped to this one project with
+#                                     Edge Functions: read-write (and read on the project)
+#
+# Why there is no `supabase link` step (SEC-10): `link` asks the Management API for the
+# project's API keys with their secrets revealed, so the token would need permission to read
+# the service role key, and that key would land on the runner. Instead:
+#   - migrations go straight to the database through the session pooler (IPv4, which GitHub
+#     runners need) using the database password, with no Management API call at all;
+#   - the function deploy needs only the Edge Functions permission.
+# The service role key is never needed for deploys and must not be stored in GitHub.
+# The "production" environment must require a reviewer, so nothing reaches pos-prod
+# without approval.
 on:
   push:
     branches: [dev]
@@ -41,6 +52,7 @@ jobs:
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
     env:
       SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_HOST: ${{ vars.SUPABASE_DB_HOST }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,7 +71,7 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Checks that the values exist without ever printing them.
+      # Checks that the values exist and look right, without ever printing a secret.
       - name: Check required configuration
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -67,24 +79,31 @@ jobs:
         run: |
           missing=""
           [ -n "$SUPABASE_PROJECT_REF" ] || missing="$missing SUPABASE_PROJECT_REF(variable)"
+          [ -n "$SUPABASE_DB_HOST" ] || missing="$missing SUPABASE_DB_HOST(variable)"
           [ -n "$SUPABASE_ACCESS_TOKEN" ] || missing="$missing SUPABASE_ACCESS_TOKEN(secret)"
           [ -n "$SUPABASE_DB_PASSWORD" ] || missing="$missing SUPABASE_DB_PASSWORD(secret)"
           if [ -n "$missing" ]; then
             echo "::error::Missing in this environment:$missing. See the header of deploy.yml."
             exit 1
           fi
+          case "$SUPABASE_DB_HOST" in
+            *.pooler.supabase.com) ;;
+            *)
+              echo "::error::SUPABASE_DB_HOST must be the session pooler host (it ends in .pooler.supabase.com), with no port, user or password."
+              exit 1
+              ;;
+          esac
 
-      - name: Link the project
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: npx supabase link --project-ref "$SUPABASE_PROJECT_REF"
-
+      # The password travels in the environment, never inside the URL, so it cannot appear in
+      # a command line or an error message. Port 5432 on the pooler is session mode, which
+      # migrations need.
       - name: Apply database migrations
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: npx supabase db push
+        run: >-
+          npx supabase db push --yes
+          --db-url "postgresql://postgres.${SUPABASE_PROJECT_REF}@${SUPABASE_DB_HOST}:5432/postgres?sslmode=require"
 
       - name: Deploy Edge Functions
         env:
