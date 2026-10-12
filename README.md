@@ -190,6 +190,11 @@ the variable and two secrets listed at the top of
 `production`**. The service role key is not needed for deploys; do not store it in GitHub
 (SEC-10).
 
+**Free plan.** While the projects are on the Supabase Free plan,
+[.github/workflows/heartbeat.yml](.github/workflows/heartbeat.yml) sends each one a request a
+day so it is not paused for inactivity. It needs no secrets, only the four public repository
+variables listed at its top, and it runs only once it is on the default branch.
+
 Repository and account settings (SEC-10, SEC-11): keep the repo private; protect `main`
 (pull request review and the CI check required); turn on secret scanning with push
 protection and Dependabot alerts; use two-factor on the Supabase, GitHub and Vercel
