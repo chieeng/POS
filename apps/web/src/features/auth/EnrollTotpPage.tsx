@@ -92,8 +92,16 @@ export function EnrollTotpPage() {
           <>
             <div className="flex flex-col gap-[8px] rounded-card bg-surface p-[20px]">
               <div className="text-[13px] text-text/70">
-                1. Add an account in your authenticator app with this setup key
+                1. Scan this code with your authenticator app, or add an account with the setup key
               </div>
+              {/* Always dark on white, in both themes, so every camera can read it. */}
+              <img
+                src={enrollment.qrCode}
+                alt="QR code to add POS to your authenticator app"
+                width={184}
+                height={184}
+                className="size-[184px] self-center rounded-[16px] bg-[#fff] p-[10px]"
+              />
               <div className="font-mono text-[16px] font-semibold break-all select-all">
                 {enrollment.secretKey}
               </div>

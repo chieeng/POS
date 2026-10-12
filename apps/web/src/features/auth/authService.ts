@@ -140,6 +140,8 @@ export async function confirmPassword(password: string, captchaToken: string): P
 export interface TotpEnrollment {
   factorId: string;
   secretKey: string;
+  /** The same secret as a QR code: an SVG image as a data: URL, made by Supabase Auth. */
+  qrCode: string;
   /** otpauth:// link that opens an authenticator app on the same device. */
   otpauthUrl: string;
 }
@@ -164,7 +166,12 @@ export function startTotpEnrollment(): Promise<TotpEnrollment> {
       issuer: 'POS',
     });
     if (error) throw error;
-    return { factorId: data.id, secretKey: data.totp.secret, otpauthUrl: data.totp.uri };
+    return {
+      factorId: data.id,
+      secretKey: data.totp.secret,
+      qrCode: data.totp.qr_code,
+      otpauthUrl: data.totp.uri,
+    };
   })().finally(() => {
     enrolling = undefined;
   });
