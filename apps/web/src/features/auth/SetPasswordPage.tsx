@@ -7,13 +7,19 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { passwordLinkFailed } from '@/lib/supabase';
+import { passwordLinkFailed, passwordLinkToken } from '@/lib/supabase';
 import { ICON_STROKE } from '@/lib/utils';
 import { SplashScreen } from '@/routes/ProtectedLayout';
 import { useSession } from '@/stores/session';
 import { AuthLayout } from './AuthLayout';
 import { describeAuthError, errorCodeOf, type AuthErrorMessage } from './authErrors';
-import { pendingSecondStep, setNewPassword, signOutUser, type TotpChallenge } from './authService';
+import {
+  pendingSecondStep,
+  redeemPasswordLink,
+  setNewPassword,
+  signOutUser,
+  type TotpChallenge,
+} from './authService';
 import { newPasswordSchema, PASSWORD_MIN_LENGTH, type NewPasswordValues } from './schemas';
 import { TotpStep } from './TotpStep';
 
@@ -38,14 +44,21 @@ function describePasswordError(error: unknown): AuthErrorMessage {
 
 /**
  * Where a one-time password link lands (AUTH-02). A new user chooses their first password
- * here; so does anyone the Owner made a reset link for. The link signs the user in by itself,
- * so there is nothing to type but the new password. The Owner never sets or sees it.
+ * here; so does anyone the Owner made a reset link for. The Owner never sets or sees it.
+ *
+ * Opening the link only shows a Continue button: the link is used when that is pressed, so a
+ * link preview, an email scanner or a second tab cannot use it up first.
  */
 export function SetPasswordPage() {
   const status = useSession((s) => s.status);
   const user = useSession((s) => s.user);
   const passwordSetup = useSession((s) => s.passwordSetup);
+  const notice = useSession((s) => s.notice);
 
+  // waiting: Continue not pressed yet. used: pressed and accepted, signing in. failed: refused.
+  const [link, setLink] = useState<'none' | 'waiting' | 'using' | 'used' | 'failed'>(
+    passwordLinkToken ? 'waiting' : 'none',
+  );
   const [challenge, setChallenge] = useState<TotpChallenge | null | 'checking'>('checking');
   const [error, setError] = useState<AuthErrorMessage | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -79,8 +92,43 @@ export function SetPasswordPage() {
 
   if (status === 'loading') return <SplashScreen />;
 
+  const continueWithLink = async () => {
+    if (!passwordLinkToken) return;
+    setLink('using');
+    try {
+      await redeemPasswordLink(passwordLinkToken);
+      setLink('used');
+    } catch {
+      setLink('failed');
+    }
+  };
+
+  if (link === 'waiting' || link === 'using') {
+    return (
+      <AuthLayout>
+        <div className="flex flex-1 flex-col gap-[16px]">
+          <div className="mt-[24px] grid size-[84px] place-items-center rounded-full bg-accent-2-100 text-accent-2-800 md:mt-0">
+            <KeyRound size={38} strokeWidth={ICON_STROKE} aria-hidden />
+          </div>
+          <h1 className="text-[32px] leading-[1.1]">Set your password</h1>
+          <p className="text-[15px] leading-[1.5] text-neutral-800">
+            This one-time link lets you choose the password for your POS account. It works only
+            once, so continue when you are ready to choose it.
+          </p>
+          <div className="flex-1 md:hidden" />
+          <Button size="lg" onClick={continueWithLink} disabled={link === 'using'}>
+            {link === 'using' ? 'Checking the link…' : 'Continue'}
+          </Button>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  // Accepted: wait for the sign-in to arrive, unless it was refused (the notice says why).
+  if (link === 'used' && !user && !notice) return <SplashScreen />;
+
   if (status === 'signedOut' || !user) {
-    if (!passwordLinkFailed) return <Navigate to="/sign-in" replace />;
+    if (link !== 'failed' && !passwordLinkFailed) return <Navigate to="/sign-in" replace />;
     return (
       <AuthLayout>
         <div className="flex flex-1 flex-col gap-[16px]">

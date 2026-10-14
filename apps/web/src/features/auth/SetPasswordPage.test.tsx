@@ -3,19 +3,23 @@ import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { useSession, type SessionUser } from '@/stores/session';
-import { pendingSecondStep, setNewPassword, signOutUser } from './authService';
+import { pendingSecondStep, redeemPasswordLink, setNewPassword, signOutUser } from './authService';
 import { SetPasswordPage } from './SetPasswordPage';
 
-const link = vi.hoisted(() => ({ failed: false }));
+const link = vi.hoisted(() => ({ failed: false, token: null as string | null }));
 
 vi.mock('@/lib/supabase', () => ({
   env: {},
   get passwordLinkFailed() {
     return link.failed;
   },
+  get passwordLinkToken() {
+    return link.token;
+  },
 }));
 vi.mock('./authService', () => ({
   pendingSecondStep: vi.fn(),
+  redeemPasswordLink: vi.fn(),
   setNewPassword: vi.fn(),
   signOutUser: vi.fn(),
   verifyTotp: vi.fn(),
@@ -46,6 +50,7 @@ function renderPage() {
 beforeEach(() => {
   vi.clearAllMocks();
   link.failed = false;
+  link.token = null;
   vi.mocked(pendingSecondStep).mockResolvedValue(null);
   useSession.setState({ status: 'signedIn', user: sales, passwordSetup: true, locked: false });
 });
@@ -113,4 +118,38 @@ test('"Sign out" leaves without changing the password', async () => {
   await userEvent.setup().click(await screen.findByRole('button', { name: 'Sign out' }));
   expect(signOutUser).toHaveBeenCalled();
   expect(setNewPassword).not.toHaveBeenCalled();
+});
+
+test('opening a link uses nothing until Continue is pressed', async () => {
+  link.token = 'hashed-token';
+  vi.mocked(redeemPasswordLink).mockResolvedValue();
+  useSession.setState({ status: 'signedOut', user: null, passwordSetup: false });
+  renderPage();
+  expect(screen.getByRole('heading', { name: 'Set your password' })).toBeInTheDocument();
+  expect(redeemPasswordLink).not.toHaveBeenCalled();
+
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Continue' }));
+  expect(redeemPasswordLink).toHaveBeenCalledWith('hashed-token');
+});
+
+test('after Continue, the password form appears once the sign-in arrives', async () => {
+  link.token = 'hashed-token';
+  vi.mocked(redeemPasswordLink).mockImplementation(async () => {
+    useSession.setState({ status: 'signedIn', user: sales, passwordSetup: true });
+  });
+  useSession.setState({ status: 'signedOut', user: null, passwordSetup: false });
+  renderPage();
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Continue' }));
+  expect(await screen.findByLabelText('New password')).toBeInTheDocument();
+});
+
+test('a link that was already used or replaced says so after Continue', async () => {
+  link.token = 'hashed-token';
+  vi.mocked(redeemPasswordLink).mockRejectedValue({ code: 'otp_expired' });
+  useSession.setState({ status: 'signedOut', user: null, passwordSetup: false });
+  renderPage();
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Continue' }));
+  expect(
+    await screen.findByRole('heading', { name: 'This link no longer works' }),
+  ).toBeInTheDocument();
 });

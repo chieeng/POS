@@ -68,7 +68,9 @@ asks you to add the account to an authenticator app. Turnstile uses Cloudflare's
 always-pass test keys locally, so no challenge appears.
 
 To try a one-time password link, add a user under Settings > Users and open the link the app
-shows you.
+shows you. Opening a link only shows a **Continue** button; the link is used when that is
+pressed, so a chat app's link preview or an email scanner cannot use it up. A link works once,
+expires after an hour, and making a new link for the same person cancels the old one.
 
 ## Checks
 
@@ -162,8 +164,10 @@ Do this for `pos-staging` first, then `pos-prod`.
    npm run bootstrap-owner -- --email <owner email> --name "<name>" --code <2-6 letters> --store "<store name>" --app-url https://<app address>
    ```
    The key is read from that terminal's environment only; do not put it in a file. Send the
-   printed link to the Owner only. They set a password, sign in, and turn on two-step sign-in
-   when asked. The script refuses to run if an Owner already exists. **After the production
+   printed link to the Owner only. They press Continue, set a password, sign in, and turn on
+   two-step sign-in when asked. The script refuses to run if an Owner already exists. If the
+   link stops working before the Owner has set up their account, make a new one with
+   `npm run bootstrap-owner -- --resend --email <owner email> --app-url https://<app address>`. **After the production
    Owner exists, delete `scripts/bootstrap-owner.ts` and the `bootstrap-owner` npm script,**
    and close the terminal.
 9. **Check:** `curl -I https://<app address>/` shows `Content-Security-Policy`,

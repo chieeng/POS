@@ -30,19 +30,22 @@ function randomPassword(): string {
     .replace(/=+$/, '');
 }
 
-/** A one-time link that lets its holder set the account's password. Never stored or logged. */
+/**
+ * A one-time link that lets its holder set the account's password. Never stored or logged.
+ *
+ * It points at the app's set-password screen, with the token in the part after "#", which
+ * browsers never send to a server. Opening the link only loads the page: the token is used
+ * when the person presses Continue. So a link preview in a chat app, an email scanner or a
+ * second tab cannot use it up. Making a new link cancels the previous one.
+ */
 async function passwordLink({ admin, setPasswordUrl }: ActionContext, email: string) {
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: 'recovery',
-    email,
-    options: setPasswordUrl ? { redirectTo: setPasswordUrl } : undefined,
-  });
-  const link = data?.properties?.action_link;
-  if (error || !link) {
+  const { data, error } = await admin.auth.admin.generateLink({ type: 'recovery', email });
+  const tokenHash = data?.properties?.hashed_token;
+  if (error || !tokenHash || !setPasswordUrl) {
     console.error('admin-users: could not make a password link', error?.code ?? 'no link');
     throw new HttpError('internal', 'Could not make the password link. Try again.');
   }
-  return link;
+  return `${setPasswordUrl}#token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
 }
 
 /**

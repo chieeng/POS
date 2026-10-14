@@ -16,22 +16,32 @@
  *     --app-url https://<your app> [--branch main] [--store "Store name"]
  *
  * The script contains no default password and creates nothing if an Owner already exists.
- * The Owner sets their own password through the one-time link printed at the end.
+ * The Owner sets their own password through the one-time link printed at the end. Opening
+ * the link only shows a Continue button; the link is used when that is pressed.
+ *
+ * If that link was lost or used up before the Owner chose a password, make a new one:
+ *
+ *   npm run bootstrap-owner -- --resend --email owner@example.com --app-url https://<your app>
+ *
+ * --resend only works for an active Owner who has not finished setting up (no sign-in in the
+ * app, no authenticator app yet), and the new link cancels the old one. For an Owner who has
+ * finished setting up, send a password recovery from the Supabase dashboard instead.
  *
  * Local development does not need this: `supabase/seed.sql` already has a local Owner.
  */
 import { randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 interface Options {
+  resend: boolean;
   email: string;
   name: string;
   code: string;
   branch: string;
   store: string | undefined;
-  appUrl: string | undefined;
+  appUrl: string;
 }
 
 /** A refusal with a message for the person running the script. Nothing else is printed. */
@@ -44,6 +54,7 @@ function fail(message: string): never {
 function readOptions(): Options {
   const { values } = parseArgs({
     options: {
+      resend: { type: 'boolean', default: false },
       email: { type: 'string' },
       name: { type: 'string' },
       code: { type: 'string' },
@@ -58,18 +69,21 @@ function readOptions(): Options {
   const name = values.name?.trim() ?? '';
   const code = values.code?.trim().toUpperCase() ?? '';
   const branch = values.branch.trim();
-  const appUrl = values['app-url']?.trim().replace(/\/+$/, '') || undefined;
+  const appUrl = values['app-url']?.trim().replace(/\/+$/, '') ?? '';
+  const resend = values.resend;
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail('--email must be a valid email address.');
-  if (name.length < 1 || name.length > 80) fail('--name is required (up to 80 characters).');
-  if (!/^[A-Z0-9]{2,6}$/.test(code))
-    fail('--code must be 2 to 6 letters or digits (for receipt numbers).');
-  if (!/^[a-z0-9][a-z0-9-]{0,30}$/.test(branch))
-    fail('--branch must be lowercase letters, digits or dashes.');
-  if (appUrl && !/^https?:\/\/[^/\s]+$/.test(appUrl))
-    fail('--app-url must be the address of the app, such as https://pos.example.com');
+  if (!/^https?:\/\/[^/\s]+$/.test(appUrl))
+    fail('--app-url is required: the address of the app, such as https://pos.example.com');
+  if (!resend) {
+    if (name.length < 1 || name.length > 80) fail('--name is required (up to 80 characters).');
+    if (!/^[A-Z0-9]{2,6}$/.test(code))
+      fail('--code must be 2 to 6 letters or digits (for receipt numbers).');
+    if (!/^[a-z0-9][a-z0-9-]{0,30}$/.test(branch))
+      fail('--branch must be lowercase letters, digits or dashes.');
+  }
 
-  return { email, name, code, branch, store: values.store?.trim() || undefined, appUrl };
+  return { resend, email, name, code, branch, store: values.store?.trim() || undefined, appUrl };
 }
 
 /** The role inside a Supabase API key, without verifying it. Only used to catch mix-ups. */
@@ -119,6 +133,79 @@ async function confirmProject(url: string, isLocal: boolean) {
   if (answer.trim() !== host) fail('The address did not match. Nothing was changed.');
 }
 
+type Admin = SupabaseClient;
+
+/**
+ * A one-time link to the app's set-password screen. The token sits after "#", so it never
+ * reaches a server, and it is used only when the Owner presses Continue there. Making a new
+ * link cancels the previous one. Returns null if Supabase Auth would not make one.
+ */
+async function oneTimeLink(admin: Admin, email: string, appUrl: string): Promise<string | null> {
+  const link = await admin.auth.admin.generateLink({ type: 'recovery', email });
+  const tokenHash = link.data?.properties?.hashed_token;
+  if (link.error || !tokenHash) return null;
+  return `${appUrl}/set-password#token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
+}
+
+/** --resend: a new link for an Owner who has never signed in, for example after a lost link. */
+async function resend(admin: Admin, options: Options) {
+  const profile = await admin
+    .from('profiles')
+    .select('id, branch_id, role, active')
+    .eq('email', options.email)
+    .maybeSingle();
+  if (profile.error) fail(`Could not read profiles (${profile.error.message}).`);
+  const owner = profile.data as {
+    id: string;
+    branch_id: string;
+    role: string;
+    active: boolean;
+  } | null;
+  if (!owner || owner.role !== 'owner' || !owner.active) {
+    fail('There is no active Owner with that email. Nothing was changed.');
+  }
+
+  // "Never set up" means: no sign-in recorded by the app and no authenticator app. Opening a
+  // link and pressing Continue counts as a sign-in for Supabase Auth, so its own
+  // last_sign_in_at cannot tell an abandoned set-up from a finished one.
+  const signIns = await admin
+    .from('audit_logs')
+    .select('id', { count: 'exact', head: true })
+    .eq('action', 'auth.signIn')
+    .eq('actor_id', owner.id);
+  if (signIns.error) fail(`Could not read the audit log (${signIns.error.message}).`);
+  const factors = await admin.auth.admin.mfa.listFactors({ userId: owner.id });
+  if (factors.error) fail('Could not read that account. Nothing was changed.');
+  if ((signIns.count ?? 0) > 0 || factors.data.factors.length > 0) {
+    fail(
+      'This Owner has already set up their account, so this script will not make a link.\n' +
+        'If they lost their password, send a recovery from the Supabase dashboard\n' +
+        '(Authentication > Users).',
+    );
+  }
+
+  const link = await oneTimeLink(admin, options.email, options.appUrl);
+  if (!link) fail('Supabase Auth would not make a link. Nothing was changed.');
+
+  const audit = await admin.from('audit_logs').insert({
+    branch_id: owner.branch_id,
+    action: 'user.passwordResetLink',
+    actor_id: owner.id,
+    target_type: 'user',
+    target_id: owner.id,
+    reason: 'New one-time link from scripts/bootstrap-owner.ts --resend (SEC-03)',
+  });
+  if (audit.error) fail(`Could not write the audit entry (${audit.error.message}).`);
+
+  console.log(`\nNew one-time link for ${options.email} (the previous one no longer works).`);
+  console.log('Give it only to the Owner:\n');
+  console.log(link);
+  console.log(
+    '\nNext: open the link, press Continue, choose a password, sign in, and turn on two-step' +
+      '\nsign-in when asked. Then DELETE this script and close this terminal.\n',
+  );
+}
+
 async function main() {
   const options = readOptions();
   const { url, serviceRoleKey, isLocal } = readConnection();
@@ -127,6 +214,11 @@ async function main() {
   const admin = createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
+
+  if (options.resend) {
+    await resend(admin, options);
+    return;
+  }
 
   const owners = await admin.from('profiles').select('id').eq('role', 'owner').limit(1);
   if (owners.error) {
@@ -192,27 +284,22 @@ async function main() {
     fail(`Could not write the audit entry (${audit.error.message}). Nothing was kept.`);
   }
 
-  const link = await admin.auth.admin.generateLink({
-    type: 'recovery',
-    email: options.email,
-    options: options.appUrl ? { redirectTo: `${options.appUrl}/set-password` } : undefined,
-  });
-  const actionLink = link.data?.properties?.action_link;
+  const link = await oneTimeLink(admin, options.email, options.appUrl);
 
   console.log(`\nOwner created: ${options.email} (branch "${options.branch}").`);
-  if (link.error || !actionLink) {
+  if (!link) {
     console.log(
-      '\nThe account exists, but the one-time link could not be made ' +
-        `(${link.error?.message ?? 'no link returned'}).\n` +
-        'In the Supabase dashboard open Authentication > Users and send a password recovery.',
+      '\nThe account exists, but the one-time link could not be made.\n' +
+        'Run this script again with --resend --email <same email> --app-url <same address>.',
     );
   } else {
     console.log('\nOne-time link to set the password (give it only to the Owner):\n');
-    console.log(actionLink);
+    console.log(link);
   }
   console.log(
-    '\nNext: open the link, choose a password, sign in, and turn on two-step sign-in when' +
-      '\nasked. Then DELETE this script and close this terminal.\n',
+    '\nNext: open the link, press Continue, choose a password, sign in, and turn on two-step' +
+      '\nsign-in when asked. If the link stops working before then, use --resend (see the top' +
+      '\nof this file). Then DELETE this script and close this terminal.\n',
   );
 }
 
