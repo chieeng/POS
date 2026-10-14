@@ -5,5 +5,5 @@ package-lock.json
 docs/SRS.md
 supabase/.temp
 supabase/.branches
-.vercel
+.wrangler
 .claude/skills

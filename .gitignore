@@ -25,8 +25,8 @@ coverage/
 supabase/.temp/
 supabase/.branches/
 
-# Vercel CLI
-.vercel/
+# Cloudflare Wrangler
+.wrangler/
 
 # Editors and OS
 .vscode/*

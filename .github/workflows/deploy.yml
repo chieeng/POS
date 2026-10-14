@@ -4,8 +4,8 @@ name: Deploy
 #   push to dev      -> staging     (pos-staging)
 #   tag v* on main   -> production  (pos-prod), after manual approval
 #
-# The frontend is not deployed here: Vercel builds it from the same branches (dev and pull
-# requests -> preview, main -> production) with the headers in vercel.json.
+# The frontend is not deployed here: Cloudflare Pages builds it from the same branches (dev ->
+# staging preview, main -> production) with the headers in apps/web/public/_headers.
 #
 # seed.sql is never applied: `supabase db push` runs migrations only (SEC-11).
 #
