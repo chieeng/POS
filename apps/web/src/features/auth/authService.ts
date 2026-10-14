@@ -189,6 +189,20 @@ export async function finishTotpEnrollment(
   if (error) throw error;
 }
 
+/**
+ * AUTH-02: uses the one-time link's token, after the person pressed Continue. Signs them in
+ * as the account the link was made for, so they can choose a password.
+ */
+export async function redeemPasswordLink(tokenHash: string): Promise<void> {
+  // Set first: the sign-in this causes is a password set-up, not a normal sign-in.
+  useSession.getState().setPasswordSetup(true);
+  const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+  if (error) {
+    useSession.getState().setPasswordSetup(false);
+    throw error;
+  }
+}
+
 /** AUTH-02: the user chooses their own password after opening a one-time link. */
 export async function setNewPassword(password: string): Promise<void> {
   const { error } = await supabase.auth.updateUser({ password });

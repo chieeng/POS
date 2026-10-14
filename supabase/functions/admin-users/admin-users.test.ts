@@ -192,10 +192,10 @@ Deno.test(
     });
 
     const link = String(result.body.resetLink);
-    assertMatch(link, /\/auth\/v1\/verify\?token=.+type=recovery/);
-    assertMatch(decodeURIComponent(link), /redirect_to=http:\/\/localhost:5173\/set-password/);
+    // The app's set-password screen, with the token after "#" (never sent to a server).
+    assertMatch(link, /^http:\/\/localhost:5173\/set-password#token_hash=[^&]+&type=recovery$/);
     // The link is never stored.
-    assertFalse(JSON.stringify(entry).includes('token='));
+    assertFalse(JSON.stringify(entry).includes('token'));
 
     // Nobody knows the password: the account cannot be signed in to until the link is used.
     assertEquals(await signIn({ id: uid, email: input.email }), null);
@@ -420,12 +420,48 @@ Deno.test(
   async () => {
     const result = await asOwner('passwordResetLink', { uid: special.id, deviceTag: 'A1B2' });
     assertEquals(result.status, 200);
-    assertMatch(String(result.body.resetLink), /\/auth\/v1\/verify\?token=.+type=recovery/);
+    assertMatch(
+      String(result.body.resetLink),
+      /^http:\/\/localhost:5173\/set-password#token_hash=[^&]+&type=recovery$/,
+    );
 
     const entries = await auditOf('user.passwordResetLink', special.id);
     assertEquals(entries.length, 1);
     assertEquals([entries[0]?.before, entries[0]?.after, entries[0]?.reason], [null, null, null]);
     assertFalse(JSON.stringify(entries).includes('token'));
+  },
+);
+
+Deno.test(
+  'a one-time link is used only when the app presents it, only once, and a newer link cancels it',
+  options,
+  async () => {
+    const user = await seedUser('link-user', 'sales', branch);
+    const tokenOf = (link: unknown) =>
+      decodeURIComponent(/token_hash=([^&]+)/.exec(String(link))?.[1] ?? '');
+
+    const first = tokenOf((await asOwner('passwordResetLink', { uid: user.id })).body.resetLink);
+    const second = tokenOf((await asOwner('passwordResetLink', { uid: user.id })).body.resetLink);
+
+    // Making the second link cancelled the first.
+    const stale = await strangerClient().auth.verifyOtp({ token_hash: first, type: 'recovery' });
+    assert(stale.error);
+
+    // Pressing Continue: the app presents the token, which signs the user in.
+    const app = strangerClient();
+    const used = await app.auth.verifyOtp({ token_hash: second, type: 'recovery' });
+    assertEquals(used.error, null);
+    assertEquals(used.data.user?.id, user.id);
+
+    // That session may set a password of at least 10 characters (SEC-05).
+    const short = await app.auth.updateUser({ password: 'short1234' });
+    assertEquals(short.error?.code, 'weak_password');
+    const chosen = await app.auth.updateUser({ password: 'chosen-by-user-1' });
+    assertEquals(chosen.error, null);
+
+    // The same token never works twice.
+    const again = await strangerClient().auth.verifyOtp({ token_hash: second, type: 'recovery' });
+    assert(again.error);
   },
 );
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { readEnv } from './supabase';
 
 const real = {
@@ -60,5 +60,24 @@ describe('readEnv', () => {
   test('the dev server falls back to the Turnstile test key', () => {
     const env = readEnv({ ...real, DEV: true, VITE_TURNSTILE_SITE_KEY: undefined });
     expect(env.turnstileSiteKey).toBe('1x00000000000000000000AA');
+  });
+});
+
+describe('one-time password links', () => {
+  test('the token is read from the link, then removed from the address bar', async () => {
+    vi.resetModules();
+    window.history.replaceState(null, '', '/set-password#token_hash=abc123&type=recovery');
+    const module = await import('./supabase');
+    expect(module.passwordLinkToken).toBe('abc123');
+    expect(module.openedFromPasswordLink).toBe(false);
+    expect(window.location.hash).toBe('');
+    expect(window.location.pathname).toBe('/set-password');
+  });
+
+  test('a link of another type is ignored', async () => {
+    vi.resetModules();
+    window.history.replaceState(null, '', '/set-password#token_hash=abc123&type=signup');
+    const module = await import('./supabase');
+    expect(module.passwordLinkToken).toBeNull();
   });
 });

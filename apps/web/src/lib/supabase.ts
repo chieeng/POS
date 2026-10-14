@@ -83,10 +83,23 @@ export function readEnv(raw: RawEnv): AppEnv {
 
 export const env = readEnv(import.meta.env);
 
-// How this page was opened, read before the client consumes the URL: a one-time password
-// link (AUTH-02) lands here with its result in the hash.
+// How this page was opened, read before the client looks at the URL. A one-time password
+// link (AUTH-02) carries its token after "#": nothing is used until the person presses
+// Continue on the set-password screen, so a link preview or a scanner cannot use it up.
 const openingHash = typeof window === 'undefined' ? '' : window.location.hash;
-export const openedFromPasswordLink = /[#&]type=recovery(&|$)/.test(openingHash);
+const linkParams = new URLSearchParams(openingHash.replace(/^#/, ''));
+const linkToken = linkParams.get('type') === 'recovery' ? linkParams.get('token_hash') : null;
+
+/** The token of the one-time link this page was opened with, waiting for Continue. */
+export const passwordLinkToken: string | null =
+  linkToken && linkToken.length <= 256 ? linkToken : null;
+if (passwordLinkToken && typeof window !== 'undefined') {
+  // Keep the token out of the address bar, history and bookmarks.
+  window.history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+// Older links, made by Supabase Auth itself, arrive already signed in.
+export const openedFromPasswordLink =
+  !passwordLinkToken && /[#&]type=recovery(&|$)/.test(openingHash);
 export const passwordLinkFailed = /[#&]error(_code)?=/.test(openingHash);
 
 /** Where this browser keeps the signed-in session. */

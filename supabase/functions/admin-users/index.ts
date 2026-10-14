@@ -33,12 +33,13 @@ function adminClient() {
   });
 }
 
-/** The set-password screen of the app that made the call, if it sent an origin. */
+/**
+ * The set-password screen of the app that made the call. Browsers always send the Origin of
+ * the page making this request; the Owner's own app is the only page holding their session.
+ */
 function setPasswordUrl(request: Request): string | undefined {
   const origin = request.headers.get('Origin');
-  // Supabase Auth only honours this if it is in the project's redirect allow-list;
-  // otherwise the link falls back to the site URL.
-  return origin && /^https?:\/\/[^/]+$/.test(origin) ? `${origin}/set-password` : undefined;
+  return origin && /^https?:\/\/[^/\s]+$/.test(origin) ? `${origin}/set-password` : undefined;
 }
 
 Deno.serve(async (request) => {
