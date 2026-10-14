@@ -185,7 +185,7 @@ Deploys are **off** until the repository variable `DEPLOY_ENABLED` is set to `tr
 then the workflow is skipped.
 
 One-time setup: in GitHub > Settings > Environments create `staging` and `production`, add
-the variable and two secrets listed at the top of
+the variables and secrets listed at the top of
 [.github/workflows/deploy.yml](.github/workflows/deploy.yml), and **require a reviewer on
 `production`**. The service role key is not needed for deploys; do not store it in GitHub
 (SEC-10).
