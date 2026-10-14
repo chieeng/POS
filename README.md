@@ -24,7 +24,7 @@ supabase/
   tests/                  pgTAP tests for every table, role and function
   seed.sql                local development accounts only
 scripts/                  one-time bootstrap of the first Owner; local helpers
-vercel.json               build settings, SPA rewrite and security headers
+apps/web/public/_headers  security headers for Cloudflare Pages
 .github/workflows/        ci.yml, deploy.yml
 ```
 
@@ -150,13 +150,11 @@ Do this for `pos-staging` first, then `pos-prod`.
    - Rate Limits: lower the sign-in and token-verification limits from the defaults.
    - URL Configuration: Site URL = the app's address; Redirect URLs = `<app address>/set-password`.
 4. **API settings:** expose only the `public` schema (SEC-07).
-5. **Turnstile:** in Cloudflare create a Turnstile widget for the app's domains. The site key
-   is `VITE_TURNSTILE_SITE_KEY`; the secret key goes into the Supabase CAPTCHA setting.
+5. **Turnstile:** in Cloudflare create one Turnstile widget per project, for that project's
+   web address (see "Hosting" below). The site key is `VITE_TURNSTILE_SITE_KEY` in Cloudflare
+   Pages; the secret key goes only into that project's Supabase CAPTCHA setting.
 6. **Deploy** the database and function (see below).
-7. **Vercel:** import the repository; `vercel.json` sets the build and headers. Add
-   `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_TURNSTILE_SITE_KEY`, `VITE_STORE_NAME`
-   and `VITE_STORE_ADDRESS` per environment (staging values for Preview, production values
-   for Production). Never add the service role key or database password to Vercel.
+7. **Cloudflare Pages:** set up the site as described under "Hosting" below.
 8. **Create the first Owner** (SEC-03), from your own machine:
    ```powershell
    $env:SUPABASE_URL = "https://<project-ref>.supabase.co"
@@ -173,10 +171,61 @@ Do this for `pos-staging` first, then `pos-prod`.
    `Referrer-Policy` (SEC-12). The Supabase **Security Advisor** shows no warnings, and a
    read with only the anon key from outside the app returns nothing (SEC-16).
 
+## Hosting (Cloudflare Pages)
+
+The web app is a static site on Cloudflare Pages, which builds it from GitHub. One Pages
+project serves both environments: `main` is production, and `dev` is staging, as a preview
+branch with a fixed address.
+
+**Create the project:** Cloudflare dashboard > Workers & Pages > Create > Pages > Import an
+existing Git repository > `chieeng/POS`.
+
+| Setting                                               | Value                                              |
+| ----------------------------------------------------- | -------------------------------------------------- |
+| Production branch                                     | `main`                                             |
+| Framework preset                                      | None                                               |
+| Build command                                         | `npm run build`                                    |
+| Build output directory                                | `apps/web/dist`                                    |
+| Root directory                                        | empty (the repository root, where the lockfile is) |
+| Node version                                          | from `.nvmrc` (22); also set `NODE_VERSION` = `22` |
+| Preview branches (Settings > Builds > Branch control) | Custom: include `dev` only                         |
+
+Pages installs dependencies with `npm ci` before the build. Headers come from
+[apps/web/public/_headers](apps/web/public/_headers). Every unknown path serves
+`index.html`, because the build has no `404.html`; the web tests check both.
+
+**Addresses:** production is `https://<project>.pages.dev` (or a custom domain added under
+Custom domains). Staging is the `dev` branch alias, `https://dev.<project>.pages.dev`, which
+always points at the latest `dev` build; use that address, not the per-build one.
+
+**Variables** (Settings > Variables and Secrets, type **Text**, never Secret: they are public
+by design and end up in the browser bundle anyway, SRS 6.3):
+
+| Name                      | Production (`pos-prod`)          | Preview (`pos-staging`)             |
+| ------------------------- | -------------------------------- | ----------------------------------- |
+| `VITE_SUPABASE_URL`       | `https://<prod ref>.supabase.co` | `https://<staging ref>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY`  | pos-prod anon key                | pos-staging anon key                |
+| `VITE_TURNSTILE_SITE_KEY` | production widget site key       | staging widget site key             |
+| `VITE_STORE_NAME`         | the store name                   | the store name                      |
+| `VITE_STORE_ADDRESS`      | the store address                | the store address                   |
+| `NODE_VERSION`            | `22`                             | `22`                                |
+
+Never add the service role key, the database password or a Turnstile secret key to
+Cloudflare Pages. Variables apply to the next build: after changing one, retry the latest
+deployment.
+
+Then point each Supabase project at its address (Authentication > URL Configuration): Site
+URL = the address, Redirect URL = `<address>/set-password`.
+
+**Release order.** Pages publishes `main` as soon as it is pushed, while database changes
+reach `pos-prod` only after a `v*` tag and a reviewer's approval. Tag and approve right after
+merging a release into `main`, and keep migrations backward compatible, so the new frontend is
+never live for long against an older database.
+
 ## Deploying
 
 GitHub Actions applies migrations with `supabase db push` and deploys the Edge Function with
-`supabase functions deploy`. Vercel deploys the frontend from the same branches.
+`supabase functions deploy`. Cloudflare Pages deploys the frontend from the same branches.
 
 - push to `dev` deploys to staging
 - a `v*` tag on `main` deploys to production, after a reviewer approves it
@@ -197,7 +246,7 @@ variables listed at its top, and it runs only once it is on the default branch.
 
 Repository and account settings (SEC-10, SEC-11): keep the repo private; protect `main`
 (pull request review and the CI check required); turn on secret scanning with push
-protection and Dependabot alerts; use two-factor on the Supabase, GitHub and Vercel
+protection and Dependabot alerts; use two-factor on the Supabase, GitHub and Cloudflare
 accounts; only the Owner is an owner of the Supabase organization.
 
 ## Branching
