@@ -25,7 +25,7 @@ supabase/
   seed.sql                local development accounts only
 scripts/                  one-time bootstrap of the first Owner; local helpers
 apps/web/public/_headers  security headers for Cloudflare Pages
-.github/workflows/        ci.yml, deploy.yml
+.github/workflows/        ci.yml, deploy.yml, heartbeat.yml
 ```
 
 ## Requirements
@@ -139,14 +139,17 @@ when adding shadcn components. Fonts (Caprasimo, Figtree) load from Google Fonts
 
 Do this for `pos-staging` first, then `pos-prod`.
 
-1. **Create the project** in region Southeast Asia (Singapore). `pos-prod` must be on a paid
-   plan; turn the **spend cap** on and set usage alerts (NFR-10).
-2. **Backups:** on `pos-prod`, confirm daily backups and enable **point-in-time recovery**
-   (SYS-04, SEC-15). Rehearse one restore before launch.
+1. **Create the project** in region Southeast Asia (Singapore), on the **Free plan**. Both
+   projects stay on Free (NFR-10); nothing in this setup needs a paid plan.
+2. **Backups:** the Free plan has no backups you can restore and no point-in-time recovery.
+   `pos-prod` is protected by a nightly encrypted backup to a private Cloudflare R2 bucket
+   (SYS-04, SEC-15). It is **not built yet** and is required before go-live, together with a
+   restore rehearsed once on staging.
 3. **Authentication settings** (the hosted project does not read `supabase/config.toml`):
    - Sign In / Providers: Email on; **"Allow new users to sign up" off** (SEC-01);
      "Confirm email" on.
-   - Password: minimum length **10**; **leaked-password protection** on (SEC-05).
+   - Password: minimum length **10** (SEC-05). Leaked-password protection is not available
+     on the Free plan.
    - Multi-Factor: **TOTP** enabled.
    - Attack Protection: **CAPTCHA** on with **Turnstile** and the site's secret key (SEC-06).
    - Rate Limits: lower the sign-in and token-verification limits from the defaults.
@@ -248,10 +251,33 @@ the variables and secrets listed at the top of
 day so it is not paused for inactivity. It needs no secrets, only the four public repository
 variables listed at its top, and it runs only once it is on the default branch.
 
-Repository and account settings (SEC-10, SEC-11): keep the repo private; protect `main`
-(pull request review and the CI check required); turn on secret scanning with push
-protection and Dependabot alerts; use two-factor on the Supabase, GitHub and Cloudflare
-accounts; only the Owner is an owner of the Supabase organization.
+Repository and account settings (SEC-10, SEC-11): protect `main` (pull request review and
+the CI check required); turn on secret scanning with push protection and Dependabot alerts;
+use two-factor on the Supabase, GitHub and Cloudflare accounts; only the Owner is an owner of
+the Supabase organization.
+
+## This repository is public
+
+Anyone can read the code, the commit history, issues, pull requests and Actions logs. That is
+safe because the app's security never depends on hidden code: every read and write is checked
+by Row Level Security and database functions on the server (SRS 6.3). It does mean:
+
+- **No secrets in the repository**, ever, not even briefly on a branch: no service role key,
+  database password, Turnstile secret key, R2 or other API keys, passwords or one-time links.
+  A secret that was pushed must be treated as leaked: rotate it, then remove it.
+- **Keys live only in settings:** GitHub environment secrets (`staging`, `production`),
+  Supabase project settings and Cloudflare settings. The values in Cloudflare Pages variables
+  and in the heartbeat's repository variables are public by design (the Supabase URL, anon key
+  and Turnstile site key); they are not secrets.
+- **Keep `.env` files local.** Only the `*.example` files are committed, with placeholder
+  values. Check `git status` before every commit.
+- **No real data:** no customer names or phone numbers (Data Privacy Act), staff details,
+  real email addresses, database dumps or screenshots with personal data in code, tests,
+  issues or pull requests. `seed.sql` and the tests use made-up people only.
+- **Actions logs are public:** workflows must never print a secret or a value derived from
+  one, and must not run with secrets on pull requests from forks.
+- **Review every diff before pushing**, and leave secret scanning with push protection on so
+  GitHub blocks a known key format before it lands.
 
 ## Branching
 
