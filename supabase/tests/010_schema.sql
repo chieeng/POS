@@ -113,6 +113,30 @@ select is(
   'the service role is granted explicitly, and only what the server code needs'
 );
 
+-- Security Advisor: no SECURITY DEFINER function in an API schema is callable by a client.
+select is(
+  (
+    select coalesce(string_agg(p.proname, ' '), '')
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef
+      and (
+        has_function_privilege('anon', p.oid, 'execute')
+        or has_function_privilege('authenticated', p.oid, 'execute')
+      )
+  ),
+  '',
+  'no SECURITY DEFINER function in public is executable by anon or authenticated'
+);
+
+select is(
+  has_function_privilege('authenticated', 'private.record_sign_in(text)', 'execute')
+    and not has_function_privilege('anon', 'private.record_sign_in(text)', 'execute'),
+  true,
+  'the privileged part of record_sign_in is callable by a signed-in user only'
+);
+
 -- ---- Append-only audit log (SYS-03, NFR-05) -----------------------------------------------
 select is(
   (
