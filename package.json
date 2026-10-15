@@ -34,7 +34,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "supabase": "^2.120.0",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
