@@ -126,7 +126,7 @@ export function UsersPage() {
                     <div
                       className={cn('hidden md:block md:px-[8px]', !user.active && 'opacity-55')}
                     >
-                      {describeLastSeen(latestSeen(own))}
+                      {describeLastSeen(latestSeen(own), { active: user.active })}
                     </div>
                     <div className="hidden md:block md:px-[8px]">
                       <StatusTag active={user.active} />

@@ -249,7 +249,8 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
                 <div className="min-w-0 flex-1 leading-[1.3]">
                   <div className="truncate text-[14.5px] font-semibold">{device.label}</div>
                   <div className="text-[12.5px] text-neutral-700">
-                    {describeLastSeen(device.lastSeenAt)} · tag {device.deviceTag}
+                    {describeLastSeen(device.lastSeenAt, { active: user.active })} · tag{' '}
+                    {device.deviceTag}
                   </div>
                 </div>
               </li>
@@ -314,7 +315,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
                 onClick={() =>
                   run(
                     () => api.setUserRole({ uid: user.uid, role: pending.role }),
-                    `${firstName} is now ${ROLE_LABELS[pending.role]}.`,
+                    `${user.displayName} is now ${ROLE_LABELS[pending.role]}.`,
                   )
                 }
               >
@@ -343,7 +344,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
                 onClick={() =>
                   run(
                     () => api.signOutEverywhere({ uid: user.uid }),
-                    `${firstName} was signed out of all devices.`,
+                    `${user.displayName} has been signed out of all devices.`,
                   )
                 }
               >
@@ -388,7 +389,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
                         uid: user.uid,
                         ...(reason.trim() ? { reason: reason.trim() } : {}),
                       }),
-                    `${firstName} was deactivated.`,
+                    `${user.displayName} has been deactivated and signed out of all devices.`,
                   )
                 }
               >
