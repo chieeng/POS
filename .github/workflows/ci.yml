@@ -1,0 +1,72 @@
+name: CI
+
+# SRS 7.3: runs on every pull request. A failing RLS or function test blocks the merge
+# (SRS 6.2, SEC-16).
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, type-check, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Edge Functions and their tests run on Deno.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install
+        run: npm ci
+
+      # SEC-11: fail on known high-severity issues in what ships to users.
+      - name: Audit dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      # A throwaway local Supabase (Docker) with the migrations and seed.sql applied. The
+      # only "secret" it needs is Cloudflare's public always-pass Turnstile test key.
+      - name: Start local Supabase
+        run: |
+          cp supabase/.env.example supabase/.env
+          npx supabase start -x studio,postgres-meta,imgproxy,mailpit,logflare,vector
+
+      - name: Apply migrations and seed from scratch
+        run: npx supabase db reset
+
+      - name: Database tests (pgTAP, RLS and functions)
+        run: npm run test:db
+
+      - name: Edge Function tests (Deno)
+        run: npm run test:functions
+
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop --no-backup
+
+      - name: Build
+        run: npm run build

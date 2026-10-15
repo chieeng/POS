@@ -1,0 +1,72 @@
+name: Heartbeat
+
+# Free Supabase projects are paused after about a week without activity. This sends one
+# small request a day to each project so that does not happen while they are on the Free plan.
+#
+# It needs NO secrets. It uses only public values (SRS 6.3), set as repository variables
+# (GitHub > Settings > Secrets and variables > Actions > Variables):
+#   STAGING_SUPABASE_URL, STAGING_SUPABASE_ANON_KEY
+#   PROD_SUPABASE_URL,    PROD_SUPABASE_ANON_KEY
+# A project whose variables are missing is skipped with a warning.
+#
+# The request asks the REST API for one `profiles` row as an anonymous visitor. Row Level
+# Security refuses it, which is the expected answer: the point is that the request reaches
+# the database. Any answer from a running project counts as alive; a paused or unreachable
+# project fails the run, and GitHub emails the repository owner.
+#
+# Scheduled workflows only run from the default branch. GitHub also turns schedules off in a
+# public repository after 60 days without repository activity, so each run re-enables this
+# workflow, which restarts that countdown.
+on:
+  schedule:
+    - cron: '17 3 * * *' # daily, 11:17 in Manila
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write # only to re-enable this workflow (last step)
+
+concurrency:
+  group: heartbeat
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Ping Supabase projects
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping
+        env:
+          STAGING_URL: ${{ vars.STAGING_SUPABASE_URL }}
+          STAGING_KEY: ${{ vars.STAGING_SUPABASE_ANON_KEY }}
+          PROD_URL: ${{ vars.PROD_SUPABASE_URL }}
+          PROD_KEY: ${{ vars.PROD_SUPABASE_ANON_KEY }}
+        run: |
+          failed=0
+          ping() {
+            name="$1"; url="${2%/}"; key="$3"
+            if [ -z "$url" ] || [ -z "$key" ]; then
+              echo "::warning::$name: variables not set, skipped. See the header of heartbeat.yml."
+              return
+            fi
+            code=$(curl --silent --output /dev/null --max-time 30 --write-out '%{http_code}' \
+              -H "apikey: $key" -H "Authorization: Bearer $key" \
+              "$url/rest/v1/profiles?select=id&limit=1" || true)
+            # 2xx to 4xx: the project answered. 5xx (540 = paused) or 000 (no answer): not alive.
+            if [ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 500 ]; then
+              echo "$name: alive (HTTP $code)"
+            else
+              echo "::error::$name: no healthy answer (HTTP $code). Is the project paused?"
+              failed=1
+            fi
+          }
+          ping staging "$STAGING_URL" "$STAGING_KEY"
+          ping production "$PROD_URL" "$PROD_KEY"
+          exit "$failed"
+
+      - name: Keep this schedule enabled
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/heartbeat.yml/enable"

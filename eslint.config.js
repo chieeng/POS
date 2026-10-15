@@ -5,7 +5,15 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', 'functions/lib/**', '**/node_modules/**', 'coverage/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      'coverage/**',
+      'supabase/.temp/**',
+      '.claude/skills/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -26,7 +34,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ['functions/**/*.ts', 'scripts/**/*.ts', 'tests/**/*.ts', '*.js', 'apps/web/*.ts'],
+    files: ['scripts/**/*.{ts,mjs}', '*.js', 'apps/web/*.ts'],
     languageOptions: { globals: globals.node },
+  },
+  {
+    // Edge Functions run on Deno.
+    files: ['supabase/functions/**/*.ts'],
+    languageOptions: { globals: { Deno: 'readonly' } },
   },
 );

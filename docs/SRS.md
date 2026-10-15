@@ -21,7 +21,9 @@ Out of scope for v1: online ordering, e-commerce, government contributions and w
 | Device | A user's own phone or laptop; there are no shared or dedicated terminals |
 | Shift | The day's shared cash drawer session, from opening cash to closing count |
 | Approval request | A change that needs the Owner's permission before it takes effect |
-| Firestore | Firebase's NoSQL document database |
+| Supabase | Hosted PostgreSQL with authentication, storage, Edge Functions and Row Level Security |
+| RLS | Row Level Security: Postgres policies that decide which rows each user can read or write |
+| Outbox | The device's local queue of sales and clock-ins made offline, sent when the connection returns |
 
 **Assumptions**
 
@@ -45,15 +47,16 @@ Three roles cover the store's 20 users: the Owner, a few Special Sales who also 
 
 - Clients: each user's own Android/iOS phone or laptop, in Chrome, Edge or Safari (latest two versions); installable as a PWA.
 - Peripherals: none required. No barcode scanner or dedicated terminal. A printer is optional for slips.
-- Notifications: Firebase Cloud Messaging push to the Owner's devices for approval requests.
-- Backend: Firebase (Auth, Firestore, Hosting, Cloud Functions, Cloud Messaging, Storage) on the Blaze plan, region `asia-southeast1` (Singapore).
-- Source: GitHub repository with Actions for build and deploy.
+- Notifications: standard Web Push to the Owner's devices for approval requests, sent by a Supabase Edge Function.
+- Backend: Supabase (Postgres, Auth, Storage, Edge Functions, Realtime) on a paid plan, region Southeast Asia (Singapore).
+- Frontend hosting: Vercel (static single-page app); Cloudflare Pages or Netlify are equivalent.
+- Source: GitHub repository https://github.com/chieeng/POS with Actions for CI and database migrations.
 
 **Constraints**
 
-- Firestore has no joins or ad-hoc aggregation; reports rely on pre-computed summary documents.
-- Firestore transactions fail offline; checkout must use batched writes that queue locally.
-- Cloud Functions need the Blaze plan and a billing account with a budget alert.
+- Supabase has no built-in offline writes. Offline selling and clock-in need a local outbox (IndexedDB) with client-generated ids so a resent record is never saved twice. All other actions require internet.
+- The Supabase URL and anon key are public by design; security depends entirely on Row Level Security and database functions.
+- The free plan pauses inactive projects and has limited backups, so production needs a paid plan with daily backups and point-in-time recovery.
 - Must comply with the Data Privacy Act of 2012 for customer names and phone numbers kept for utang.
 
 ## 3. Functional requirements
@@ -64,11 +67,11 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| AUTH-01 | Users sign in with email and password through Firebase Auth on their own phone or laptop. | M |
-| AUTH-02 | The Owner creates, edits, deactivates users and assigns one role each: Owner, Special Sales or Sales. Users are never hard-deleted. | M |
-| AUTH-03 | Role is stored as a Firebase custom claim, set only by a Cloud Function called by the Owner. | M |
+| AUTH-01 | Users sign in with email and password through Supabase Auth on their own phone or laptop. | M |
+| AUTH-02 | The Owner creates, edits, deactivates users and assigns one role each: Owner, Special Sales or Sales. A new user gets a one-time link to set their own password; the Owner never sets or sees a password. User codes are 2 to 6 letters or digits, unique per branch. The Owner cannot demote or deactivate their own account. Users are never hard-deleted. | M |
+| AUTH-03 | Role and active flag are stored in the profiles table and can be changed only through an Owner-only Edge Function or database function, never by direct table writes. | M |
 | AUTH-04 | A user may be signed in on more than one of their own devices. The Owner can sign a user out of all devices (lost phone, staff leaving). | M |
-| AUTH-05 | The app locks after 15 minutes idle (configurable) and asks for the user's password or PIN to resume. | S |
+| AUTH-05 | The app locks after 15 minutes idle (configurable) and asks for the user's password to resume. A staff PIN is not used. | S |
 
 ### 3.2 Products and catalog (PROD)
 
@@ -90,7 +93,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | POS-03 | Apply a line or whole-sale discount (amount or %). Discounts above the sales limit need Owner approval; the sale waits as held until approved. | M |
 | POS-04 | Accept Cash (compute change), GCash, Maya (reference number required), Credit/utang (customer required), or a split of these. | M |
 | POS-05 | Hold a sale and resume it later on the same device. | S |
-| POS-06 | Complete a sale in one batched write: sale document, stock decrement per line, stock movements, drawer totals. Works offline. | M |
+| POS-06 | Complete a sale in one database transaction (the complete\_sale function): sale, lines, payments, stock decrement per line, stock movements, drawer totals. Offline, the sale goes to the device's outbox and is submitted when online; its client-generated id makes a resubmission safe. | M |
 | POS-07 | After payment, show a digital slip with store info, receipt number, items, totals, payment, salesperson, and "This is not an official receipt" unless configured otherwise. The slip can be shared as an image or PDF, or printed if the device has a printer. Re-sharing is logged. | M |
 | POS-08 | Receipt numbers are unique without a central counter: `<user code>-<YYYYMMDD>-<device tag>-<sequence kept on the device>`. | M |
 | POS-09 | Warn when an item's stock would go below zero; allow the sale (the item is physically in hand) and flag it for Special Sales. | M |
@@ -147,9 +150,9 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | SYS-01 | Store settings: name, address, contact, TIN, receipt footer, sales discount limit, idle lock time. | M |
-| SYS-02 | Each device creates a short device tag on first sign-in, used in receipt numbers and the audit log. The Owner can see each user's active devices. | M |
+| SYS-02 | Each browser creates a 4-character device tag on first sign-in, stored locally and registered in the devices table, used in receipt numbers and the audit log. The Owner can see each user's active devices. | M |
 | SYS-03 | Audit log of sensitive actions: sign-in, user and role changes, price changes, approval requests and decisions, voids, refunds, stock adjustments, slip re-shares. Read-only. | M |
-| SYS-04 | Daily automatic Firestore export to Cloud Storage, kept 30 days. | M |
+| SYS-04 | Daily automatic Supabase backups with point-in-time recovery enabled. | M |
 
 ### 3.9 Owner approvals (APPR)
 
@@ -158,7 +161,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | APPR-01 | These actions by non-Owners create an approval request instead of applying: product edit or deactivation, stock adjustment, correcting or deleting a stock-in, physical count differences, sale correction, void, return/refund, discount over limit, credit sale over limit. | M |
 | APPR-02 | A request stores what changes (before and after), the reason, the requester and the time. Nothing changes until the Owner approves. | M |
 | APPR-03 | The Owner gets a push notification and a pending list, and approves or rejects with an optional note. | M |
-| APPR-04 | On approval, a Cloud Function applies the change, writes the stock movement if any, and logs it. | M |
+| APPR-04 | On approval, the decide\_approval database function applies the change in one transaction, writes the stock movement if any, and logs it. | M |
 | APPR-05 | The requester sees the status of their requests and the Owner's note. | M |
 
 ### 3.10 Attendance (ATT)
@@ -179,7 +182,7 @@ Staff clock in once a day on their own device, with no clock-out, and the store'
 | ATT-10 | Pay for a day = daily rate (a day starting with the afternoon shift counts as a full or half day, per Owner setting) minus any late penalty. No hours or overtime are computed. Daily rates are visible to the Owner only. | M |
 | ATT-11 | Forgot to clock in, or wrongly flagged: the staff member submits a correction request with a reason, or the Owner adds or edits the record directly with a reason. | M |
 | ATT-12 | Clock-in works offline: device time and location are saved locally and synced later. The server time is recorded on sync, and a gap of more than 5 minutes is flagged. | M |
-| ATT-13 | A Cloud Function recomputes distance, lateness, penalty and day credit on the server for every record, so a tampered client cannot change them. | M |
+| ATT-13 | The clock\_in database function computes distance, lateness, penalty and day credit on the server for every record, so a tampered client cannot change them. | M |
 | ATT-14 | Attendance board for the Owner: who has clocked in today, who is late, flagged, or not yet in. Per-person summary for any date range: days present, late count, penalties, computed pay; CSV export. | M |
 | ATT-15 | Staff see their own clock-in time, attendance history and penalties. | S |
 | ATT-16 | Staff must be clocked in before they can make a sale. | S |
@@ -206,78 +209,81 @@ A lightweight payroll turns attendance into payslips each pay period. Government
 
 | ID | Category | Requirement |
 | --- | --- | --- |
-| NFR-01 | Performance | Name search shows results as the user types, under 300 ms for 10,000 products, by filtering the locally cached product list (Firestore has no full-text search). A sale completes locally in under 1 s. |
-| NFR-02 | Offline | Checkout, shift operations and product search work with no internet; queued writes sync automatically within 1 minute of reconnecting. A visible indicator shows online/offline and pending-sync count. Approval requests wait until online. |
-| NFR-03 | Availability | Hosted on Firebase; the app shell loads from the PWA cache even when Firebase Hosting is unreachable. |
-| NFR-04 | Security | All access enforced by Firestore Security Rules and Cloud Functions, never by UI alone. HTTPS only. No secrets in the repository. Personal devices are untrusted: no data beyond the user's role is ever sent to them. |
+| NFR-01 | Performance | Name search shows results as the user types, under 300 ms for 10,000 products, by filtering the locally cached product list (so search also works offline). A sale completes locally in under 1 s. |
+| NFR-02 | Offline | Checkout, clock-in and product search work with no internet: sales and clock-ins wait in the device outbox and sync automatically within 1 minute of reconnecting. Stock-in, approvals, payroll, reports and settings need internet. A visible indicator shows online/offline and pending-sync count. Approval requests wait until online. |
+| NFR-03 | Availability | Frontend on Vercel, backend on Supabase; the app shell loads from the PWA cache even when the host is unreachable. |
+| NFR-04 | Security | All access enforced by Row Level Security and database functions, never by UI alone. HTTPS only. No secrets in the repository. Personal devices are untrusted: no data beyond the user's role is ever sent to them. |
 | NFR-05 | Data integrity | Sales and stock movements are append-only; corrections are new records, never edits or deletes. |
 | NFR-06 | Auditability | Every sensitive action is traceable to a user, device tag and time. |
-| NFR-07 | Backup | Daily Firestore export kept 30 days; restore tested once before launch. |
+| NFR-07 | Backup | Daily Supabase backups plus point-in-time recovery; restore tested once before launch. |
 | NFR-08 | Usability | Mobile-first: every screen works on a 360 px wide phone; touch targets at least 44 px; a new salesperson can complete a sale after 15 minutes of training. |
 | NFR-09 | Scalability | Supports 20 users signed in on up to 30 devices, 10,000 products and 500 sales per day without design changes. |
-| NFR-10 | Cost | Monthly Firebase cost stays within the Blaze free allowance at launch volume; budget alert set at PHP 500. |
+| NFR-10 | Cost | One Supabase paid project for production (staging can be a free project), plus free-tier frontend hosting; spend cap on and usage alerts set. |
 | NFR-11 | Privacy | Customer data limited to name, phone and address; visible only to roles that need it (Data Privacy Act of 2012). |
-| NFR-12 | Maintainability | TypeScript, ESLint and Prettier; security rules covered by emulator tests in CI. |
+| NFR-12 | Maintainability | TypeScript, ESLint and Prettier; RLS policies and database functions covered by pgTAP tests in CI. |
 
 ## 5. Data model
 
-Twenty-one top-level Firestore collections, each document carrying `branchId`. Sale line items and payments are embedded in the sale, with name, price and cost copied at the time of sale, so later edits never change past receipts.
+About 25 PostgreSQL tables in the `public` schema, with `branch_id` on store-level data so branches can be added later. Money is `numeric(12,2)`; times are `timestamptz` stored in UTC and shown in Asia/Manila. Sale lines copy name, price and cost at the time of sale, so later edits never change past receipts. RLS is enabled on every table. The diagram shows the main tables and their links.
 
 &#91;embedded content: ERD · 13 collections and their links\]
 
 A sale links its shift, salesperson and optional customer, and spawns stock movements, credit charges and returns. Products gain stock only through receipts and approved adjustments, both logged as movements; approval requests record who asked for each change.
 
-### 5.1 Collections
+### 5.1 Tables
 
-| Collection | Key fields | Written by |
+| Table | Key columns | Written by |
 | --- | --- | --- |
-| `branches` | name, address, contact, tin, receiptFooter, salesDiscountLimit, idleLockMinutes; attendance settings {storeLat, storeLng, radiusM, clockInTimes {morning, afternoon}, graceMinutes, latePenalty, afternoonDayCredit} | Owner |
-| `users` | uid (doc id), displayName, email, role (owner, specialSales, sales), userCode, branchId, active, clockInOverride?, createdAt; subcollection `devices` {deviceTag, label, fcmToken, lastSeenAt} | Cloud Function (user fields); the user (own devices) |
-| `payRates` | userId (doc id), dailyRate, effectiveFrom, updatedBy | Owner only; readable by the Owner only |
-| `payrollRuns` | periodStart, periodEnd (picked by the Owner), status (draft, finalized), totals {gross, additions, deductions, net}, finalizedBy?, finalizedAt? | Owner only |
-| `payslips` | runId, userId, fullDays, halfDays, dailyRate, grossPay, latePenalties, additions\[\] {type, amount, note}, deductions\[\] {type, amount, note}, netPay, paidAt?, paidMethod?, paidReference? | Drafted by Cloud Function; Owner edits until finalized; staff read own finalized payslips |
-| `cashAdvances` | userId, amount, date, note, remaining, status (open, deducted) | Owner only |
-| `categories` | name, branchId, active | Special Sales (create), Owner |
-| `suppliers` | name, contactPerson, phone, address, active | Special Sales (create), Owner |
-| `products` | sku, name, nameLower, categoryId, sellPrice, stockQty, reorderLevel, imageUrl, active, updatedAt | Special Sales (create), Owner (edit); `stockQty` only via stock operations |
-| `customers` | name, phone, address, creditLimit, balance, active | Sales (create), Owner (edit) |
-| `attendance` | userId, date, shiftSlot (morning, afternoon), clockIn {deviceAt, serverAt, lat, lng, accuracyM, distanceM, locationStatus}, scheduledClockIn, graceMinutes, lateMinutes, latePenalty, dayCredit (full, half), flags\[\] (location not verified, time mismatch), editedBy?, editReason? | User creates own clock-in; computed fields by Cloud Function only |
-| `shifts` | id `<branchId>_<YYYYMMDD>` (one per day), openedBy, openedAt, openingCash, cashIn\[\], cashOut\[\], closedBy?, closedAt?, countedCash, expectedCash, overShort, totals {cash, gcash, maya, credit}, status | Any staff (open, cash-in/out); Owner or Special Sales (close) |
-| `sales` | receiptNo, deviceTag, shiftId, salespersonId, customerId?, items\[\] {productId, name, sku, qty, unitPrice, unitCost, discount, lineTotal}, subtotal, discountTotal, total, payments\[\] {method, amount, reference}, change, status (completed, voided, corrected), correctionOf?, correctedBy?, voidedBy?, voidReason?, createdAt | Salesperson (create); void via Cloud Function |
-| `returns` | saleId, items\[\], refundAmount, refundMethod, reason, approvalId, createdAt | Cloud Function |
-| `stockReceipts` | supplierId?, reference?, items\[\] {productId, qty, unitCost}, totalCost, receivedBy, createdAt | Special Sales, Owner |
-| `stockMovements` | productId, type (sale, void, return, stock-in, adjustment, count), qtyChange, unitCost, refType, refId, userId, deviceTag, createdAt | Same batch as its source; append-only |
-| `creditLedger` | customerId, type (charge, payment), amount, saleId?, method?, reference?, userId, createdAt | Same batch as sale or payment; append-only |
-| `approvalRequests` | type (includes attendance correction), targetType, targetId, before, after, reason, requestedBy, status (pending, approved, rejected), decidedBy?, decidedAt?, ownerNote?, createdAt | Requester (create, pending only); decided by Owner via Cloud Function |
-| `dailySummaries` | id `<branchId>_<YYYYMMDD>`, salesTotal, costTotal, txnCount, byMethod {}, bySalesperson {}, voidsTotal, refundsTotal | Cloud Function trigger only |
-| `auditLogs` | action, actorId, deviceTag, targetType, targetId, before?, after?, reason?, createdAt | Cloud Function or same batch; append-only |
+| `branches` | name, address, contact, tin, receipt\_footer, sales\_discount\_limit, idle\_lock\_minutes, store\_lat, store\_lng, radius\_m, morning\_clock\_in, afternoon\_clock\_in, grace\_minutes, late\_penalty, afternoon\_day\_credit | Owner |
+| `profiles` | id (= auth user id), display\_name, role (owner, special\_sales, sales), user\_code, branch\_id, active, clock\_in\_override, created\_at | Owner-only Edge Function / function |
+| `devices` | user\_id, device\_tag, label, push\_subscription, last\_seen\_at | The user (own rows) |
+| `pay_rates` | user\_id, daily\_rate, effective\_from, updated\_by | Owner only (read and write) |
+| `categories` | branch\_id, name, active | Special Sales (create), Owner |
+| `suppliers` | branch\_id, name, contact\_person, phone, address, active | Special Sales (create), Owner |
+| `products` | branch\_id, sku (unique per branch), name, category\_id, sell\_price, stock\_qty, reorder\_level, image\_path, active, updated\_at | Special Sales (create), Owner (edit); `stock_qty` only via functions |
+| `product_costs` | product\_id, cost\_price (weighted average), updated\_at | Functions only; Owner-only read |
+| `customers` | branch\_id, name, phone, address, credit\_limit, balance, active | Sales (create), Owner (edit); `balance` only via functions |
+| `drawer_sessions` | branch\_id, business\_date (unique per branch), opened\_by, opening\_cash, prefill\_difference, closed\_by, counted\_cash, expected\_cash, over\_short, status | open\_drawer / close\_drawer functions |
+| `drawer_entries` | session\_id, type (cash\_in, cash\_out), amount, reason, user\_id, created\_at | Function; append-only |
+| `sales` | id (client-generated UUID), receipt\_no (unique), branch\_id, session\_id, salesperson\_id, device\_tag, customer\_id, subtotal, discount\_total, total, change, status (completed, voided, corrected), correction\_of, voided\_by, void\_reason, flags, created\_at, synced\_at | complete\_sale and approval functions only; append-only |
+| `sale_items` | sale\_id, product\_id, name, sku, qty, unit\_price, unit\_cost, discount, line\_total | complete\_sale only |
+| `sale_payments` | sale\_id, method (cash, gcash, maya, credit), amount, reference | complete\_sale only; duplicate GCash/Maya references checked |
+| `returns` | sale\_id, items (jsonb), refund\_amount, refund\_method, reason, approval\_id, created\_at | Approval function |
+| `stock_receipts`, `stock_receipt_items` | supplier\_id, reference, received\_by, created\_at; product\_id, qty, unit\_cost | record\_stock\_in function |
+| `stock_movements` | product\_id, type (sale, void, return, stock\_in, adjustment, count), qty\_change, unit\_cost, ref\_type, ref\_id, user\_id, device\_tag, created\_at | Functions only; append-only |
+| `credit_ledger` | customer\_id, type (charge, payment), amount, sale\_id, method, reference, user\_id, created\_at | Functions only; append-only |
+| `approval_requests` | type, target\_type, target\_id, before (jsonb), after (jsonb), reason, requested\_by, status (pending, approved, rejected), decided\_by, decided\_at, owner\_note, created\_at | Requester creates pending; decide\_approval (Owner only) |
+| `attendance` | user\_id, work\_date (unique per user), shift\_slot, device\_at, server\_at, lat, lng, accuracy\_m, distance\_m, location\_status, scheduled\_clock\_in, grace\_minutes, late\_minutes, late\_penalty, day\_credit, flags, edited\_by, edit\_reason | clock\_in function; Owner edits with reason |
+| `payroll_runs` | period\_start, period\_end, status (draft, finalized), totals, finalized\_by, finalized\_at; finalized ranges may not overlap | Owner only |
+| `payslips` | run\_id, user\_id, full\_days, half\_days, daily\_rate, gross\_pay, late\_penalties, additions (jsonb), deductions (jsonb), net\_pay, paid\_at, paid\_method, paid\_reference | Drafted by function; Owner edits until finalized; staff read own finalized |
+| `cash_advances` | user\_id, amount, advance\_date, note, remaining, status (open, deducted) | Owner only |
+| `audit_logs` | action, actor\_id, device\_tag, target\_type, target\_id, before, after, reason, created\_at | Functions and triggers only; append-only |
 
-Plus `productCosts/{productId}` with costPrice (weighted average) and updatedAt, written by stock-in and readable by the Owner only. Sales staff never see cost; the Cloud Function on each new sale fills `unitCost` in its lines.
+Reports are SQL views and functions (for example `report_sales(from, to)`), so no pre-computed summary tables are needed. Views that show cost or profit are restricted to the Owner.
 
-Plus `paymentRefs/{method}_{reference}`, written with each GCash or Maya sale or utang payment, so a reused reference number is caught. Online, the app checks it before completing the sale; for offline sales, a Cloud Function checks on sync and flags duplicates instead of rejecting the sale, so no sale is lost.
+### 5.2 Checkout (one transaction, offline-safe)
 
-### 5.2 Checkout write (one batch, offline-safe)
+1. The app builds the sale with a client-generated UUID and receipt number and calls `complete_sale(payload)`. Offline, the payload is stored in the device outbox (IndexedDB) and sent when the connection returns.
+2. In one transaction the function checks the caller (active, clocked in, drawer open), recomputes totals from server prices and limits, and flags any difference from what the device showed (possible after an offline price change).
+3. It inserts the sale, its items (copying `unit_cost` from `product_costs`) and payments. A reused GCash or Maya reference is rejected online; for an offline sale it is saved and flagged so no sale is lost.
+4. It decrements `stock_qty` and writes `stock_movements`; for credit it adds a `credit_ledger` charge and updates the customer balance; it updates the drawer totals and writes the audit log.
+5. If the same UUID arrives twice, the function returns the existing sale instead of creating a second one.
 
-1. Create `sales/{id}` with status `completed`.
-2. For each line: `products/{id}.stockQty` decremented with `increment(-qty)`.
-3. For each line: create a `stockMovements` record of type `sale`.
-4. If any payment is credit: create a `creditLedger` charge and `increment` the customer's `balance`.
-5. `increment` the day's drawer totals for each payment method.
-
-A Cloud Function triggered on the new sale then updates `dailySummaries` when the write reaches the server.
+Clock-in follows the same pattern through `clock_in(payload)`, keyed by user and date.
 
 ### 5.3 Indexes
 
-- `sales`: branchId + createdAt desc; salespersonId + createdAt desc; shiftId + createdAt
-- `stockMovements`: productId + createdAt desc
-- `creditLedger`: customerId + createdAt desc
-- `approvalRequests`: status + createdAt desc; requestedBy + createdAt desc
-- `attendance`: date + userId; userId + date desc; flags (array-contains) + date desc
-- `products`: branchId + active + nameLower; sku (equality lookup for typed SKUs and the uniqueness check)
+- `products`: unique (branch\_id, sku); (branch\_id, active, name); trigram index on name for server-side search
+- `sales`: (branch\_id, created\_at desc); (salesperson\_id, created\_at desc); (session\_id)
+- `sale_payments`: (method, reference) for the duplicate check
+- `stock_movements`: (product\_id, created\_at desc)
+- `credit_ledger`: (customer\_id, created\_at desc)
+- `approval_requests`: (status, created\_at desc); (requested\_by, created\_at desc)
+- `attendance`: unique (user\_id, work\_date); (work\_date)
 
 ## 6. Security and permissions
 
-Roles live in Firebase custom claims (`role`, `branchId`), so Security Rules check them without an extra read. Anything that needs the Owner's permission is written as an approval request; only a Cloud Function, called when the Owner approves, applies the change and writes the audit log.
+Role and active flag live in `profiles`. RLS policies check them through small helper functions (`current_role()`, `is_active()`) that read `profiles` live, so a role change or deactivation takes effect immediately. Clients never write directly to anything that moves money, stock or pay: they call security-definer database functions that check the caller, validate input and write the audit log in the same transaction. Anything that needs the Owner's permission is saved as an approval request; only `decide_approval`, callable by the Owner, applies it.
 
 ### 6.1 Permission matrix
 
@@ -304,47 +310,45 @@ Roles live in Firebase custom claims (`role`, `branchId`), so Security Rules che
 | Users, roles, settings, decide approvals | Yes | No | No |
 | Audit log | Yes | No | No |
 
-### 6.2 Rule principles
+### 6.2 Row Level Security principles
 
-- Default deny: every collection is closed unless a rule opens it.
-- Clients may create `sales`, `stockMovements` (sale or stock-in only), `creditLedger` and `approvalRequests` (status `pending` only), but never update or delete them.
-- On `products`, Sales and Special Sales writes may change only `stockQty` and `updatedAt`, as part of a sale or stock-in. Other fields are set only on create (Special Sales) or by the Owner.
-- SKU uniqueness: creating a product also creates `skuIndex/{branchId}_{sku}` in the same batch; the rule refuses it if that document already exists.
-- On `attendance`, a user may create only their own clock-in for today, writing only the raw `clockIn` fields; the document id `<uid>_<YYYYMMDD>` makes a second clock-in impossible. Lateness, deduction, day credit and flags are written only by the Cloud Function; edits after that are Owner-only.
-- `payRates`, computed pay, `payrollRuns` and `cashAdvances` are readable by the Owner only. Staff can read only their own finalized `payslips`.
-- Only the Owner, through a Cloud Function, decides approval requests. `users`, `returns`, `dailySummaries`, voids and approved changes are written only by Cloud Functions (Admin SDK).
-- Firestore cannot hide single fields, so cost lives in a separate `productCosts` collection readable by the Owner only. The sale trigger copies `unitCost` into each sale line on the server.
-- Every write must carry the caller's own `branchId` and `uid` where the schema has them.
-- Rules are tested in the Firebase Emulator in CI; a failing rules test blocks the merge.
+- Default deny: RLS is enabled on every table; a table with no policy for a role gives that role nothing. The `anon` role gets no access to any table.
+- Clients write through database functions only, except: creating categories, suppliers and customers, creating their own pending approval requests, and managing their own `devices` rows. Each of these policies checks role, active flag, own `user_id` and `branch_id`.
+- `sales`, `sale_items`, `sale_payments`, `stock_movements`, `credit_ledger`, `drawer_entries` and `audit_logs` have no UPDATE or DELETE grants for API roles. Corrections are new rows.
+- On `products`, UPDATE on `stock_qty` and `sell_price` is revoked from the `authenticated` role (column privileges); only functions change them.
+- `product_costs`, `pay_rates`, `payroll_runs`, `cash_advances` and cost/profit views are readable by the Owner only. Staff read only their own finalized `payslips`. Non-Owners read sale lines through a view without `unit_cost`.
+- Every security-definer function sets a fixed `search_path`, checks `auth.uid()`, role and active flag, and validates its input. Internal functions are not executable by `anon` or `authenticated`.
+- Owner-only data and functions also require a two-factor session (`aal2` in the JWT).
+- Policies and functions are tested with pgTAP against a local Supabase in CI; a failing test blocks the merge.
 
 ### 6.3 Hardening: no way in except a valid, active account with the right role
 
-The Firebase web config (API key, project id) is public by design, so anyone can call Firebase directly without the app. Security therefore rests on server-side checks only: Auth settings, Security Rules, App Check and Cloud Functions. Every control below is a launch requirement.
+The Supabase project URL and anon key are public by design, so anyone can call the API without the app. Security therefore rests on server-side checks only: Auth settings, RLS, database functions and Edge Functions. Every control below is a launch requirement.
 
 | ID | Area | Control |
 | --- | --- | --- |
-| SEC-01 | Sign-up | Public sign-up is disabled (Identity Platform "allow sign-up" off). Accounts are created only by the Owner through a Cloud Function. Firebase's default allows anyone with the public API key to create an account, so this closes the biggest backdoor. |
-| SEC-02 | Accounts | Rules require both a valid `role` custom claim and `active == true`. An account without claims, even if one is ever created, can read and write nothing. |
-| SEC-03 | First Owner | The first Owner is created once by a one-time admin script run from the developer's machine, then the script is removed. No default credentials, no hard-coded admin, no hidden setup page. |
-| SEC-04 | Deactivation | Deactivating a user disables the Auth account, removes claims and revokes refresh tokens in one Cloud Function, so access ends within minutes on every device. |
-| SEC-05 | Owner login | The Owner account requires two-factor authentication (TOTP app). Staff passwords: minimum 10 characters; email enumeration protection on; Firebase's built-in sign-in throttling stays on. |
-| SEC-06 | App Check | App Check (reCAPTCHA Enterprise) is enforced on Firestore, Storage and Functions, so requests from scripts or tools outside the real app are refused. |
-| SEC-07 | Rules depth | Every write is validated field by field: allowed keys only (`hasOnly`), types, positive amounts, own `uid` and `branchId`, server timestamps. No collection allows unrestricted `list` reads; Sales see only what their screens need. |
-| SEC-08 | Functions | Every callable function checks auth, role, active flag and App Check, and validates its input with a schema before doing anything. No HTTP endpoints without authentication. |
-| SEC-09 | Storage | Uploads limited to images under 2 MB, by Owner and Special Sales only, into product paths only. |
-| SEC-10 | Cloud access | No service account key files anywhere. GitHub Actions deploys through Workload Identity Federation with a deploy-only role. Only the Owner's Google account has project Owner rights; 2FA required on the Google and GitHub accounts. |
-| SEC-11 | Repository | Private repo, protected `main` (PR review and passing CI required), secret scanning and Dependabot on, `npm audit` in CI. No debug, test or seed routes in production builds. |
-| SEC-12 | Web headers | Hosting sends Content-Security-Policy, HSTS, X-Frame-Options DENY, X-Content-Type-Options and a strict Referrer-Policy. No `dangerouslySetInnerHTML`. |
-| SEC-13 | Lost device | Owner can sign a user out everywhere (SEC-04 without deactivating). The idle lock limits what a found, unlocked phone can do. |
-| SEC-14 | Monitoring | Alerts to the Owner on: role changes, new devices on the Owner account, many voids/corrections by one user in a day, repeated failed sign-ins, Functions errors, and billing spikes (a sign of abuse). |
-| SEC-15 | Recovery | Firestore point-in-time recovery (7 days) on, plus the daily exports. A restore is rehearsed before launch. |
-| SEC-16 | Verification | Before go-live: rules tests cover every collection and role, including attempts from no account, a deactivated account and the wrong role; a checklist review against OWASP Top 10; a manual attempt to read and write data with the public config from outside the app, which must fail. |
+| SEC-01 | Sign-up | "Allow new users to sign up" is off in Supabase Auth. Accounts are created only by an Owner-only Edge Function using the service role on the server. Supabase's default lets anyone with the public anon key sign up, so this closes the biggest backdoor. |
+| SEC-02 | Accounts | Policies require an active `profiles` row with a valid role. A user with no profile, or an inactive one, can read and write nothing. |
+| SEC-03 | First Owner | The first Owner is created once by a local script run with the service role key from the developer's machine (never committed), which refuses to run if an Owner exists and is deleted after use. No default credentials, hard-coded admins or hidden setup pages. |
+| SEC-04 | Deactivation | Deactivating sets `active = false`, bans the Auth user and signs out all sessions in one Edge Function call. Because RLS reads `active` live, access ends immediately. |
+| SEC-05 | Owner login | The Owner account requires TOTP two-factor; Owner-only data requires an `aal2` session. Staff passwords: minimum 10 characters, leaked-password protection on where the plan allows. |
+| SEC-06 | Bots and abuse | CAPTCHA (Cloudflare Turnstile) on sign-in and password reset; Supabase Auth rate limits tightened; Edge Functions verify the caller's JWT. |
+| SEC-07 | Policy depth | Column privileges, CHECK constraints (positive amounts, valid statuses) and input validation in every function. Only the needed schemas are exposed through the API, and GraphQL is disabled if unused. Sales see only what their screens need. |
+| SEC-08 | Functions | Every database function and Edge Function checks auth, role, active flag and input. No unauthenticated endpoints. |
+| SEC-09 | Storage | One `product-images` bucket: images under 2 MB, uploaded only by the Owner and Special Sales, via storage policies. |
+| SEC-10 | Keys and access | The service role key and database password live only in Supabase secrets and GitHub environment secrets (production deploys need manual approval). Never in the frontend, repository or chat. Only the Owner is an owner of the Supabase organization; two-factor on Supabase, GitHub and Vercel accounts. |
+| SEC-11 | Repository | Private repo, protected `main` (PR review and passing CI required), secret scanning and Dependabot on, `npm audit` in CI. No debug, test or seed routes in production builds; `seed.sql` is for local development only. |
+| SEC-12 | Web headers | The host sends Content-Security-Policy (own origin plus the Supabase project URL), HSTS, X-Frame-Options DENY, X-Content-Type-Options and a strict Referrer-Policy. No `dangerouslySetInnerHTML`. |
+| SEC-13 | Lost device | The Owner can sign a user out everywhere without deactivating them. The idle lock limits what a found, unlocked phone can do. |
+| SEC-14 | Monitoring | Alerts to the Owner on role changes, a new device on the Owner account, many voids or corrections by one user in a day, repeated failed sign-ins, function errors and usage spikes. |
+| SEC-15 | Recovery | Daily backups and point-in-time recovery on; a restore is rehearsed before launch. |
+| SEC-16 | Verification | Before go-live: pgTAP tests cover every table and role, including anon, no profile, deactivated, wrong role and Owner without two-factor; the Supabase security advisor shows no warnings; an OWASP Top 10 review; and a manual attempt to read and write data with the anon key from outside the app, which must fail. |
 
 Residual risks: a staff member's unlocked phone acts with that person's role until it locks or is signed out; browser location can be faked; the Owner's own account is the single most valuable target, hence 2FA.
 
 ## 7. Architecture, repository and deployment
 
-A React PWA talks straight to Firestore through the Firebase SDK, with its local cache as the offline queue. Cloud Functions handle only what the client must not be trusted with.
+A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anything that moves money, stock or pay calls a Postgres function. Edge Functions handle only what needs the service role or an outside service: user administration and push notifications. Sales and clock-ins made offline wait in a local outbox.
 
 ### 7.1 Stack
 
@@ -352,53 +356,79 @@ A React PWA talks straight to Firestore through the Firebase SDK, with its local
 | --- | --- |
 | Frontend | React 18 + TypeScript, Vite, React Router |
 | UI | Tailwind CSS + shadcn/ui, responsive layouts for phone, tablet and laptop |
-| State | Zustand for cart and session; Firestore `onSnapshot` for live data |
+| Data | `supabase-js` with TanStack Query; Supabase Realtime for live stock and approvals; Zustand for cart and session |
 | Forms | React Hook Form + Zod |
-| Offline / install | Firestore `persistentLocalCache` with multi-tab manager; `vite-plugin-pwa` |
-| Product search | Client-side filtering of the cached product list (Fuse.js for typo-tolerant name search) |
-| Location | Browser Geolocation API (`enableHighAccuracy`, 10 s timeout); haversine distance on both client and server |
+| Offline / install | `vite-plugin-pwa`; IndexedDB (Dexie) for the cached product list and the outbox of sales and clock-ins |
+| Product search | Client-side filtering of the cached product list (Fuse.js) |
+| Location | Browser Geolocation API (`enableHighAccuracy`, 10 s timeout); distance computed again in `clock_in` |
 | Receipts | On-screen slip rendered to image or PDF and shared with the Web Share API; browser print as a fallback |
-| Notifications | Firebase Cloud Messaging web push for approval requests |
-| Backend | Cloud Functions (Node 20, TypeScript): user admin, approval decisions, void/refund, sale trigger, attendance computation, payroll drafting, daily backup |
-| Testing | Vitest, Firebase Emulator Suite, `@firebase/rules-unit-testing`, Playwright for checkout flow |
+| Notifications | Web Push (VAPID) sent by an Edge Function when an approval request is created |
+| Database | Supabase Postgres (Singapore): SQL migrations, RLS, security-definer functions, pg\_cron for scheduled jobs |
+| Edge Functions | Deno + TypeScript: `admin-users` (create, role, deactivate, sign out everywhere), `notify` (push) |
+| Auth | Supabase Auth: email and password, TOTP two-factor, Turnstile CAPTCHA |
+| Hosting | Vercel (static SPA) |
+| Testing | Vitest, pgTAP (`supabase test db`), Playwright for the checkout flow |
 
 ### 7.2 Repository layout (monorepo)
 
 ```
-pos-inventory/
-  apps/web/            React PWA
-    src/features/      auth, pos, inventory, customers, reports, settings
-    src/lib/firebase.ts
-  functions/           Cloud Functions
-  firestore.rules
-  firestore.indexes.json
-  storage.rules
-  firebase.json
-  .github/workflows/   ci.yml, deploy.yml
+POS/
+  apps/web/              React PWA
+    src/features/        auth, pos, inventory, customers, attendance, payroll, reports, settings
+    src/lib/supabase.ts
+    src/lib/outbox.ts
+  supabase/
+    migrations/          schema, RLS policies, functions (SQL)
+    functions/           Edge Functions (admin-users, notify)
+    tests/               pgTAP tests
+    seed.sql             local development data only
+    config.toml
+  scripts/bootstrap-owner.ts
+  .github/workflows/     ci.yml, deploy.yml
 ```
 
 ### 7.3 Environments and deployment
 
-| Environment | Firebase project | Deployed from |
-| --- | --- | --- |
-| Local | Emulator Suite | Developer machine |
-| Staging | `pos-staging` | Pull request preview channels + `dev` branch |
-| Production | `pos-prod` | `main` branch, after a tagged release |
+| Environment | Supabase | Frontend | Deployed from |
+| --- | --- | --- | --- |
+| Local | `supabase start` (Docker) | Vite dev server | Developer machine |
+| Staging | `pos-staging` project | Vercel preview | Pull requests and the `dev` branch |
+| Production | `pos-prod` project | Vercel production | `main` branch, after a tagged release |
 
 - Branching: feature branches → PR into `dev` → release PR into `main`. `main` is protected and needs passing CI.
-- CI on every PR: lint, type-check, unit tests, rules tests in the emulator, build.
-- Deploy: GitHub Actions deploys Hosting, rules, indexes and Functions through Workload Identity Federation, with no key files (SEC-10).
-- Config: `VITE_FIREBASE_*` values per environment in `.env.staging` and `.env.production`; App Check enabled in production.
+- CI on every PR: lint, type-check, unit tests, `supabase db reset` plus pgTAP tests on a local Supabase, build.
+- Deploy: GitHub Actions applies migrations with `supabase db push` and deploys Edge Functions with `supabase functions deploy`, using secrets in a GitHub environment that requires manual approval for production. Vercel deploys the frontend from the same branches.
+- Config: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` per environment. The service role key never reaches the frontend.
+
+### 7.4 Migration from the Firebase build
+
+Phase 0 was first built on Firebase. The UI, design tokens, routing and app shell carry over unchanged; the backend layer is replaced, and all Firebase code, config and dependencies are removed.
+
+| Firebase build | Supabase replacement |
+| --- | --- |
+| `lib/firebase.ts`, `VITE_FIREBASE_*` | `lib/supabase.ts`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` |
+| Firebase Auth email + password, TOTP second factor | Supabase Auth email + password, TOTP MFA (`aal2`) |
+| Custom claims (role, branchId, active) | `profiles` table read live by RLS helpers; no token-expiry gap after a role change or deactivation |
+| Blocking `beforeUserSignedIn` (refuse accounts without claims, log sign-ins) | Sign-in proceeds, then the app loads the profile and signs out users with no active profile; RLS denies them anyway. Sign-ins are logged by a `record_sign_in` function called after sign-in, plus Supabase Auth logs |
+| Callable functions `createUser`, `updateUser`, `setUserRole`, `deactivateUser`, `signOutEverywhere`, `createPasswordResetLink` | Edge Function `admin-users` with the same actions, same Zod schemas and the same Owner-only guard (JWT, role, active, `aal2`) |
+| Shared guard incl. App Check | Same guard minus App Check; Turnstile CAPTCHA on sign-in and password reset instead |
+| `users/{uid}`, `users/{uid}/devices/{tag}`, `auditLogs` | `profiles`, `devices`, `audit_logs` tables |
+| `firestore.rules`, `storage.rules` and rules tests | RLS policies and storage policies in migrations, with pgTAP tests porting the same cases |
+| Emulator Suite with relaxed rules copy | `supabase start` locally; MFA can be tested for real, so no relaxed copy is needed |
+| `scripts/bootstrap-owner.ts` with ADC | Same script using the service role key from the local environment only |
+| Firebase Hosting headers in `firebase.json` | `vercel.json` headers |
+| `deploy.yml` with Workload Identity Federation | `deploy.yml` with `supabase db push` and `supabase functions deploy`, secrets in a protected GitHub environment |
+| Firestore offline cache | Dexie (IndexedDB) product cache and outbox, built with the POS in Phase 2 |
 
 ## 8. Release phases and open questions
 
 The store can start selling after Phase 2; each later phase ships on its own.
 
-1. **Phase 0 – Foundation.** Repo, CI/CD, staging and production projects, emulator, auth with custom claims, user management, device tags, settings.
+1. **Phase 0 – Foundation.** Repo, CI/CD, staging and production Supabase projects, local Supabase, Supabase migrations, auth with roles in profiles, user management, device tags, settings.
 2. **Phase 1 – Catalog, inventory and approvals.** Products with manual SKUs, categories, suppliers, CSV import, stock-in, movement history, low-stock list, approval requests with push notifications to the Owner.
 3. **Phase 2 – POS and attendance (go-live gate).** Checkout by name search, category or SKU; cash, GCash and Maya; digital slips; daily cash drawer with closing count; offline mode; voids and returns through approval; audit log. Attendance with location check, late deductions and correction requests, and the Owner's attendance board. Gate: one week of parallel run against the store's current method with zero stock, cash or attendance discrepancies traced to the system.
 4. **Phase 3 – Credit.** Customers, credit sales, utang payments, ledger, aging report.
-5. **Phase 4 – Reports.** Dashboard, daily summaries, sales and profit reports, attendance summaries, payroll runs with payslips and cash advances, CSV export, backups verified.
+5. **Phase 4 – Reports.** Dashboard, report views, sales and profit reports, attendance summaries, payroll runs with payslips and cash advances, CSV export, backups verified.
 6. **Phase 5 – Polish.** Held sales, physical count, Bluetooth thermal printing if the owner wants paper slips.
 
 ### Open questions
