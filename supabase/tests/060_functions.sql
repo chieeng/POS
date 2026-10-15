@@ -10,7 +10,7 @@ select is(
   'ok 1',
   caller || ' logs their own sign-in'
 )
-from unnest(array['sales', 'special', 'owner', 'owner_aal1']) as caller;
+from unnest(array['sales', 'special', 'owner']) as caller;
 
 select is(
   (
@@ -33,7 +33,13 @@ select is(
   '42501',
   caller || ' cannot log a sign-in'
 )
-from unnest(array['anon', 'no_profile', 'deactivated', 'signed_out']) as caller;
+from unnest(tests.no_access()) as caller;
+
+select is(
+  (select count(*) from public.audit_logs where action = 'auth.signIn' and actor_id = tests.uid('owner')),
+  1::bigint,
+  'the Owner''s sign-in is logged only after the authenticator-app step'
+);
 
 select is(
   tests.run('sales', format('select public.record_sign_in(%L)', tag)),
@@ -41,6 +47,56 @@ select is(
   'record_sign_in rejects device tag ' || quote_literal(tag)
 )
 from unnest(array['a1b2', 'TOOLONG', '<script>', '']) as tag;
+
+-- ---- record_account_event ----------------------------------------------------------------
+select is(
+  tests.run(caller, $$select public.record_account_event('auth.passwordSet', 'A1B2')$$),
+  'ok 1',
+  caller || ' logs setting their own password'
+)
+from unnest(array['sales', 'special', 'owner', 'owner_aal1']) as caller;
+
+select is(
+  (
+    select count(*) from public.audit_logs
+    where action = 'auth.passwordSet' and actor_id = tests.uid('sales') and branch_id = 'tmain'
+      and device_tag = 'A1B2' and target_type = 'user' and target_id = tests.uid('sales')::text
+  ),
+  1::bigint,
+  'the password entry names the user, their branch and the device tag'
+);
+
+select is(
+  tests.run('owner', $$select public.record_account_event('auth.twoStepOn')$$),
+  'ok 1',
+  'the Owner logs turning on two-step sign-in, after passing it'
+);
+
+select is(
+  tests.run('owner_aal1', $$select public.record_account_event('auth.twoStepOn')$$),
+  '42501',
+  'two-step cannot be logged as on by a session that has not passed it'
+);
+
+select is(
+  tests.run(caller, $$select public.record_account_event('auth.passwordSet')$$),
+  '42501',
+  caller || ' cannot log an account event'
+)
+from unnest(array['anon', 'no_profile', 'deactivated', 'signed_out']) as caller;
+
+select is(
+  tests.run('owner', format('select public.record_account_event(%L)', action)),
+  '22023',
+  'record_account_event refuses action ' || coalesce(quote_literal(action), 'null')
+)
+from unnest(array['auth.signIn', 'user.deactivate', 'auth.passwordset', '', null]) as action;
+
+select is(
+  tests.run('sales', $$select public.record_account_event('auth.passwordSet', 'a1b2')$$),
+  '22023',
+  'record_account_event rejects a bad device tag'
+);
 
 -- ---- admin_* are closed to every client --------------------------------------------------
 select is(
