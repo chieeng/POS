@@ -1,21 +1,48 @@
 # SEC-11: keep dependencies and workflow actions patched.
+#
+# Routine minor and patch updates arrive as a few grouped pull requests a week. A major
+# version gets its own pull request, so it can be reviewed and tested on its own. Security
+# updates are not affected by any of this: Dependabot opens those whenever an alert appears.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+      day: monday
     target-branch: dev
     open-pull-requests-limit: 10
     groups:
       supabase:
         patterns: ['supabase', '@supabase/*']
+        update-types: [minor, patch]
+      runtime:
+        dependency-type: production
+        update-types: [minor, patch]
       dev-tooling:
         dependency-type: development
         update-types: [minor, patch]
+    ignore:
+      # SRS 7.1 fixes the frontend at React 18. Moving to 19 is a decision for the SRS first.
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react-dom'
+        update-types: ['version-update:semver-major']
+      # TypeScript 7 cannot be installed next to typescript-eslint yet (its peer range stops
+      # at 6). Remove this once typescript-eslint supports TypeScript 7.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: monday
     target-branch: dev
+    groups:
+      actions:
+        patterns: ['*']
