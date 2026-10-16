@@ -1,9 +1,8 @@
-import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { IdleLock } from '@/features/auth/IdleLock';
 import { IDLE_LOCK_MINUTES_DEFAULT } from '@/features/auth/idleStorage';
 import { useIdleLock } from '@/features/auth/useIdleLock';
-import { registerDevice } from '@/lib/device';
+import { useDeviceHeartbeat } from '@/hooks/useDeviceHeartbeat';
 import { useSession } from '@/stores/session';
 import { SET_PASSWORD_PATH, TWO_STEP_SETUP_PATH } from './paths';
 
@@ -21,15 +20,9 @@ export function ProtectedLayout() {
   const idleMinutes = IDLE_LOCK_MINUTES_DEFAULT;
   useIdleLock(idleMinutes, status === 'signedIn');
 
-  // SYS-02: record this device under the signed-in user, once per session.
-  const uid = user?.uid;
+  // SYS-02: record this device under the signed-in user and keep its "last seen" fresh.
   const canRegister = status === 'signedIn' && (user?.role !== 'owner' || user.secondFactor);
-  useEffect(() => {
-    if (!canRegister || !uid) return;
-    registerDevice({ uid }).catch(() => {
-      // Not critical: the next session tries again.
-    });
-  }, [canRegister, uid]);
+  useDeviceHeartbeat(user?.uid, canRegister, locked);
 
   if (status === 'loading') return <SplashScreen />;
   if (status === 'signedOut' || !user) return <Navigate to="/sign-in" replace />;
