@@ -24,12 +24,19 @@ function headersFor(path: string): Map<string, string> {
 describe('every page is served with the security headers (SEC-12)', () => {
   const all = headersFor('/*');
 
-  test('a Content-Security-Policy that allows only this site, Supabase and Turnstile', () => {
+  test('a Content-Security-Policy that allows only this site, Supabase, Turnstile and HIBP', () => {
     const csp = all.get('content-security-policy') ?? '';
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain('connect-src');
     expect(csp).toMatch(/connect-src [^;]*https:\/\/\*\.supabase\.co/);
     expect(csp).toMatch(/connect-src [^;]*wss:\/\/\*\.supabase\.co/);
+    // Outside Supabase, the page may only call the leaked-password check (SEC-05).
+    expect(/connect-src ([^;]*)/.exec(csp)?.[1]?.trim().split(/\s+/)).toEqual([
+      "'self'",
+      'https://*.supabase.co',
+      'wss://*.supabase.co',
+      'https://api.pwnedpasswords.com',
+    ]);
     expect(csp).toMatch(/script-src [^;]*https:\/\/challenges\.cloudflare\.com/);
     expect(csp).toMatch(/frame-src [^;]*https:\/\/challenges\.cloudflare\.com/);
     expect(csp).toContain("frame-ancestors 'none'");

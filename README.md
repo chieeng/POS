@@ -148,8 +148,9 @@ Do this for `pos-staging` first, then `pos-prod`.
 3. **Authentication settings** (the hosted project does not read `supabase/config.toml`):
    - Sign In / Providers: Email on; **"Allow new users to sign up" off** (SEC-01);
      "Confirm email" on.
-   - Password: minimum length **10** (SEC-05). Leaked-password protection is not available
-     on the Free plan.
+   - Password: minimum length **10** (SEC-05). Leave Supabase's leaked-password protection
+     off (it needs a paid plan); the app checks new passwords against Have I Been Pwned
+     instead.
    - Multi-Factor: **TOTP** enabled.
    - Attack Protection: **CAPTCHA** on with **Turnstile** and the site's secret key (SEC-06).
    - Rate Limits: lower the sign-in and token-verification limits from the defaults.
