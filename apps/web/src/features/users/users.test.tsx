@@ -209,12 +209,18 @@ describe('helpers', () => {
   const ago = (minutes: number) => new Date(now.getTime() - minutes * 60_000);
 
   test('describeLastSeen', () => {
-    expect(describeLastSeen(null, now)).toBe('Never');
-    expect(describeLastSeen(ago(2), now)).toBe('Active now');
-    expect(describeLastSeen(ago(12), now)).toBe('12 min ago');
-    expect(describeLastSeen(ago(130), now)).toBe('2 hr ago');
-    expect(describeLastSeen(ago(30 * 60), now)).toBe('Yesterday');
-    expect(describeLastSeen(new Date('2026-08-30T09:00:00'), now)).toBe('Aug 30');
+    expect(describeLastSeen(null, { now })).toBe('Never');
+    expect(describeLastSeen(ago(2), { now })).toBe('Active now');
+    expect(describeLastSeen(ago(12), { now })).toBe('12 min ago');
+    expect(describeLastSeen(ago(130), { now })).toBe('2 hr ago');
+    expect(describeLastSeen(ago(30 * 60), { now })).toBe('Yesterday');
+    expect(describeLastSeen(new Date('2026-08-30T09:00:00'), { now })).toBe('Aug 30');
+  });
+
+  test('a deactivated user is never "Active now"', () => {
+    expect(describeLastSeen(ago(2), { now, active: false })).toBe('2 min ago');
+    expect(describeLastSeen(ago(0), { now, active: false })).toBe('1 min ago');
+    expect(describeLastSeen(ago(12), { now, active: false })).toBe('12 min ago');
   });
 
   test('latestSeen picks the most recent device', () => {
@@ -268,6 +274,12 @@ describe('helpers', () => {
     expect(
       describeAudit(entry({ action: 'user.deactivate', reason: 'Left' }), 'Jun Reyes').change,
     ).toBe('Left');
+    expect(describeAudit(entry({ action: 'auth.passwordSet' }), 'x').what).toBe(
+      'set their password',
+    );
+    expect(describeAudit(entry({ action: 'auth.twoStepOn' }), 'x').what).toBe(
+      'turned on two-step sign-in',
+    );
     expect(describeAudit(entry({ action: 'something.new' }), 'x').what).toBe('something.new');
   });
 });

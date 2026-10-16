@@ -115,12 +115,18 @@ export function useAuditLogs(branchId: string, count: number) {
   });
 }
 
-/** "Active now", "12 min ago", "3 hr ago", "Yesterday", "Aug 30". */
-export function describeLastSeen(when: Date | null, now: Date = new Date()): string {
+/**
+ * "Active now", "12 min ago", "3 hr ago", "Yesterday", "Aug 30". A deactivated user is signed
+ * out everywhere, so they are never "Active now", however recently they were seen.
+ */
+export function describeLastSeen(
+  when: Date | null,
+  { now = new Date(), active = true }: { now?: Date; active?: boolean } = {},
+): string {
   if (!when) return 'Never';
   const minutes = Math.floor((now.getTime() - when.getTime()) / 60_000);
-  if (minutes < 5) return 'Active now';
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 5 && active) return 'Active now';
+  if (minutes < 60) return `${Math.max(minutes, 1)} min ago`;
   if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} hr ago`;
   if (minutes < 48 * 60) return 'Yesterday';
   return when.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });

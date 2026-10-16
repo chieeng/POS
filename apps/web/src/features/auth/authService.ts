@@ -40,12 +40,26 @@ export async function pendingSecondStep(): Promise<TotpChallenge | null> {
   return { factorId: totp.id };
 }
 
-/** SYS-03: the server logs the sign-in. A logging failure must not block the user. */
-function recordSignIn() {
-  supabase.rpc('record_sign_in', { p_device_tag: getDeviceTag() }).then(
-    () => undefined,
-    () => undefined,
-  );
+type AccountEvent = 'auth.passwordSet' | 'auth.twoStepOn';
+
+/**
+ * SYS-03: the server logs the account events, then the sign-in, in that order. It refuses an
+ * Owner's sign-in until the second step is passed. A logging failure must not block the user.
+ */
+function record(...events: AccountEvent[]) {
+  const p_device_tag = getDeviceTag();
+  void (async () => {
+    for (const p_action of events) {
+      await supabase.rpc('record_account_event', { p_action, p_device_tag }).then(
+        () => undefined,
+        () => undefined,
+      );
+    }
+    await supabase.rpc('record_sign_in', { p_device_tag }).then(
+      () => undefined,
+      () => undefined,
+    );
+  })();
 }
 
 /**
@@ -76,7 +90,7 @@ export async function signIn(
   }
   signingIn = false;
   clearIdleState();
-  recordSignIn();
+  record();
   return { kind: 'signedIn' };
 }
 
@@ -88,7 +102,7 @@ export async function verifyTotp(challenge: TotpChallenge, code: string): Promis
   if (error) throw error;
   signingIn = false;
   clearIdleState();
-  recordSignIn();
+  record();
 }
 
 /** "Back" on the code screen: the password-only session is dropped. */
@@ -187,6 +201,7 @@ export async function finishTotpEnrollment(
     code,
   });
   if (error) throw error;
+  record('auth.twoStepOn');
 }
 
 /**
@@ -209,7 +224,7 @@ export async function setNewPassword(password: string): Promise<void> {
   if (error) throw error;
   useSession.getState().setPasswordSetup(false);
   clearIdleState();
-  recordSignIn();
+  record('auth.passwordSet');
 }
 
 // The last verified session, kept so the app can open offline (NFR-02) when the token
