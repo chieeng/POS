@@ -15,7 +15,7 @@ mistake or a lost project.
 - **Who can read them:** only someone holding the **backup key** (see below). Cloudflare,
   GitHub and anyone with the R2 password see only scrambled data.
 
-If a nightly backup fails, GitHub emails the repository owner. If backups stop running at all,
+If a nightly backup fails, GitHub emails the repository owner. If nightly backups stop running,
 the daily Heartbeat workflow fails and GitHub emails the same way.
 
 ## The backup key
