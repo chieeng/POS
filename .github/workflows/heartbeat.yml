@@ -65,6 +65,38 @@ jobs:
           ping production "$PROD_URL" "$PROD_KEY"
           exit "$failed"
 
+      # SYS-04: backup.yml emails on a failed run, but a run that never starts sends nothing.
+      # This catches that: the last successful nightly backup must be under 30 hours old.
+      - name: Last nightly backup is recent
+        if: always() && vars.BACKUP_ENABLED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          now=$(date -u +%s)
+          last=$(gh run list --repo "$REPO" --workflow backup.yml --event schedule \
+            --status success --limit 1 --json createdAt --jq '.[0].createdAt // empty')
+          if [ -z "$last" ]; then
+            # No nightly backup yet: fine only while the workflow itself is new.
+            since=$(gh api "repos/$REPO/actions/workflows/backup.yml" --jq '.created_at') || since=""
+            if [ -z "$since" ]; then
+              echo "::error::BACKUP_ENABLED is true but backup.yml is not on the default branch yet."
+              exit 1
+            fi
+            if [ $(( now - $(date -u -d "$since" +%s) )) -lt $(( 30 * 3600 )) ]; then
+              echo "No nightly backup yet; backup.yml was added less than 30 hours ago."
+              exit 0
+            fi
+            echo "::error::There has never been a successful nightly backup. Check the Backup workflow."
+            exit 1
+          fi
+          hours=$(( (now - $(date -u -d "$last" +%s)) / 3600 ))
+          if [ "$hours" -ge 30 ]; then
+            echo "::error::The last successful nightly backup was $hours hours ago ($last). Check the Backup workflow."
+            exit 1
+          fi
+          echo "Last nightly backup: $last ($hours hours ago)"
+
       - name: Keep this schedule enabled
         if: always()
         env:

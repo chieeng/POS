@@ -25,7 +25,8 @@ supabase/
   seed.sql                local development accounts only
 scripts/                  one-time bootstrap of the first Owner; local helpers
 apps/web/public/_headers  security headers for Cloudflare Pages
-.github/workflows/        ci.yml, deploy.yml, heartbeat.yml
+.github/workflows/        ci.yml, deploy.yml, heartbeat.yml, backup.yml
+docs/                     SRS.md (requirements), RESTORE.md (backups and restoring)
 ```
 
 ## Requirements
@@ -143,8 +144,8 @@ Do this for `pos-staging` first, then `pos-prod`.
    projects stay on Free (NFR-10); nothing in this setup needs a paid plan.
 2. **Backups:** the Free plan has no backups you can restore and no point-in-time recovery.
    `pos-prod` is protected by a nightly encrypted backup to a private Cloudflare R2 bucket
-   (SYS-04, SEC-15). It is **not built yet** and is required before go-live, together with a
-   restore rehearsed once on staging.
+   (SYS-04, SEC-15). Set it up as in "Backups" below, and rehearse a restore on staging
+   before go-live ([docs/RESTORE.md](docs/RESTORE.md)).
 3. **Authentication settings** (the hosted project does not read `supabase/config.toml`):
    - Sign In / Providers: Email on; **"Allow new users to sign up" off** (SEC-01);
      "Confirm email" on.
@@ -251,6 +252,67 @@ the variables and secrets listed at the top of
 [.github/workflows/heartbeat.yml](.github/workflows/heartbeat.yml) sends each one a request a
 day so it is not paused for inactivity. It needs no secrets, only the four public repository
 variables listed at its top, and it runs only once it is on the default branch.
+
+## Backups
+
+[.github/workflows/backup.yml](.github/workflows/backup.yml) dumps `pos-prod` every night at
+02:23 Manila time, encrypts it with [age](https://age-encryption.org) and uploads it to a
+private Cloudflare R2 bucket. How backups work and how to restore one, step by step:
+[docs/RESTORE.md](docs/RESTORE.md). Backups are **off** until the repository variable
+`BACKUP_ENABLED` is `true`, and the nightly schedule runs only once the workflow is on `main`.
+
+Everything below stays inside R2's free tier (10 GB-month of Standard storage, 1 million
+writes and 10 million reads a month): the database is a few MB, and about 50 files are kept.
+
+**1. Cloudflare (R2)**
+
+1. Dashboard > **R2 Object Storage**. The first time, Cloudflare asks you to enable R2 and
+   add a payment method. R2 has no spend cap: you are billed only above the free tier, which
+   this setup does not come near. Then, under **Notifications**, add an email alert for
+   billing or usage so any charge would be noticed early.
+2. **Create bucket:** name `pos-backups`, location **Automatic**, default storage class
+   **Standard** (the free tier does not cover Infrequent Access). Leave public access
+   **off**; do not connect a custom domain or turn on the `r2.dev` address.
+3. Bucket > **Settings** > **Object lifecycle rules**, add three rules that delete objects:
+   prefix `daily/` after **35** days, prefix `monthly/` after **400** days, prefix
+   `staging/` after **7** days. Do not add any rule that moves objects to Infrequent Access.
+4. Optional, recommended: bucket > **Settings** > **Bucket lock rules**: prefix `daily/`
+   retained **30** days, prefix `monthly/` **365** days. Then even someone holding the API
+   token cannot delete recent backups.
+5. R2 > **Manage API tokens** > **Create API token** (an account token): permission **Object
+   Read & Write**, applied to the **`pos-backups` bucket only**, no expiry. The page shows an
+   **Access Key ID** and a **Secret Access Key** once: put them straight into GitHub (step 3
+   below), nowhere else. Note the **Account ID** shown on the R2 overview page.
+
+**2. The backup key** (on the Owner's PC, in PowerShell):
+
+```powershell
+winget install --id FiloSottile.age
+# close and reopen PowerShell, then:
+age-keygen -o D:\pos-backup-key.txt
+```
+
+It prints `Public key: age1...`: that goes into GitHub. Open `D:\pos-backup-key.txt` and save
+its whole content in your password manager as "POS backup key", print one copy for a safe
+place, then delete the file and empty the Recycle Bin. **Without this key no backup can be
+restored**, and it must never be put in GitHub, Cloudflare or this repository.
+
+**3. GitHub**
+
+1. Settings > Environments > **New environment** `backup-production`: no required reviewers
+   (the nightly run would wait for approval); Deployment branches: **Selected branches**,
+   `main` only. Then `backup-staging`, the same but with `main` and `dev`.
+2. In each, add the variables and secrets listed at the top of
+   [.github/workflows/backup.yml](.github/workflows/backup.yml): the project's reference id,
+   pooler host and database password (as for the Deploy environments, but for that project),
+   `R2_ACCOUNT_ID`, `R2_BUCKET` (`pos-backups`), the two R2 keys, and
+   `BACKUP_AGE_RECIPIENTS` (the `age1...` public key).
+3. Settings > Secrets and variables > Actions > Variables: `BACKUP_ENABLED` = `true`.
+4. github.com/settings/notifications > **Actions**: email on, "only notify for failed
+   workflows". GitHub sends scheduled-run failures to whoever last changed the schedule,
+   which is you.
+5. Run **Backup** once by hand (Actions > Backup > Run workflow, branch `dev`, target
+   `staging`) and check the file appears in the bucket's `staging/` folder.
 
 Repository and account settings (SEC-10, SEC-11): protect `main` (pull request review and
 the CI check required); turn on secret scanning with push protection and Dependabot alerts;
