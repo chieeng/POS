@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { IdleLock } from '@/features/auth/IdleLock';
 import { IDLE_LOCK_MINUTES_DEFAULT } from '@/features/auth/idleStorage';
 import { useIdleLock } from '@/features/auth/useIdleLock';
+import { BranchContext, useBranchQuery } from '@/features/store/data';
 import { useDeviceHeartbeat } from '@/hooks/useDeviceHeartbeat';
 import { useSession } from '@/stores/session';
 import { SET_PASSWORD_PATH, TWO_STEP_SETUP_PATH } from './paths';
@@ -16,8 +17,10 @@ export function ProtectedLayout() {
   const locked = useSession((s) => s.locked);
   const passwordSetup = useSession((s) => s.passwordSetup);
   const location = useLocation();
-  // The branch's idleLockMinutes setting (SYS-01) replaces this default with the settings screen.
-  const idleMinutes = IDLE_LOCK_MINUTES_DEFAULT;
+  // SYS-01: the signed-in user's branch, live, shared with every screen below. Its idle lock
+  // time applies on every device; until it loads, the default applies.
+  const branch = useBranchQuery(status === 'signedIn' ? user?.branchId : undefined);
+  const idleMinutes = branch.data[0]?.idleLockMinutes ?? IDLE_LOCK_MINUTES_DEFAULT;
   useIdleLock(idleMinutes, status === 'signedIn');
 
   // SYS-02: record this device under the signed-in user and keep its "last seen" fresh.
@@ -40,7 +43,7 @@ export function ProtectedLayout() {
   }
 
   return (
-    <>
+    <BranchContext.Provider value={branch}>
       <div
         className={locked ? 'pointer-events-none opacity-60 blur-[14px] select-none' : undefined}
         aria-hidden={locked || undefined}
@@ -49,7 +52,7 @@ export function ProtectedLayout() {
         <Outlet />
       </div>
       {locked && <IdleLock user={user} minutes={idleMinutes} />}
-    </>
+    </BranchContext.Provider>
   );
 }
 

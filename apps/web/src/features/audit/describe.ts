@@ -6,6 +6,7 @@ import {
   ScrollText,
   ShieldCheck,
   ShieldPlus,
+  Store,
   UserPen,
   UserPlus,
   UserX,
@@ -31,9 +32,23 @@ export const ACTION_LABELS: Record<string, string> = {
   'user.deactivate': 'Deactivations',
   'user.signOutEverywhere': 'Sign-outs of all devices',
   'user.passwordResetLink': 'Password reset links',
+  'branch.update': 'Store settings changes',
 };
 
-const FIELD_LABELS: Record<string, string> = { displayName: 'Name', userCode: 'Code' };
+const FIELD_LABELS: Record<string, string> = {
+  displayName: 'Name',
+  userCode: 'Code',
+  name: 'Store name',
+  address: 'Address',
+  contact: 'Contact',
+  tin: 'TIN',
+  receipt_footer: 'Receipt footer',
+  sales_discount_limit: 'Discount limit',
+  idle_lock_minutes: 'Lock after (min)',
+  store_lat: 'Latitude',
+  store_lng: 'Longitude',
+  radius_m: 'Radius (m)',
+};
 
 function roleLabel(value: unknown): string {
   return typeof value === 'string' && value in ROLE_LABELS ? ROLE_LABELS[value as Role] : '—';
@@ -69,6 +84,14 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
         icon: ShieldCheck,
         what: `changed the role of ${target}`,
         change: `${roleLabel(before.role)} → ${roleLabel(after.role)}`,
+      };
+    case 'branch.update':
+      return {
+        icon: Store,
+        what: 'changed store settings',
+        change: Object.keys(after)
+          .map((key) => `${FIELD_LABELS[key] ?? key}: ${text(before[key])} → ${text(after[key])}`)
+          .join(' · '),
       };
     case 'user.deactivate':
       return { icon: UserX, what: `deactivated ${target}`, change: entry.reason ?? '' };

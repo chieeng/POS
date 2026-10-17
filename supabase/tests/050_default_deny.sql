@@ -1,15 +1,29 @@
--- Default deny (SRS 6.2): a table with no policy and no grant gives every caller nothing.
--- `branches` is the one such table today; store settings (SYS-01) will open it later.
+-- Default deny (SRS 6.2): what has no policy and no grant gives every caller nothing.
+-- `branches` is readable by the branch's own active users (SYS-01) and writable by nobody
+-- directly: the Owner changes it through update_branch_settings (080_store_settings.sql).
 begin;
 select * from no_plan();
 select tests.fixture();
 
 select is(
   tests.rows(caller, 'select * from public.branches'),
-  -1::bigint,
+  1::bigint,
+  caller || ' reads exactly one branch: their own'
+)
+from unnest(array['sales', 'special', 'owner', 'other_owner']) as caller;
+
+select is(
+  tests.rows('sales', $$select * from public.branches where id = 'tother'$$),
+  0::bigint,
+  'a user cannot read another branch'
+);
+
+select is(
+  tests.rows(caller, 'select * from public.branches'),
+  case when caller = 'anon' then -1 else 0 end::bigint,
   caller || ' cannot read branches'
 )
-from unnest(tests.everyone()) as caller;
+from unnest(tests.no_access()) as caller;
 
 select is(
   tests.run(caller, $$insert into public.branches (id, name) values ('hacked', 'Hacked')$$),
@@ -21,7 +35,7 @@ from unnest(tests.everyone()) as caller;
 select is(
   tests.run(caller, $$update public.branches set name = 'Hacked'$$),
   '42501',
-  caller || ' cannot change a branch'
+  caller || ' cannot change a branch directly'
 )
 from unnest(tests.everyone()) as caller;
 
