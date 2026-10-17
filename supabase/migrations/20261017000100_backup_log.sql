@@ -1,7 +1,8 @@
 -- SYS-04: one row per backup file made by the Backup workflow (.github/workflows/backup.yml).
 -- The workflow writes it over the database connection, as `postgres`, after the encrypted
--- file is uploaded; no API role can write here. The app shows the Owner the last backup and
--- reminds them when the last manual one is more than 7 days old.
+-- file is uploaded; no API role can write here. Backups are made by the developer who
+-- maintains the system; the app shows the store's Owner the last backup date, read-only, and
+-- a calm note when the last manual one is more than 7 days old.
 --
 -- A backup covers the whole project, not one branch, so there is no branch_id: any Owner
 -- with the second step may read it. Rows hold no data from the backup, only facts about the
@@ -9,7 +10,7 @@
 create table public.backup_log (
   id bigint generated always as identity primary key,
   created_at timestamptz not null default now(),
-  -- manual: "Run workflow" by the Owner, kept on GitHub for 1 day, to be saved offline.
+  -- manual: "Run workflow" by the developer, kept on GitHub for 1 day, saved offline.
   -- nightly: the schedule, kept on GitHub for 7 days only.
   kind text not null check (kind in ('manual', 'nightly')),
   file_name text not null check (file_name ~ '^pos-(prod|staging)-[0-9-]+\.tar\.gz\.age$'),

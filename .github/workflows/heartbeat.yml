@@ -14,6 +14,13 @@ name: Heartbeat
 # the database. Any answer from a running project counts as alive; a paused or unreachable
 # project fails the run, and GitHub emails the repository owner.
 #
+# It also reminds the developer to make a backup (SYS-04): the run fails, so GitHub emails
+# the repository owner, when the last successful MANUAL production backup is more than 7 days
+# old. It reads that from the Backup workflow's own run history, not the database, so this
+# workflow still needs no secrets: a manual run succeeds only after its last step has added
+# the row to public.backup_log. Before go-live (repository variable GO_LIVE not "true") an
+# overdue backup is only a warning.
+#
 # Scheduled workflows only run from the default branch. GitHub also turns schedules off in a
 # public repository after 60 days without repository activity, so each run re-enables this
 # workflow, which restarts that countdown.
@@ -64,6 +71,34 @@ jobs:
           ping staging "$STAGING_URL" "$STAGING_KEY"
           ping production "$PROD_URL" "$PROD_KEY"
           exit "$failed"
+
+      # SYS-04: the reminder for the developer. "Manual backup (production)" is backup.yml's
+      # run-name for a manual production run; only a run from main can reach production.
+      - name: Last manual backup is recent
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          GO_LIVE: ${{ vars.GO_LIVE }}
+        run: |
+          overdue() {
+            if [ "$GO_LIVE" = true ]; then
+              echo "::error::$1 Make a manual production backup (Actions > Backup > Run workflow) and save it offline."
+              exit 1
+            fi
+            echo "::warning::$1 (Only a warning until the repository variable GO_LIVE is true.)"
+            exit 0
+          }
+          if ! runs=$(gh run list --repo "$REPO" --workflow backup.yml --event workflow_dispatch \
+            --status success --limit 100 --json displayTitle,createdAt 2>/dev/null); then
+            overdue "The Backup workflow is not on the default branch yet."
+          fi
+          last=$(jq -r 'map(select(.displayTitle == "Manual backup (production)"))
+            | (.[0].createdAt // empty)' <<<"$runs")
+          [ -n "$last" ] || overdue "There has never been a successful manual production backup."
+          days=$(( ($(date -u +%s) - $(date -u -d "$last" +%s)) / 86400 ))
+          [ "$days" -lt 7 ] || overdue "The last manual production backup was $days days ago ($last)."
+          echo "Last manual production backup: $last ($days days ago)"
 
       - name: Keep this schedule enabled
         if: always()

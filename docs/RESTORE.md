@@ -5,12 +5,17 @@ The Supabase Free plan has no backups of its own. The **Backup** workflow
 into one encrypted file (SYS-04, SEC-15). These files are the only way back after a mistake
 or a lost project.
 
-- **Manual backups** are the ones that count. The Owner makes one at least **every 7 days**
-  (more often before payroll or a big stock count), downloads it, and saves it to their PC
-  **and** Google Drive. GitHub keeps its copy for 1 day only.
+**The developer who maintains the system makes, keeps and restores the backups.** The
+store's Owner uses the app but has no GitHub access and nothing to do here: the app shows
+them the last backup date (Settings > Backups) and, when a backup is overdue, a calm note on
+their home screen saying the system administrator has been notified.
+
+- **Manual backups** are the ones that count. The developer makes one at least **every 7
+  days** (more often before payroll or a big stock count), downloads it, and saves it to
+  their PC **and** Google Drive. GitHub keeps its copy for 1 day only.
 - **Nightly backups** run at 02:23 Manila time, production only, and stay on GitHub for
   7 days. They are a safety net between manual backups: nothing is saved off GitHub, so
-  they do not count for the app's reminder.
+  they do not count as a backup being made.
 - **What is in a backup:** every user account (with password hashes and authenticator-app
   secrets, so everyone keeps their password and two-step sign-in), every table of the app,
   and the list of migrations the database had.
@@ -21,15 +26,15 @@ or a lost project.
   unreadable without the key. The public run logs show only when a backup ran, the file
   name and its size.
 
-The app shows the last backup under **Settings > Backups**, and the Owner's home shows a
-reminder when the last manual backup is more than 7 days old. If a nightly backup fails,
-GitHub emails the repository owner.
+**Reminders reach the developer, by email from GitHub:** the daily Heartbeat workflow fails
+when the last successful manual production backup is more than 7 days old (once the
+repository variable `GO_LIVE` is `true`; before go-live it is only a warning), and a failed
+nightly backup fails its own run.
 
 ## Making a backup
 
 1. GitHub > **Actions** > **Backup** > **Run workflow**. Keep branch **main** and target
-   **production**, and press the green **Run workflow** button. (Settings > Backups in the
-   app links straight there.)
+   **production**, and press the green **Run workflow** button.
 2. Wait about 2 minutes for the green tick, then open the run.
 3. Under **Artifacts**, download the file. It is named like
    `pos-prod-2026-10-17-0930.tar.gz.age` (date and time in Manila). GitHub downloads it
@@ -47,8 +52,9 @@ Backups are encrypted with [age](https://age-encryption.org). The key comes in t
 - the **public key** (`age1...`) is in GitHub as `BACKUP_AGE_RECIPIENTS`. It can only lock
   files, never open them;
 - the **private key** (`AGE-SECRET-KEY-1...`) opens them. It is **not** in GitHub, Cloudflare
-  or this repository. The Owner keeps it in a password manager and on one printed copy in a
-  safe place.
+  or this repository. The developer keeps it in a password manager and on one printed copy
+  in a safe place. If the system is ever handed to someone else, hand the key over the same
+  way (in person or through a password manager), never by email or chat.
 
 **If the private key is lost, every backup is unreadable.** If it is leaked, make a new key
 pair, replace the public key in GitHub, and keep the old private key only for old backups.
@@ -59,7 +65,7 @@ which is why manual files stay there 1 day and you delete them once saved.
 
 ## How to restore, step by step
 
-Read the whole section once before starting. Take your time: nothing changes in the database
+This is for the developer. Read the whole section once before starting. Take your time: nothing changes in the database
 until step 6, and if anything goes wrong during step 6 the database is left exactly as it was.
 
 ### 1. What you need
@@ -149,11 +155,13 @@ docker run --rm -it -v D:\restore:/restore postgres:17 psql "postgresql://postgr
 
 ### 7. Check the app
 
-1. Open the app and sign in as the Owner, with your authenticator app.
+1. Open the app and sign in as an Owner, with the authenticator app (on staging, your own
+   staging Owner; on production, ask the store's Owner to check with you).
 2. **Settings > Users:** the people and their roles are as they were on the backup's date.
 3. **Settings > Audit log:** the newest entries are from just before the backup time.
 4. **Settings > Backups** also goes back to that moment, so the backup you just restored may
-   not be listed. Make a fresh manual backup once everything looks right.
+   not be listed, and the Owner may see the "overdue" note. Make a fresh manual backup once
+   everything looks right.
 5. Anyone who signed in after the backup time is signed out and signs in again with their
    usual password.
 

@@ -4,22 +4,26 @@ name: Backup
 # backups we can restore, so these files are the only way back. How to make, save and restore
 # one: docs/RESTORE.md.
 #
-#   Manual   GitHub > Actions > Backup > Run workflow. Keeps the file on GitHub for 1 day:
-#            download it and save it to your PC or Google Drive. These are the backups the
-#            app counts for its 7-day reminder.
+#   Manual   GitHub > Actions > Backup > Run workflow, by the developer who maintains the
+#            system (the store's Owner has no GitHub access). Keeps the file on GitHub for
+#            1 day: download it and save it offline (PC and Google Drive). At least every
+#            7 days; heartbeat.yml fails, so GitHub emails the developer, when the last
+#            successful manual production backup is older than that.
 #   Nightly  02:23 Manila time, production only, kept on GitHub for 7 days. A safety net
 #            between manual backups, not a replacement: nothing is saved off GitHub.
 #
 # The file is attached to the run as an artifact. This repository is PUBLIC, so anyone signed
 # in to GitHub can download it while it is kept; that is why it is encrypted with age to the
 # public key(s) in BACKUP_AGE_RECIPIENTS. The matching private key is not in GitHub: the
-# Owner keeps it offline. Logs show only the time, the file name and its size.
+# developer keeps it offline. Logs show only the time, the file name and its size.
 #
-# Each successful run adds a row to public.backup_log in the project it backed up, which the
-# app shows the Owner (Settings > Backups).
+# Each successful run adds a row to public.backup_log in the project it backed up, as its last
+# step, so a successful run always has its row. The app shows the store's Owner the last
+# backup date, read-only, and a calm "overdue" note; it never shows how to make one.
 #
-# Alerts: a failed nightly run makes GitHub email the repository owner; the app reminds the
-# Owner when the last manual backup is more than 7 days old.
+# Alerts (to the developer): a failed nightly run emails the repository owner; heartbeat.yml
+# fails when the last successful manual production backup is more than 7 days old. Its run
+# name ("Manual backup (production)") is what heartbeat.yml looks for: keep them in step.
 #
 # The nightly schedule only runs from the default branch (main), and only once the
 # repository variable BACKUP_ENABLED is "true". Manual runs do not need it.
@@ -31,6 +35,10 @@ name: Backup
 #   Variable  SUPABASE_DB_HOST        the SESSION POOLER host (as in deploy.yml)
 #   Secret    SUPABASE_DB_PASSWORD    the project's database password
 #   Variable  BACKUP_AGE_RECIPIENTS   one or more age PUBLIC keys (age1...), space separated
+run-name: >-
+  ${{ github.event_name == 'schedule' && 'Nightly backup (production)'
+  || format('Manual backup ({0})', inputs.target) }}
+
 on:
   schedule:
     - cron: '23 18 * * *' # daily, 02:23 in Manila

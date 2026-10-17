@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { BackupReminder } from './BackupReminder';
 import { BackupsPage } from './BackupsPage';
@@ -10,6 +9,9 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
+vi.mock('@/features/settings/PageHeader', () => ({
+  PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
+}));
 vi.mock('./data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./data')>()),
   useBackups: () => state.backups,
@@ -17,23 +19,10 @@ vi.mock('./data', async (importOriginal) => ({
 
 const DAY = 24 * 60 * 60 * 1000;
 const now = new Date('2026-10-17T12:00:00+08:00');
+const OVERDUE = 'Data backup is overdue. Your system administrator has been notified.';
 
-function backup(kind: BackupRecord['kind'], daysAgo: number, keepDays = 1): BackupRecord {
-  const createdAt = new Date(Date.now() - daysAgo * DAY);
-  return {
-    id: `${kind}-${daysAgo}`,
-    createdAt,
-    kind,
-    fileName: 'pos-prod-2026-10-17-0930.tar.gz.age',
-    sizeBytes: 18578,
-    runUrl: 'https://github.com/chieeng/POS/actions/runs/1',
-    expiresAt: new Date(createdAt.getTime() + keepDays * DAY),
-  };
-}
-
-function renderInRouter(element: React.ReactNode) {
-  const router = createMemoryRouter([{ path: '/', element }], { initialEntries: ['/'] });
-  render(<RouterProvider router={router} />);
+function backup(kind: BackupRecord['kind'], daysAgo: number, from = new Date()): BackupRecord {
+  return { id: `${kind}-${daysAgo}`, kind, createdAt: new Date(from.getTime() - daysAgo * DAY) };
 }
 
 beforeEach(() => {
@@ -41,34 +30,31 @@ beforeEach(() => {
 });
 
 describe('backupStatus (SYS-04)', () => {
-  const at = (kind: BackupRecord['kind'], days: number): BackupRecord => ({
-    ...backup(kind, 0),
-    createdAt: new Date(now.getTime() - days * DAY),
-  });
-
   test('no backup at all is overdue', () => {
     expect(backupStatus([], now)).toMatchObject({ lastManual: null, overdue: true });
   });
 
   test('a manual backup within 7 days is fine; older is overdue', () => {
-    expect(backupStatus([at('manual', 3)], now)).toMatchObject({
+    expect(backupStatus([backup('manual', 3, now)], now)).toMatchObject({
       manualDaysAgo: 3,
       overdue: false,
     });
-    expect(backupStatus([at('manual', 7)], now).overdue).toBe(false);
-    expect(backupStatus([at('manual', 7.5)], now).overdue).toBe(true);
+    expect(backupStatus([backup('manual', 7, now)], now).overdue).toBe(false);
+    expect(backupStatus([backup('manual', 7.5, now)], now).overdue).toBe(true);
   });
 
-  test('nightly backups never count for the reminder', () => {
-    const status = backupStatus([at('nightly', 0), at('manual', 10)], now);
+  test('nightly backups never count', () => {
+    const status = backupStatus([backup('nightly', 0, now), backup('manual', 10, now)], now);
     expect(status.lastNightly).not.toBeNull();
     expect(status.manualDaysAgo).toBe(10);
     expect(status.overdue).toBe(true);
-    expect(backupStatus([at('nightly', 0)], now).overdue).toBe(true);
+    expect(backupStatus([backup('nightly', 0, now)], now).overdue).toBe(true);
   });
 
   test('picks the newest manual backup', () => {
-    expect(backupStatus([at('manual', 9), at('manual', 2)], now).manualDaysAgo).toBe(2);
+    expect(
+      backupStatus([backup('manual', 9, now), backup('manual', 2, now)], now).manualDaysAgo,
+    ).toBe(2);
   });
 
   test('describeDaysAgo', () => {
@@ -78,65 +64,59 @@ describe('backupStatus (SYS-04)', () => {
   });
 });
 
-describe('BackupReminder on the Owner home', () => {
-  test('shows when the last manual backup is more than 7 days old', () => {
-    state.backups.data = [backup('manual', 9), backup('nightly', 0, 7)];
-    renderInRouter(<BackupReminder />);
-    expect(screen.getByRole('alert')).toHaveTextContent('Your last backup was 9 days ago.');
-    expect(screen.getByRole('link', { name: 'Backups' })).toHaveAttribute(
-      'href',
-      '/settings/backups',
-    );
+describe('the Owner home note', () => {
+  test('says the administrator was notified when a backup is overdue, with no steps or links', () => {
+    state.backups.data = [backup('manual', 9), backup('nightly', 0)];
+    render(<BackupReminder />);
+    expect(screen.getByRole('status')).toHaveTextContent(OVERDUE);
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByText(/GitHub/i)).toBeNull();
   });
 
   test('shows when there has never been a backup', () => {
-    renderInRouter(<BackupReminder />);
-    expect(screen.getByRole('alert')).toHaveTextContent('You have not made a backup yet.');
+    render(<BackupReminder />);
+    expect(screen.getByRole('status')).toHaveTextContent(OVERDUE);
   });
 
   test('stays hidden after a recent manual backup', () => {
     state.backups.data = [backup('manual', 2)];
-    renderInRouter(<BackupReminder />);
-    expect(screen.queryByRole('alert')).toBeNull();
+    render(<BackupReminder />);
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   test('stays hidden while loading or when the list cannot be read', () => {
     state.backups = { data: [], loading: true, error: false };
     const { unmount } = render(<BackupReminder />);
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
     unmount();
     state.backups = { data: [], loading: false, error: true };
     render(<BackupReminder />);
-    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });
 
-describe('Settings > Backups', () => {
-  test('shows the last saved backup, the steps and the GitHub link', () => {
-    state.backups.data = [backup('nightly', 0, 7), backup('manual', 3)];
-    renderInRouter(<BackupsPage />);
+describe('Settings > Backups (read-only)', () => {
+  test('shows the last backup and the last nightly copy, and nothing to do', () => {
+    state.backups.data = [backup('nightly', 0), backup('manual', 3)];
+    render(<BackupsPage />);
     expect(screen.getByText(/3 days ago/)).toBeInTheDocument();
-    expect(screen.queryByText(/more than 7 days old/)).toBeNull();
-    expect(screen.getByText(/Last nightly backup:/)).toBeInTheDocument();
-    const open = screen.getByRole('link', { name: /Open the Backup workflow on GitHub/ });
-    expect(open).toHaveAttribute(
-      'href',
-      'https://github.com/chieeng/POS/actions/workflows/backup.yml',
-    );
-    expect(open).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(screen.getByText(/Last automatic nightly copy:/)).toBeInTheDocument();
+    expect(screen.queryByText(OVERDUE)).toBeNull();
+    expect(screen.getByText(/made and kept safe by your system administrator/)).toBeInTheDocument();
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByText(/GitHub/i)).toBeNull();
   });
 
-  test('lists recent backups, linking only those still on GitHub', () => {
-    state.backups.data = [backup('nightly', 0, 7), backup('manual', 3)];
-    renderInRouter(<BackupsPage />);
-    expect(screen.getByText(/Nightly · 18 KB/)).toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /Download until/ })).toHaveLength(1);
-    expect(screen.getByText('No longer on GitHub')).toBeInTheDocument();
+  test('says when a backup is overdue', () => {
+    state.backups.data = [backup('manual', 9)];
+    render(<BackupsPage />);
+    expect(screen.getByText(OVERDUE)).toBeInTheDocument();
   });
 
-  test('warns when there is no backup yet', () => {
-    renderInRouter(<BackupsPage />);
+  test('says when there is no backup yet', () => {
+    render(<BackupsPage />);
     expect(screen.getByText('No backup yet')).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('There is no backup yet.');
+    expect(screen.getByText(OVERDUE)).toBeInTheDocument();
   });
 });

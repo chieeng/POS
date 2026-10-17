@@ -1,11 +1,10 @@
 import { useLiveRows } from '@/hooks/useLiveRows';
 import { supabase } from '@/lib/supabase';
 
-/** Where the Owner makes a backup (.github/workflows/backup.yml). The repository is public. */
-export const BACKUP_WORKFLOW_URL = 'https://github.com/chieeng/POS/actions/workflows/backup.yml';
-export const RESTORE_GUIDE_URL = 'https://github.com/chieeng/POS/blob/main/docs/RESTORE.md';
-
-/** SYS-04: the Owner is reminded when the last manual backup is older than this. */
+/**
+ * SYS-04: a backup is overdue when the last manual one is older than this. The developer who
+ * maintains the system makes them; heartbeat.yml emails them on the same rule.
+ */
 export const REMIND_AFTER_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -13,12 +12,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export interface BackupRecord {
   id: string;
   createdAt: Date;
-  /** manual: made by the Owner, to be saved offline. nightly: kept on GitHub only. */
+  /** manual: made by the developer and saved offline. nightly: kept on GitHub only. */
   kind: 'manual' | 'nightly';
-  fileName: string;
-  sizeBytes: number;
-  runUrl: string;
-  expiresAt: Date;
 }
 
 type Row = Record<string, unknown>;
@@ -27,10 +22,6 @@ const toBackup = (row: Row): BackupRecord => ({
   id: String(row.id ?? ''),
   createdAt: new Date(String(row.created_at)),
   kind: row.kind === 'nightly' ? 'nightly' : 'manual',
-  fileName: String(row.file_name ?? ''),
-  sizeBytes: Number(row.size_bytes ?? 0),
-  runUrl: String(row.run_url ?? ''),
-  expiresAt: new Date(String(row.expires_at)),
 });
 
 /** The latest backups, newest first. Row Level Security shows them to an Owner only. */
@@ -41,7 +32,7 @@ export function useBackups(count = 20) {
     load: () =>
       supabase
         .from('backup_log')
-        .select('id, created_at, kind, file_name, size_bytes, run_url, expires_at')
+        .select('id, created_at, kind')
         .order('created_at', { ascending: false })
         .limit(count),
     map: toBackup,
@@ -58,8 +49,8 @@ export interface BackupStatus {
 }
 
 /**
- * Only manual backups count for the reminder: they are the ones the Owner saves to their PC
- * or Google Drive. A nightly file stays on GitHub for 7 days and is then gone.
+ * Only manual backups count: they are the ones the developer saves offline. A nightly file
+ * stays on GitHub for 7 days and is then gone.
  */
 export function backupStatus(backups: BackupRecord[], now: Date = new Date()): BackupStatus {
   const newest = (kind: BackupRecord['kind']) =>
@@ -94,8 +85,3 @@ export const formatBackupTime = (when: Date) =>
     hour: 'numeric',
     minute: '2-digit',
   });
-
-export const formatSize = (bytes: number) =>
-  bytes < 1024 * 1024
-    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;

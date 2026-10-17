@@ -143,7 +143,7 @@ Do this for `pos-staging` first, then `pos-prod`.
 1. **Create the project** in region Southeast Asia (Singapore), on the **Free plan**. Both
    projects stay on Free (NFR-10); nothing in this setup needs a paid plan.
 2. **Backups:** the Free plan has no backups you can restore and no point-in-time recovery.
-   Backups are made by the Backup workflow and saved by the Owner (SYS-04, SEC-15). Set it up
+   Backups are made by the Backup workflow and saved by the developer (SYS-04, SEC-15). Set it up
    as in "Backups" below, and rehearse a restore on staging before go-live
    ([docs/RESTORE.md](docs/RESTORE.md)).
 3. **Authentication settings** (the hosted project does not read `supabase/config.toml`):
@@ -255,24 +255,32 @@ variables listed at its top, and it runs only once it is on the default branch.
 
 ## Backups
 
+The **developer who maintains the system makes and keeps the backups.** The store's Owner
+uses the app but has no GitHub access: they see only the last backup date (Settings >
+Backups) and, when one is overdue, a calm note on their home screen saying the system
+administrator has been notified.
+
 [.github/workflows/backup.yml](.github/workflows/backup.yml) dumps the database, encrypts it
 with [age](https://age-encryption.org) and attaches the encrypted file to the run. Everything
 is free: no paid service and no card anywhere.
 
-- **Manual** (GitHub > Actions > Backup > Run workflow): kept on GitHub for **1 day**. The
-  Owner downloads it and saves it to their PC and Google Drive, at least every 7 days. The
-  app shows the last one (Settings > Backups) and reminds the Owner on their home screen when
-  it is more than 7 days old.
+- **Manual** (GitHub > Actions > Backup > Run workflow, branch `main`, target `production`):
+  kept on GitHub for **1 day**. The developer downloads it and saves it to their PC and
+  Google Drive, **at least every 7 days**, and before payroll or a big stock count.
 - **Nightly** (02:23 Manila time, production only): kept on GitHub for **7 days**, as a
   safety net. It runs only from `main`, and only once `BACKUP_ENABLED` is `true`.
+- **Reminder:** the daily [Heartbeat](.github/workflows/heartbeat.yml) fails, and GitHub
+  emails the developer, when the last successful manual production backup is more than
+  7 days old. Before go-live (`GO_LIVE` not `true`) it is only a warning in the run.
 
 The repository is public, so a file can be downloaded by anyone signed in to GitHub while it
-is kept there. It is unreadable without the backup key, which is never in GitHub. How to make,
-save and restore a backup, and the one-time staging rehearsal: [docs/RESTORE.md](docs/RESTORE.md).
+is kept there. It is unreadable without the backup key, which the developer keeps offline and
+never puts in GitHub. How to make, save and restore a backup, and the one-time staging
+rehearsal: [docs/RESTORE.md](docs/RESTORE.md).
 
-**Setup, once:**
+**Setup, once (developer):**
 
-1. **The backup key** (on the Owner's PC, in PowerShell):
+1. **The backup key** (in PowerShell):
 
    ```powershell
    winget install --id FiloSottile.age
@@ -297,11 +305,8 @@ save and restore a backup, and the one-time staging rehearsal: [docs/RESTORE.md]
 4. **Alerts:** github.com/settings/notifications > **Actions**: email on, "only notify for
    failed workflows". GitHub sends scheduled-run failures to whoever last changed the
    schedule, which is you.
-
-Repository and account settings (SEC-10, SEC-11): protect `main` (pull request review and
-the CI check required); turn on secret scanning with push protection and Dependabot alerts;
-use two-factor on the Supabase, GitHub and Cloudflare accounts; only the Owner is an owner of
-the Supabase organization.
+5. **At go-live** (when the production Owner exists): make a manual production backup, then
+   set the repository variable `GO_LIVE` = `true`, so an overdue backup fails the Heartbeat.
 
 ## This repository is public
 

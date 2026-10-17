@@ -1,28 +1,29 @@
-import { Link } from 'react-router-dom';
-import { Alert } from '@/components/ui/alert';
-import { backupStatus, describeDaysAgo, REMIND_AFTER_DAYS, useBackups } from './data';
+import { DatabaseBackup } from 'lucide-react';
+import { ICON_STROKE } from '@/lib/utils';
+import { backupStatus, useBackups } from './data';
 
 /**
- * SYS-04: on the Owner's home, a reminder when the last manual backup is more than 7 days
- * old, or there has never been one. Silent while loading or if the list cannot be read.
+ * SYS-04: a calm note on the Owner's home when the last manual backup is more than 7 days
+ * old. Backups are made by the developer who maintains the system, and heartbeat.yml has
+ * already emailed them; the Owner has nothing to do. Silent while loading or on an error.
  */
 export function BackupReminder() {
   const backups = useBackups(10);
   if (backups.loading || backups.error) return null;
-  const status = backupStatus(backups.data);
-  if (!status.overdue) return null;
+  if (!backupStatus(backups.data).overdue) return null;
 
   return (
-    <Alert variant="warn" className="max-w-[560px]">
-      <span>
-        <b>
-          {status.lastManual && status.manualDaysAgo !== null
-            ? `Your last backup was ${describeDaysAgo(status.manualDaysAgo)}.`
-            : 'You have not made a backup yet.'}
-        </b>{' '}
-        Make one at least every {REMIND_AFTER_DAYS} days.{' '}
-        <Link to="/settings/backups">Backups</Link>
-      </span>
-    </Alert>
+    <p
+      role="status"
+      className="flex max-w-[560px] items-center gap-[10px] rounded-[20px] bg-surface px-4 py-3 text-[14px] leading-[1.4] text-neutral-800"
+    >
+      <DatabaseBackup
+        size={18}
+        strokeWidth={ICON_STROKE}
+        className="flex-none text-neutral-700"
+        aria-hidden
+      />
+      Data backup is overdue. Your system administrator has been notified.
+    </p>
   );
 }
