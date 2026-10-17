@@ -1,9 +1,11 @@
 import {
   KeyRound,
+  LockKeyhole,
   LogIn,
   LogOut,
   ScrollText,
   ShieldCheck,
+  ShieldPlus,
   UserPen,
   UserPlus,
   UserX,
@@ -21,6 +23,8 @@ export interface AuditLine {
 
 export const ACTION_LABELS: Record<string, string> = {
   'auth.signIn': 'Sign-ins',
+  'auth.passwordSet': 'Passwords set',
+  'auth.twoStepOn': 'Two-step sign-in turned on',
   'user.create': 'Users added',
   'user.update': 'User edits',
   'user.setRole': 'Role changes',
@@ -46,6 +50,10 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
   switch (entry.action) {
     case 'auth.signIn':
       return { icon: LogIn, what: 'signed in', change: '' };
+    case 'auth.passwordSet':
+      return { icon: LockKeyhole, what: 'set their password', change: '' };
+    case 'auth.twoStepOn':
+      return { icon: ShieldPlus, what: 'turned on two-step sign-in', change: '' };
     case 'user.create':
       return { icon: UserPlus, what: `added ${target}`, change: roleLabel(after.role) };
     case 'user.update':

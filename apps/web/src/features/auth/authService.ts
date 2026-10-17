@@ -40,12 +40,26 @@ export async function pendingSecondStep(): Promise<TotpChallenge | null> {
   return { factorId: totp.id };
 }
 
-/** SYS-03: the server logs the sign-in. A logging failure must not block the user. */
-function recordSignIn() {
-  supabase.rpc('record_sign_in', { p_device_tag: getDeviceTag() }).then(
-    () => undefined,
-    () => undefined,
-  );
+type AccountEvent = 'auth.passwordSet' | 'auth.twoStepOn';
+
+/**
+ * SYS-03: the server logs the account events, then the sign-in, in that order. It refuses an
+ * Owner's sign-in until the second step is passed. A logging failure must not block the user.
+ */
+function record(...events: AccountEvent[]) {
+  const p_device_tag = getDeviceTag();
+  void (async () => {
+    for (const p_action of events) {
+      await supabase.rpc('record_account_event', { p_action, p_device_tag }).then(
+        () => undefined,
+        () => undefined,
+      );
+    }
+    await supabase.rpc('record_sign_in', { p_device_tag }).then(
+      () => undefined,
+      () => undefined,
+    );
+  })();
 }
 
 /**
@@ -76,7 +90,7 @@ export async function signIn(
   }
   signingIn = false;
   clearIdleState();
-  recordSignIn();
+  record();
   return { kind: 'signedIn' };
 }
 
@@ -88,7 +102,7 @@ export async function verifyTotp(challenge: TotpChallenge, code: string): Promis
   if (error) throw error;
   signingIn = false;
   clearIdleState();
-  recordSignIn();
+  record();
 }
 
 /** "Back" on the code screen: the password-only session is dropped. */
@@ -187,6 +201,7 @@ export async function finishTotpEnrollment(
     code,
   });
   if (error) throw error;
+  record('auth.twoStepOn');
 }
 
 /**
@@ -209,7 +224,7 @@ export async function setNewPassword(password: string): Promise<void> {
   if (error) throw error;
   useSession.getState().setPasswordSetup(false);
   clearIdleState();
-  recordSignIn();
+  record('auth.passwordSet');
 }
 
 // The last verified session, kept so the app can open offline (NFR-02) when the token
@@ -286,46 +301,108 @@ async function resolveSession(session: Session): Promise<Resolved | null> {
 
 let profileChannel: RealtimeChannel | null = null;
 let watchedUid: string | null = null;
+let accessTimer: ReturnType<typeof setInterval> | null = null;
+
+// How often an open screen asks the server again whether it still has access.
+export const ACCESS_CHECK_MS = 60_000;
 
 function stopWatchingProfile() {
   if (profileChannel) void supabase.removeChannel(profileChannel);
   profileChannel = null;
   watchedUid = null;
+  if (accessTimer) clearInterval(accessTimer);
+  accessTimer = null;
+  document.removeEventListener('visibilitychange', onVisible);
+  window.removeEventListener('online', onOnline);
+}
+
+/** Applies the latest copy of the user's own profile row to this device. */
+function applyProfile(uid: string, row: Record<string, unknown>) {
+  const current = useSession.getState().user;
+  if (!current || current.uid !== uid) return;
+  const access = parseProfileAccess(row);
+  if (!access) {
+    void signOutUser('no-access');
+  } else if (access.role !== current.role || access.branchId !== current.branchId) {
+    void signOutUser();
+  } else if (typeof row.display_name === 'string' && row.display_name !== current.displayName) {
+    const renamed = { ...current, displayName: row.display_name };
+    cacheSession(renamed);
+    useSession.getState().setSignedIn(renamed);
+  }
+}
+
+/**
+ * SEC-04, SEC-13: asks the server whether this session still has access, for when a Realtime
+ * message was missed (connection dropped, browser blocked or paused it). The user's own row
+ * is readable even after deactivation, so a deactivated user gets the "no access" notice;
+ * an ended session ("sign out everywhere") is refused by Supabase Auth.
+ */
+export async function recheckAccess(): Promise<void> {
+  const uid = watchedUid;
+  if (!uid || !navigator.onLine) return;
+  const { data: row, error } = await supabase
+    .from('profiles')
+    .select('display_name, role, branch_id, active')
+    .eq('id', uid)
+    .maybeSingle();
+  if (watchedUid !== uid) return;
+  if (!error) applyProfile(uid, row ?? {});
+  if (watchedUid !== uid || useSession.getState().status !== 'signedIn') return;
+
+  const checked = await supabase.auth.getUser();
+  if (watchedUid !== uid || !checked.error) return;
+  // Only a refusal ends the session here; a network or server error is tried again later.
+  const status = (checked.error as { status?: number }).status ?? 0;
+  if (status >= 400 && status < 500) void signOutUser();
+}
+
+function check() {
+  recheckAccess().catch(() => {
+    // Offline or a passing error: the next check tries again.
+  });
+}
+
+function onVisible() {
+  if (document.visibilityState === 'visible') check();
+}
+
+function onOnline() {
+  check();
 }
 
 /**
  * Realtime on the user's own profile row: a deactivation or role change by the Owner signs
  * this device out at once (SEC-04), without waiting for the next request to be refused.
+ * Realtime is best effort, so the server is also asked again every minute while the screen
+ * is visible, when it becomes visible, when the device is back online, and after Realtime
+ * reconnects (messages sent while it was disconnected are not replayed).
  */
 function watchProfile(uid: string) {
   if (watchedUid === uid) return;
   stopWatchingProfile();
   watchedUid = uid;
+  let subscribedBefore = false;
   profileChannel = supabase
     .channel(`profile:${uid}`)
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${uid}` },
-      (payload) => {
-        const current = useSession.getState().user;
-        if (!current || current.uid !== uid) return;
-        const row = payload.new as Record<string, unknown>;
-        const access = parseProfileAccess(row);
-        if (!access) {
-          void signOutUser('no-access');
-        } else if (access.role !== current.role || access.branchId !== current.branchId) {
-          void signOutUser();
-        } else if (
-          typeof row.display_name === 'string' &&
-          row.display_name !== current.displayName
-        ) {
-          const renamed = { ...current, displayName: row.display_name };
-          cacheSession(renamed);
-          useSession.getState().setSignedIn(renamed);
-        }
-      },
+      (payload) => applyProfile(uid, payload.new as Record<string, unknown>),
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        if (subscribedBefore) check();
+        subscribedBefore = true;
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        check();
+      }
+    });
+  accessTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') check();
+  }, ACCESS_CHECK_MS);
+  document.addEventListener('visibilitychange', onVisible);
+  window.addEventListener('online', onOnline);
 }
 
 let latest = 0;

@@ -20,6 +20,7 @@ import {
   signOutUser,
   type TotpChallenge,
 } from './authService';
+import { checkPwnedPassword } from './pwnedPasswords';
 import { newPasswordSchema, PASSWORD_MIN_LENGTH, type NewPasswordValues } from './schemas';
 import { TotpStep } from './TotpStep';
 
@@ -41,6 +42,12 @@ function describePasswordError(error: unknown): AuthErrorMessage {
   }
   return describeAuthError(error);
 }
+
+const BREACHED: AuthErrorMessage = {
+  kind: 'unknown',
+  title: 'This password has appeared in a data breach.',
+  detail: 'Choose another.',
+};
 
 /**
  * Where a one-time password link lands (AUTH-02). A new user chooses their first password
@@ -151,6 +158,12 @@ export function SetPasswordPage() {
 
   const onSubmit = handleSubmit(async ({ password }) => {
     setError(null);
+    // SEC-05: refuse a password known from a data breach. If the check cannot run, the
+    // password is accepted; the 10-character minimum still applies.
+    if ((await checkPwnedPassword(password)) === 'breached') {
+      setError(BREACHED);
+      return;
+    }
     try {
       await setNewPassword(password);
     } catch (caught) {

@@ -20,7 +20,11 @@ const formatWhen = (when: Date | null) =>
       })
     : 'Just now';
 
-/** Settings > Audit log (design 15f, SYS-03). Read-only; the rules allow the Owner only. */
+/**
+ * Settings > Audit log (design 15f, SYS-03). Read-only; the rules allow the Owner only. Rows are
+ * one line of columns only from xl up: below that, beside the side menus, the columns would
+ * leave the sentence too little room and every row would wrap.
+ */
 export function AuditLogPage() {
   const branchId = useSession((s) => s.user?.branchId ?? '');
   const [count, setCount] = useState(AUDIT_PAGE_SIZE);
@@ -95,12 +99,12 @@ export function AuditLogPage() {
             return (
               <li
                 key={entry.id}
-                className="grid min-h-[56px] grid-cols-[34px_1fr] items-center gap-x-[12px] gap-y-[2px] border-b border-text/8 py-[8px] text-[14px] last:border-b-0 md:grid-cols-[120px_34px_1fr_minmax(0,220px)_90px]"
+                className="grid min-h-[56px] grid-cols-[34px_1fr] items-center gap-x-[12px] gap-y-[2px] border-b border-text/8 py-[8px] text-[14px] last:border-b-0 xl:grid-cols-[132px_34px_minmax(0,1fr)_minmax(0,200px)_84px]"
               >
-                <span className="order-3 col-start-2 text-[12.5px] text-neutral-700 md:order-none md:col-start-auto md:text-[14px]">
+                <span className="order-3 col-start-2 text-[12.5px] whitespace-nowrap text-neutral-700 xl:order-none xl:col-start-auto xl:text-[14px]">
                   {formatWhen(entry.createdAt)}
                 </span>
-                <span className="row-span-3 grid size-[32px] place-items-center self-start rounded-full bg-bg md:row-span-1 md:self-center">
+                <span className="row-span-3 grid size-[32px] place-items-center self-start rounded-full bg-bg xl:row-span-1 xl:self-center">
                   <Icon
                     size={15}
                     strokeWidth={ICON_STROKE}
@@ -111,10 +115,10 @@ export function AuditLogPage() {
                 <span>
                   <b>{nameOf(entry.actorId)}</b> {line.what}
                 </span>
-                <span className="col-start-2 text-neutral-800 md:col-start-auto">
+                <span className="col-start-2 text-neutral-800 xl:col-start-auto">
                   {line.change}
                 </span>
-                <span className="col-start-2 text-[12.5px] text-neutral-700 md:col-start-auto">
+                <span className="col-start-2 text-[12.5px] text-neutral-700 xl:col-start-auto">
                   {entry.deviceTag ? `Device ${entry.deviceTag}` : ''}
                 </span>
               </li>

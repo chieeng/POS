@@ -25,7 +25,8 @@ supabase/
   seed.sql                local development accounts only
 scripts/                  one-time bootstrap of the first Owner; local helpers
 apps/web/public/_headers  security headers for Cloudflare Pages
-.github/workflows/        ci.yml, deploy.yml
+.github/workflows/        ci.yml, deploy.yml, heartbeat.yml, backup.yml
+docs/                     SRS.md (requirements), RESTORE.md (backups and restoring)
 ```
 
 ## Requirements
@@ -139,14 +140,18 @@ when adding shadcn components. Fonts (Caprasimo, Figtree) load from Google Fonts
 
 Do this for `pos-staging` first, then `pos-prod`.
 
-1. **Create the project** in region Southeast Asia (Singapore). `pos-prod` must be on a paid
-   plan; turn the **spend cap** on and set usage alerts (NFR-10).
-2. **Backups:** on `pos-prod`, confirm daily backups and enable **point-in-time recovery**
-   (SYS-04, SEC-15). Rehearse one restore before launch.
+1. **Create the project** in region Southeast Asia (Singapore), on the **Free plan**. Both
+   projects stay on Free (NFR-10); nothing in this setup needs a paid plan.
+2. **Backups:** the Free plan has no backups you can restore and no point-in-time recovery.
+   Backups are made by the Backup workflow and saved by the developer (SYS-04, SEC-15). Set it up
+   as in "Backups" below, and rehearse a restore on staging before go-live
+   ([docs/RESTORE.md](docs/RESTORE.md)).
 3. **Authentication settings** (the hosted project does not read `supabase/config.toml`):
    - Sign In / Providers: Email on; **"Allow new users to sign up" off** (SEC-01);
      "Confirm email" on.
-   - Password: minimum length **10**; **leaked-password protection** on (SEC-05).
+   - Password: minimum length **10** (SEC-05). Leave Supabase's leaked-password protection
+     off (it needs a paid plan); the app checks new passwords against Have I Been Pwned
+     instead.
    - Multi-Factor: **TOTP** enabled.
    - Attack Protection: **CAPTCHA** on with **Turnstile** and the site's secret key (SEC-06).
    - Rate Limits: lower the sign-in and token-verification limits from the defaults.
@@ -248,10 +253,83 @@ the variables and secrets listed at the top of
 day so it is not paused for inactivity. It needs no secrets, only the four public repository
 variables listed at its top, and it runs only once it is on the default branch.
 
-Repository and account settings (SEC-10, SEC-11): keep the repo private; protect `main`
-(pull request review and the CI check required); turn on secret scanning with push
-protection and Dependabot alerts; use two-factor on the Supabase, GitHub and Cloudflare
-accounts; only the Owner is an owner of the Supabase organization.
+## Backups
+
+The **developer who maintains the system makes and keeps the backups.** The store's Owner
+uses the app but has no GitHub access: they see only the last backup date (Settings >
+Backups) and, when one is overdue, a calm note on their home screen saying the system
+administrator has been notified.
+
+[.github/workflows/backup.yml](.github/workflows/backup.yml) dumps the database, encrypts it
+with [age](https://age-encryption.org) and attaches the encrypted file to the run. Everything
+is free: no paid service and no card anywhere.
+
+- **Manual** (GitHub > Actions > Backup > Run workflow, branch `main`, target `production`):
+  kept on GitHub for **1 day**. The developer downloads it and saves it to their PC and
+  Google Drive, **at least every 7 days**, and before payroll or a big stock count.
+- **Nightly** (02:23 Manila time, production only): kept on GitHub for **7 days**, as a
+  safety net. It runs only from `main`, and only once `BACKUP_ENABLED` is `true`.
+- **Reminder:** the daily [Heartbeat](.github/workflows/heartbeat.yml) fails, and GitHub
+  emails the developer, when the last successful manual production backup is more than
+  7 days old. Before go-live (`GO_LIVE` not `true`) it is only a warning in the run.
+
+The repository is public, so a file can be downloaded by anyone signed in to GitHub while it
+is kept there. It is unreadable without the backup key, which the developer keeps offline and
+never puts in GitHub. How to make, save and restore a backup, and the one-time staging
+rehearsal: [docs/RESTORE.md](docs/RESTORE.md).
+
+**Setup, once (developer):**
+
+1. **The backup key** (in PowerShell):
+
+   ```powershell
+   winget install --id FiloSottile.age
+   # close and reopen PowerShell, then:
+   age-keygen -o D:\pos-backup-key.txt
+   ```
+
+   It prints `Public key: age1...`: that goes into GitHub. Open `D:\pos-backup-key.txt`, save
+   its whole content in your password manager as "POS backup key", print one copy for a safe
+   place, then delete the file and empty the Recycle Bin. **Without this key no backup can
+   be restored**, and it must never be put in GitHub or this repository.
+
+2. **GitHub environments:** Settings > Environments > **New environment**
+   `backup-production`: no required reviewers (the nightly run would wait for approval);
+   Deployment branches: **Selected branches**, `main` only. Then `backup-staging`, the same
+   but with `main` and `dev`. In each, add the four values listed at the top of
+   [.github/workflows/backup.yml](.github/workflows/backup.yml): the project's reference id,
+   pooler host and database password (as for the Deploy environments, but for that project),
+   and `BACKUP_AGE_RECIPIENTS` (the `age1...` public key).
+3. **Nightly backups:** Settings > Secrets and variables > Actions > Variables:
+   `BACKUP_ENABLED` = `true`. They start after the next release reaches `main`.
+4. **Alerts:** github.com/settings/notifications > **Actions**: email on, "only notify for
+   failed workflows". GitHub sends scheduled-run failures to whoever last changed the
+   schedule, which is you.
+5. **At go-live** (when the production Owner exists): make a manual production backup, then
+   set the repository variable `GO_LIVE` = `true`, so an overdue backup fails the Heartbeat.
+
+## This repository is public
+
+Anyone can read the code, the commit history, issues, pull requests and Actions logs. That is
+safe because the app's security never depends on hidden code: every read and write is checked
+by Row Level Security and database functions on the server (SRS 6.3). It does mean:
+
+- **No secrets in the repository**, ever, not even briefly on a branch: no service role key,
+  database password, Turnstile secret key, R2 or other API keys, passwords or one-time links.
+  A secret that was pushed must be treated as leaked: rotate it, then remove it.
+- **Keys live only in settings:** GitHub environment secrets (`staging`, `production`),
+  Supabase project settings and Cloudflare settings. The values in Cloudflare Pages variables
+  and in the heartbeat's repository variables are public by design (the Supabase URL, anon key
+  and Turnstile site key); they are not secrets.
+- **Keep `.env` files local.** Only the `*.example` files are committed, with placeholder
+  values. Check `git status` before every commit.
+- **No real data:** no customer names or phone numbers (Data Privacy Act), staff details,
+  real email addresses, database dumps or screenshots with personal data in code, tests,
+  issues or pull requests. `seed.sql` and the tests use made-up people only.
+- **Actions logs are public:** workflows must never print a secret or a value derived from
+  one, and must not run with secrets on pull requests from forks.
+- **Review every diff before pushing**, and leave secret scanning with push protection on so
+  GitHub blocks a known key format before it lands.
 
 ## Branching
 

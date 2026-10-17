@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { useSession, type SessionUser } from '@/stores/session';
 import { pendingSecondStep, redeemPasswordLink, setNewPassword, signOutUser } from './authService';
+import { checkPwnedPassword } from './pwnedPasswords';
 import { SetPasswordPage } from './SetPasswordPage';
 
 const link = vi.hoisted(() => ({ failed: false, token: null as string | null }));
@@ -17,6 +18,7 @@ vi.mock('@/lib/supabase', () => ({
     return link.token;
   },
 }));
+vi.mock('./pwnedPasswords', () => ({ checkPwnedPassword: vi.fn() }));
 vi.mock('./authService', () => ({
   pendingSecondStep: vi.fn(),
   redeemPasswordLink: vi.fn(),
@@ -52,6 +54,7 @@ beforeEach(() => {
   link.failed = false;
   link.token = null;
   vi.mocked(pendingSecondStep).mockResolvedValue(null);
+  vi.mocked(checkPwnedPassword).mockResolvedValue('not-found');
   useSession.setState({ status: 'signedIn', user: sales, passwordSetup: true, locked: false });
 });
 
@@ -63,6 +66,30 @@ test('someone who opened a one-time link chooses their own password (AUTH-02)', 
 
   const user = userEvent.setup();
   await user.type(screen.getByLabelText('New password'), 'long-enough-1');
+  await user.click(screen.getByRole('button', { name: 'Save password' }));
+  expect(setNewPassword).toHaveBeenCalledWith('long-enough-1');
+});
+
+test('a password known from a data breach is refused before it is sent (SEC-05)', async () => {
+  vi.mocked(checkPwnedPassword).mockResolvedValue('breached');
+  renderPage();
+  const user = userEvent.setup();
+  await user.type(await screen.findByLabelText('New password'), 'password123');
+  await user.click(screen.getByRole('button', { name: 'Save password' }));
+  expect(
+    await screen.findByText('This password has appeared in a data breach.'),
+  ).toBeInTheDocument();
+  expect(screen.getByText('Choose another.')).toBeInTheDocument();
+  expect(checkPwnedPassword).toHaveBeenCalledWith('password123');
+  expect(setNewPassword).not.toHaveBeenCalled();
+});
+
+test('if the breach check cannot run, the password is still saved', async () => {
+  vi.mocked(checkPwnedPassword).mockResolvedValue('unknown');
+  vi.mocked(setNewPassword).mockResolvedValue();
+  renderPage();
+  const user = userEvent.setup();
+  await user.type(await screen.findByLabelText('New password'), 'long-enough-1');
   await user.click(screen.getByRole('button', { name: 'Save password' }));
   expect(setNewPassword).toHaveBeenCalledWith('long-enough-1');
 });

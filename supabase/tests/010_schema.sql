@@ -18,8 +18,8 @@ select is(
 
 select tables_are(
   'public',
-  array['branches', 'profiles', 'devices', 'audit_logs'],
-  'public holds exactly the Phase 0 tables'
+  array['branches', 'profiles', 'devices', 'audit_logs', 'backup_log'],
+  'public holds exactly the Phase 0 tables and the backup log'
 );
 
 -- ---- Nothing for anon --------------------------------------------------------------------
@@ -74,8 +74,8 @@ select is(
     from information_schema.role_table_grants
     where table_schema = 'public' and grantee = 'authenticated'
   ),
-  'audit_logs:SELECT devices:SELECT profiles:SELECT',
-  'authenticated has table-wide SELECT on three tables and nothing else'
+  'audit_logs:SELECT backup_log:SELECT devices:SELECT profiles:SELECT',
+  'authenticated has table-wide SELECT on four tables and nothing else'
 );
 
 select is(
@@ -96,8 +96,8 @@ select is(
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')
   ),
-  'record_sign_in',
-  'record_sign_in is the only function in public a signed-in user can call'
+  'record_account_event record_sign_in',
+  'record_account_event and record_sign_in are the only functions in public a signed-in user can call'
 );
 
 select is(
@@ -135,6 +135,13 @@ select is(
     and not has_function_privilege('anon', 'private.record_sign_in(text)', 'execute'),
   true,
   'the privileged part of record_sign_in is callable by a signed-in user only'
+);
+
+select is(
+  has_function_privilege('authenticated', 'private.record_account_event(text, text)', 'execute')
+    and not has_function_privilege('anon', 'private.record_account_event(text, text)', 'execute'),
+  true,
+  'the privileged part of record_account_event is callable by a signed-in user only'
 );
 
 -- ---- Append-only audit log (SYS-03, NFR-05) -----------------------------------------------
