@@ -56,7 +56,7 @@ Three roles cover the store's 20 users: the Owner, a few Special Sales who also 
 
 - Supabase has no built-in offline writes. Offline selling and clock-in need a local outbox (IndexedDB) with client-generated ids so a resent record is never saved twice. All other actions require internet.
 - The Supabase URL and anon key are public by design; security depends entirely on Row Level Security and database functions.
-- The Supabase Free plan pauses a project after a period without activity, and has no backups the store can restore from and no point-in-time recovery. A daily heartbeat keeps both projects active, and production is backed up by the app's own nightly encrypted backup (SYS-04). Features that need a paid plan are not used.
+- The Supabase Free plan pauses a project after a period without activity, and has no backups the store can restore from and no point-in-time recovery. A daily heartbeat keeps both projects active, and the database is backed up by the app's own encrypted backups (SYS-04). Features that need a paid plan are not used.
 - Must comply with the Data Privacy Act of 2012 for customer names and phone numbers kept for utang.
 
 ## 3. Functional requirements
@@ -152,7 +152,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | SYS-01 | Store settings: name, address, contact, TIN, receipt footer, sales discount limit, idle lock time. | M |
 | SYS-02 | Each browser creates a 4-character device tag on first sign-in, stored locally and registered in the devices table, used in receipt numbers and the audit log. The Owner can see each user's active devices. | M |
 | SYS-03 | Audit log of sensitive actions: sign-in, user and role changes, price changes, approval requests and decisions, voids, refunds, stock adjustments, slip re-shares. Read-only. | M |
-| SYS-04 | Nightly encrypted backup of the production database to a private Cloudflare R2 bucket, within R2's free tier, with an alert to the Owner if a backup fails. | M |
+| SYS-04 | Encrypted backups of the whole database (including user accounts) made by a GitHub Actions workflow, never in the browser. The **developer who maintains the system** makes and keeps them; the store's Owner has no GitHub access. **Manual:** at least every 7 days the developer runs it, downloads the file (kept on GitHub for 1 day) and saves it to their PC and Google Drive. **Nightly:** production only, kept on GitHub for 7 days as a safety net. Files are encrypted to a key the developer keeps offline. The developer is emailed when the last manual production backup is more than 7 days old (after go-live) or a nightly run fails. The app shows the Owner the last backup date, read-only, and a calm note on their home screen when a backup is overdue ("Your system administrator has been notified"), with no steps to follow. | M |
 
 ### 3.9 Owner approvals (APPR)
 
@@ -215,10 +215,10 @@ A lightweight payroll turns attendance into payslips each pay period. Government
 | NFR-04 | Security | All access enforced by Row Level Security and database functions, never by UI alone. HTTPS only. No secrets in the repository. Personal devices are untrusted: no data beyond the user's role is ever sent to them. |
 | NFR-05 | Data integrity | Sales and stock movements are append-only; corrections are new records, never edits or deletes. |
 | NFR-06 | Auditability | Every sensitive action is traceable to a user, device tag and time. |
-| NFR-07 | Backup | Nightly encrypted backup to Cloudflare R2 (SYS-04); at most one day of data can be lost. A restore is tested once on staging before launch, following the written restore steps. |
+| NFR-07 | Backup | A restore loses everything since the backup used: up to 7 days with weekly manual backups, less while a nightly file is still on GitHub. The developer makes extra backups before payroll and big stock counts. A restore is tested once on staging before launch, following docs/RESTORE.md. |
 | NFR-08 | Usability | Mobile-first: every screen works on a 360 px wide phone; touch targets at least 44 px; a new salesperson can complete a sale after 15 minutes of training. |
 | NFR-09 | Scalability | Supports 20 users signed in on up to 30 devices, 10,000 products and 500 sales per day without design changes. |
-| NFR-10 | Cost | No running costs: both Supabase projects on the Free plan, Cloudflare Pages and R2 within their free tiers, GitHub Actions within the free minutes. Nothing is set up that can bill without a cap. |
+| NFR-10 | Cost | No running costs: both Supabase projects on the Free plan, Cloudflare Pages within its free tier, GitHub Actions free for a public repository, backups saved to the developer's PC and Google Drive's free storage. Nothing is set up that can bill without a cap. |
 | NFR-11 | Privacy | Customer data limited to name, phone and address; visible only to roles that need it (Data Privacy Act of 2012). |
 | NFR-12 | Maintainability | TypeScript, ESLint and Prettier; RLS policies and database functions covered by pgTAP tests in CI. |
 
@@ -341,7 +341,7 @@ The Supabase project URL and anon key are public by design, so anyone can call t
 | SEC-12 | Web headers | The host sends Content-Security-Policy (own origin plus the Supabase project URL), HSTS, X-Frame-Options DENY, X-Content-Type-Options and a strict Referrer-Policy. No `dangerouslySetInnerHTML`. |
 | SEC-13 | Lost device | The Owner can sign a user out everywhere without deactivating them. The idle lock limits what a found, unlocked phone can do. |
 | SEC-14 | Monitoring | Alerts to the Owner on role changes, a new device on the Owner account, many voids or corrections by one user in a day, repeated failed sign-ins, function errors and usage spikes. |
-| SEC-15 | Recovery | Nightly encrypted backups (SYS-04), with an alert if one fails; a restore is rehearsed on staging before launch. |
+| SEC-15 | Recovery | Encrypted backups (SYS-04): the repository is public, so a backup on GitHub is downloadable while it is kept and is protected only by its encryption; the private key never goes into GitHub. A restore is rehearsed on staging before launch. |
 | SEC-16 | Verification | Before go-live: pgTAP tests cover every table and role, including anon, no profile, deactivated, wrong role and Owner without two-factor; the Supabase security advisor shows no warnings; an OWASP Top 10 review; and a manual attempt to read and write data with the anon key from outside the app, which must fail. |
 
 Residual risks: a staff member's unlocked phone acts with that person's role until it locks or is signed out; browser location can be faked; the Owner's own account is the single most valuable target, hence 2FA.

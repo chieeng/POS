@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { AuditLogPage } from '@/features/audit/AuditLogPage';
+import { BackupsPage } from '@/features/backups/BackupsPage';
 import { EnrollTotpPage } from '@/features/auth/EnrollTotpPage';
 import { ROLE_HOME } from '@/features/auth/roles';
 import { SetPasswordPage } from '@/features/auth/SetPasswordPage';
@@ -38,6 +39,7 @@ export const routes: RouteObject[] = [
                   { path: 'users/new', element: <AddUserPage /> },
                   { path: 'users/:uid', element: <UserDetailPage /> },
                   { path: 'audit-log', element: <AuditLogPage /> },
+                  { path: 'backups', element: <BackupsPage /> },
                 ],
               },
             ],

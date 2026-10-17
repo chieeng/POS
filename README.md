@@ -25,7 +25,8 @@ supabase/
   seed.sql                local development accounts only
 scripts/                  one-time bootstrap of the first Owner; local helpers
 apps/web/public/_headers  security headers for Cloudflare Pages
-.github/workflows/        ci.yml, deploy.yml, heartbeat.yml
+.github/workflows/        ci.yml, deploy.yml, heartbeat.yml, backup.yml
+docs/                     SRS.md (requirements), RESTORE.md (backups and restoring)
 ```
 
 ## Requirements
@@ -142,9 +143,9 @@ Do this for `pos-staging` first, then `pos-prod`.
 1. **Create the project** in region Southeast Asia (Singapore), on the **Free plan**. Both
    projects stay on Free (NFR-10); nothing in this setup needs a paid plan.
 2. **Backups:** the Free plan has no backups you can restore and no point-in-time recovery.
-   `pos-prod` is protected by a nightly encrypted backup to a private Cloudflare R2 bucket
-   (SYS-04, SEC-15). It is **not built yet** and is required before go-live, together with a
-   restore rehearsed once on staging.
+   Backups are made by the Backup workflow and saved by the developer (SYS-04, SEC-15). Set it up
+   as in "Backups" below, and rehearse a restore on staging before go-live
+   ([docs/RESTORE.md](docs/RESTORE.md)).
 3. **Authentication settings** (the hosted project does not read `supabase/config.toml`):
    - Sign In / Providers: Email on; **"Allow new users to sign up" off** (SEC-01);
      "Confirm email" on.
@@ -252,10 +253,60 @@ the variables and secrets listed at the top of
 day so it is not paused for inactivity. It needs no secrets, only the four public repository
 variables listed at its top, and it runs only once it is on the default branch.
 
-Repository and account settings (SEC-10, SEC-11): protect `main` (pull request review and
-the CI check required); turn on secret scanning with push protection and Dependabot alerts;
-use two-factor on the Supabase, GitHub and Cloudflare accounts; only the Owner is an owner of
-the Supabase organization.
+## Backups
+
+The **developer who maintains the system makes and keeps the backups.** The store's Owner
+uses the app but has no GitHub access: they see only the last backup date (Settings >
+Backups) and, when one is overdue, a calm note on their home screen saying the system
+administrator has been notified.
+
+[.github/workflows/backup.yml](.github/workflows/backup.yml) dumps the database, encrypts it
+with [age](https://age-encryption.org) and attaches the encrypted file to the run. Everything
+is free: no paid service and no card anywhere.
+
+- **Manual** (GitHub > Actions > Backup > Run workflow, branch `main`, target `production`):
+  kept on GitHub for **1 day**. The developer downloads it and saves it to their PC and
+  Google Drive, **at least every 7 days**, and before payroll or a big stock count.
+- **Nightly** (02:23 Manila time, production only): kept on GitHub for **7 days**, as a
+  safety net. It runs only from `main`, and only once `BACKUP_ENABLED` is `true`.
+- **Reminder:** the daily [Heartbeat](.github/workflows/heartbeat.yml) fails, and GitHub
+  emails the developer, when the last successful manual production backup is more than
+  7 days old. Before go-live (`GO_LIVE` not `true`) it is only a warning in the run.
+
+The repository is public, so a file can be downloaded by anyone signed in to GitHub while it
+is kept there. It is unreadable without the backup key, which the developer keeps offline and
+never puts in GitHub. How to make, save and restore a backup, and the one-time staging
+rehearsal: [docs/RESTORE.md](docs/RESTORE.md).
+
+**Setup, once (developer):**
+
+1. **The backup key** (in PowerShell):
+
+   ```powershell
+   winget install --id FiloSottile.age
+   # close and reopen PowerShell, then:
+   age-keygen -o D:\pos-backup-key.txt
+   ```
+
+   It prints `Public key: age1...`: that goes into GitHub. Open `D:\pos-backup-key.txt`, save
+   its whole content in your password manager as "POS backup key", print one copy for a safe
+   place, then delete the file and empty the Recycle Bin. **Without this key no backup can
+   be restored**, and it must never be put in GitHub or this repository.
+
+2. **GitHub environments:** Settings > Environments > **New environment**
+   `backup-production`: no required reviewers (the nightly run would wait for approval);
+   Deployment branches: **Selected branches**, `main` only. Then `backup-staging`, the same
+   but with `main` and `dev`. In each, add the four values listed at the top of
+   [.github/workflows/backup.yml](.github/workflows/backup.yml): the project's reference id,
+   pooler host and database password (as for the Deploy environments, but for that project),
+   and `BACKUP_AGE_RECIPIENTS` (the `age1...` public key).
+3. **Nightly backups:** Settings > Secrets and variables > Actions > Variables:
+   `BACKUP_ENABLED` = `true`. They start after the next release reaches `main`.
+4. **Alerts:** github.com/settings/notifications > **Actions**: email on, "only notify for
+   failed workflows". GitHub sends scheduled-run failures to whoever last changed the
+   schedule, which is you.
+5. **At go-live** (when the production Owner exists): make a manual production backup, then
+   set the repository variable `GO_LIVE` = `true`, so an overdue backup fails the Heartbeat.
 
 ## This repository is public
 

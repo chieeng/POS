@@ -16,6 +16,10 @@ vi.mock('@/features/users/data', async (importOriginal) => ({
   useDevices: () => ({ data: [], loading: false, error: false }),
   useAuditLogs: () => ({ data: [], loading: false, error: false }),
 }));
+vi.mock('@/features/backups/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/backups/data')>()),
+  useBackups: () => ({ data: [], loading: false, error: false }),
+}));
 vi.mock('@/features/auth/authService', () => ({
   signIn: vi.fn(),
   verifyTotp: vi.fn(),
@@ -103,3 +107,18 @@ test('the Owner opens Settings > Users', async () => {
   renderAt('/settings/users');
   expect(await screen.findByRole('link', { name: /Add user/ })).toBeInTheDocument();
 });
+
+test('the Owner opens Settings > Backups (SYS-04)', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('owner') });
+  renderAt('/settings/backups');
+  expect(await screen.findByRole('heading', { name: 'Backups' })).toBeInTheDocument();
+});
+
+test.each(['sales', 'special_sales'] as const)(
+  '%s cannot open Settings > Backups',
+  async (role) => {
+    useSession.setState({ status: 'signedIn', user: userWith(role) });
+    const router = renderAt('/settings/backups');
+    await vi.waitFor(() => expect(router.state.location.pathname).not.toContain('/settings'));
+  },
+);
