@@ -149,7 +149,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| SYS-01 | Store settings: name, address, contact, TIN, receipt footer, sales discount limit, idle lock time. | M |
+| SYS-01 | Store settings (Owner only): name, address, contact, TIN, receipt footer, sales discount limit, idle lock time, and the store's location and clock-in radius (ATT-02). The Owner sets the location with "Use my current location" (browser geolocation, while standing in the store) or by typing the coordinates, for example copied from Google Maps; the radius defaults to 100 m. Until a location is set, Store settings shows a reminder. Every change is audit-logged with old and new values. | M |
 | SYS-02 | Each browser creates a 4-character device tag on first sign-in, stored locally and registered in the devices table, used in receipt numbers and the audit log. The Owner can see each user's active devices. | M |
 | SYS-03 | Audit log of sensitive actions: sign-in, user and role changes, price changes, approval requests and decisions, voids, refunds, stock adjustments, slip re-shares. Read-only. | M |
 | SYS-04 | Encrypted backups of the whole database (including user accounts) made by a GitHub Actions workflow, never in the browser. The **developer who maintains the system** makes and keeps them; the store's Owner has no GitHub access. **Manual:** at least every 7 days the developer runs it, downloads the file (kept on GitHub for 1 day) and saves it to their PC and Google Drive. **Nightly:** production only, kept on GitHub for 7 days as a safety net. Files are encrypted to a key the developer keeps offline. The developer is emailed when the last manual production backup is more than 7 days old (after go-live) or a nightly run fails. The app shows the Owner the last backup date, read-only, and a calm note on their home screen when a backup is overdue ("Your system administrator has been notified"), with no steps to follow. | M |
@@ -166,20 +166,20 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 ### 3.10 Attendance (ATT)
 
-Staff clock in once a day on their own device, with no clock-out, and the store's location decides whether it counts. The rules follow the attendance policy already used for pos-erag; every value is a setting the Owner can change.
+Staff clock in once a day on their own device, with no clock-out, and the store's location decides whether it counts. The defaults follow the attendance policy already used for pos-erag; every value is a setting the Owner can change, because the store's own times and rules are confirmed only at handover.
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| ATT-01 | Each user clocks in once per day with one tap from their own device. There is no clock-out. A second clock-in on the same day is refused. | M |
-| ATT-02 | At clock-in the app reads the device location (browser Geolocation API, high accuracy) and checks its distance from the store's set coordinates against a radius set by the Owner. | M |
+| ATT-01 | Each staff member (Special Sales and Sales) clocks in once per day with one tap from their own device. There is no clock-out. A second clock-in on the same day is refused. The Owner does not clock in, unless the Owner turns on "Owner clocks in too" in attendance settings (off by default). | M |
+| ATT-02 | At clock-in the app reads the device location (browser Geolocation API, high accuracy) and checks its distance from the store's set coordinates against the radius set by the Owner (default 100 m). Until the Owner sets the store's location (SYS-01), the location check is off: clock-ins are allowed and recorded as "store location not set". | M |
 | ATT-03 | Inside the radius: allowed. Location found with good accuracy but outside the radius: blocked, showing how far away the user is. | M |
 | ATT-04 | Location not detected (permission denied, GPS off, timeout, or accuracy worse than the radius): allowed with a warning; the record is flagged "location not verified" for the Owner to review. | M |
 | ATT-05 | Location is captured only at the moment of clock-in (latitude, longitude, accuracy, distance). It is never tracked in the background. | M |
-| ATT-06 | Late rule: clocking in after the set clock-in time plus the grace period records the late penalty. Defaults from pos-erag: morning 6:00 AM, afternoon 1:00 PM, 15-minute grace, ₱50 penalty. The shift is matched by the clock-in time. | M |
-| ATT-07 | Attendance settings screen (Owner only): set the clock-in time for each shift, the grace period in minutes, and the late penalty amount in pesos. | M |
+| ATT-06 | Late rule: a clock-in after the shift's clock-in time plus the grace period is late, and the minutes late are counted from the clock-in time. Lateness is always recorded (late count, minutes late). What it costs is the Owner's choice of **late deduction**: **None** (default); **Pay for the minutes late only**: daily rate ÷ paid minutes per day (default 480) × minutes late; or **Flat amount** per late day (default ₱0). The shift is matched by the clock-in time. Defaults: morning 6:00 AM, afternoon 1:00 PM, 15-minute grace. *Note:* under Philippine labor rules, deductions from wages are restricted (Labor Code Art. 113), and a flat fine larger than the pay for the time actually missed may not be allowed, while not paying for the minutes not worked generally is. The store owner decides which rule to use, ideally after checking with their accountant or DOLE; the app does not give legal advice. | M |
+| ATT-07 | Attendance settings screen (Owner only): the clock-in time for each shift, the grace period in minutes, the late deduction (none, minutes late, or flat amount) with its amount or paid minutes per day, whether a day that starts with the afternoon shift counts as a full or half day (default half), and whether the Owner clocks in too (default off). | M |
 | ATT-08 | The Owner can give a staff member their own clock-in time, which replaces the shift time for that person only. | S |
-| ATT-09 | A settings change applies from the next clock-in onward. Each record stores the clock-in time, grace and penalty used, so past records and pay never change. Every change is audit-logged with old and new values. | M |
-| ATT-10 | Pay for a day = daily rate (a day starting with the afternoon shift counts as a full or half day, per Owner setting) minus any late penalty. No hours or overtime are computed. Daily rates are visible to the Owner only. | M |
+| ATT-09 | A settings change applies from the next clock-in onward. Each record stores the clock-in time, grace, late rule and amounts used, so past records and pay never change. Every change is audit-logged with old and new values. | M |
+| ATT-10 | Pay for a day = daily rate × day credit (1 for a day starting with the morning shift; 0.5 by default for a day starting with the afternoon shift, or 1 if the Owner sets it to a full day) minus the late deduction (ATT-06). No hours or overtime are computed. Daily rates are visible to the Owner only. | M |
 | ATT-11 | Forgot to clock in, or wrongly flagged: the staff member submits a correction request with a reason, or the Owner adds or edits the record directly with a reason. | M |
 | ATT-12 | Clock-in works offline: device time and location are saved locally and synced later. The server time is recorded on sync, and a gap of more than 5 minutes is flagged. | M |
 | ATT-13 | The clock\_in database function computes distance, lateness, penalty and day credit on the server for every record, so a tampered client cannot change them. | M |
@@ -234,7 +234,7 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 
 | Table | Key columns | Written by |
 | --- | --- | --- |
-| `branches` | name, address, contact, tin, receipt\_footer, sales\_discount\_limit, idle\_lock\_minutes, store\_lat, store\_lng, radius\_m, morning\_clock\_in, afternoon\_clock\_in, grace\_minutes, late\_penalty, afternoon\_day\_credit | Owner |
+| `branches` | name, address, contact, tin, receipt\_footer, sales\_discount\_limit, idle\_lock\_minutes, store\_lat, store\_lng, radius\_m, morning\_clock\_in, afternoon\_clock\_in, grace\_minutes, late\_deduction, late\_penalty, paid\_minutes\_per\_day, afternoon\_day\_credit, owner\_clocks\_in | Read by the branch's active users; written by the Owner through `update_branch_settings` |
 | `profiles` | id (= auth user id), display\_name, role (owner, special\_sales, sales), user\_code, branch\_id, active, clock\_in\_override, created\_at | Owner-only Edge Function / function |
 | `devices` | user\_id, device\_tag, label, push\_subscription, last\_seen\_at | The user (own rows) |
 | `pay_rates` | user\_id, daily\_rate, effective\_from, updated\_by | Owner only (read and write) |
@@ -253,7 +253,7 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 | `stock_movements` | product\_id, type (sale, void, return, stock\_in, adjustment, count), qty\_change, unit\_cost, ref\_type, ref\_id, user\_id, device\_tag, created\_at | Functions only; append-only |
 | `credit_ledger` | customer\_id, type (charge, payment), amount, sale\_id, method, reference, user\_id, created\_at | Functions only; append-only |
 | `approval_requests` | type, target\_type, target\_id, before (jsonb), after (jsonb), reason, requested\_by, status (pending, approved, rejected), decided\_by, decided\_at, owner\_note, created\_at | Requester creates pending; decide\_approval (Owner only) |
-| `attendance` | user\_id, work\_date (unique per user), shift\_slot, device\_at, server\_at, lat, lng, accuracy\_m, distance\_m, location\_status, scheduled\_clock\_in, grace\_minutes, late\_minutes, late\_penalty, day\_credit, flags, edited\_by, edit\_reason | clock\_in function; Owner edits with reason |
+| `attendance` | user\_id, work\_date (unique per user), shift\_slot, device\_at, server\_at, lat, lng, accuracy\_m, distance\_m, location\_status, scheduled\_clock\_in, grace\_minutes, late\_minutes, late\_deduction, day\_credit, flags, edited\_by, edit\_reason | clock\_in function; Owner edits with reason |
 | `payroll_runs` | period\_start, period\_end, status (draft, finalized), totals, finalized\_by, finalized\_at; finalized ranges may not overlap | Owner only |
 | `payslips` | run\_id, user\_id, full\_days, half\_days, daily\_rate, gross\_pay, late\_penalties, additions (jsonb), deductions (jsonb), net\_pay, paid\_at, paid\_method, paid\_reference | Drafted by function; Owner edits until finalized; staff read own finalized |
 | `cash_advances` | user\_id, amount, advance\_date, note, remaining, status (open, deducted) | Owner only |
@@ -289,7 +289,7 @@ Role and active flag live in `profiles`. RLS policies check them through small h
 
 | Action | Owner | Special Sales | Sales |
 | --- | --- | --- | --- |
-| Clock in (own, at the store) | Optional | Yes | Yes |
+| Clock in (own, at the store) | Only if "Owner clocks in too" is on (off by default) | Yes | Yes |
 | Request an attendance correction | No | Yes | Yes |
 | View own attendance, penalties and finalized payslips | Yes | Yes | Yes |
 | View and edit everyone's attendance; set store location, schedule and daily rates; approve corrections; run payroll, record cash advances, mark payslips paid | Yes | No | No |
@@ -439,8 +439,8 @@ The store can start selling after Phase 2; each later phase ships on its own.
 - [ ] Should credit customers be shared across future branches or kept per branch?
 - [ ] Are digital slips enough, or does the store want paper slips from a printer?
 - [ ] Should SKUs follow a pattern (for example a category prefix plus a number) so the app can suggest the next free one?
-- [ ] What are this store's coordinates and allowed radius (suggested starting point: 100 m, or whatever pos-erag uses)?
-- [ ] Do this store's shift start times (6:00 AM, 1:00 PM) and ₱50 late deduction match pos-erag, or do they differ?
-- [ ] Does a day that starts with the afternoon shift count as a full day or a half day of pay?
-- [ ] Does the Owner clock in too, or only staff?
+- [x] What are this store's coordinates and allowed radius? *Set by the Owner at handover in Store settings; radius 100 m by default; location check off until set.*
+- [x] Do this store's shift start times and late deduction match pos-erag? *Not known yet: defaults 6:00 AM / 1:00 PM / 15-minute grace, editable; late deduction none by default, with "minutes late" or a flat amount (₱0 by default) as Owner choices (ATT-06).*
+- [x] Does a day that starts with the afternoon shift count as a full day or a half day of pay? *Half day by default, editable by the Owner.*
+- [x] Does the Owner clock in too, or only staff? *Staff only by default; the Owner can turn on "Owner clocks in too".*
 - [ ] Is there an existing product list (spreadsheet) to import, and roughly how many items?
