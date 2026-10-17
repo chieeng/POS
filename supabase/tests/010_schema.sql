@@ -74,8 +74,8 @@ select is(
     from information_schema.role_table_grants
     where table_schema = 'public' and grantee = 'authenticated'
   ),
-  'audit_logs:SELECT backup_log:SELECT devices:SELECT profiles:SELECT',
-  'authenticated has table-wide SELECT on four tables and nothing else'
+  'audit_logs:SELECT backup_log:SELECT branches:SELECT devices:SELECT profiles:SELECT',
+  'authenticated has table-wide SELECT on five tables and nothing else'
 );
 
 select is(
@@ -96,8 +96,8 @@ select is(
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')
   ),
-  'record_account_event record_sign_in',
-  'record_account_event and record_sign_in are the only functions in public a signed-in user can call'
+  'record_account_event record_sign_in update_branch_settings',
+  'only the three API functions in public are callable by a signed-in user'
 );
 
 select is(
