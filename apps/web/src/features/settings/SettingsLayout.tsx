@@ -1,4 +1,11 @@
-import { ChevronRight, LogOut, ScrollText, Users, type LucideIcon } from 'lucide-react';
+import {
+  ChevronRight,
+  DatabaseBackup,
+  LogOut,
+  ScrollText,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { NavLink, Outlet, useMatch } from 'react-router-dom';
 import { signOutUser } from '@/features/auth/authService';
 import { cn, ICON_STROKE } from '@/lib/utils';
@@ -14,6 +21,7 @@ interface Section {
 const SECTIONS: Section[] = [
   { to: 'users', label: 'Users', sub: 'Accounts, roles and devices', icon: Users },
   { to: 'audit-log', label: 'Audit log', sub: 'Every change, who and when', icon: ScrollText },
+  { to: 'backups', label: 'Backups', sub: 'Last backup and how to make one', icon: DatabaseBackup },
 ];
 
 /**

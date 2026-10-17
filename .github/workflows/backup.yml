@@ -1,0 +1,215 @@
+name: Backup
+
+# SYS-04, NFR-07, SEC-15: encrypted backups of the database. The Supabase Free plan has no
+# backups we can restore, so these files are the only way back. How to make, save and restore
+# one: docs/RESTORE.md.
+#
+#   Manual   GitHub > Actions > Backup > Run workflow. Keeps the file on GitHub for 1 day:
+#            download it and save it to your PC or Google Drive. These are the backups the
+#            app counts for its 7-day reminder.
+#   Nightly  02:23 Manila time, production only, kept on GitHub for 7 days. A safety net
+#            between manual backups, not a replacement: nothing is saved off GitHub.
+#
+# The file is attached to the run as an artifact. This repository is PUBLIC, so anyone signed
+# in to GitHub can download it while it is kept; that is why it is encrypted with age to the
+# public key(s) in BACKUP_AGE_RECIPIENTS. The matching private key is not in GitHub: the
+# Owner keeps it offline. Logs show only the time, the file name and its size.
+#
+# Each successful run adds a row to public.backup_log in the project it backed up, which the
+# app shows the Owner (Settings > Backups).
+#
+# Alerts: a failed nightly run makes GitHub email the repository owner; the app reminds the
+# Owner when the last manual backup is more than 7 days old.
+#
+# The nightly schedule only runs from the default branch (main), and only once the
+# repository variable BACKUP_ENABLED is "true". Manual runs do not need it.
+#
+# FILL IN (GitHub > Settings > Environments > "backup-production" and "backup-staging"; no
+# required reviewers, or the nightly run would wait for approval. Deployment branches:
+# backup-production "main" only; backup-staging "main" and "dev"):
+#   Variable  SUPABASE_PROJECT_REF    the project's reference id
+#   Variable  SUPABASE_DB_HOST        the SESSION POOLER host (as in deploy.yml)
+#   Secret    SUPABASE_DB_PASSWORD    the project's database password
+#   Variable  BACKUP_AGE_RECIPIENTS   one or more age PUBLIC keys (age1...), space separated
+on:
+  schedule:
+    - cron: '23 18 * * *' # daily, 02:23 in Manila
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which project to back up
+        type: choice
+        options: [production, staging]
+        default: production
+
+permissions:
+  contents: read
+  actions: write # only to keep the schedule enabled (last step)
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Back up ${{ inputs.target || 'production' }}
+    if: github.event_name != 'schedule' || vars.BACKUP_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: backup-${{ inputs.target || 'production' }}
+    env:
+      TARGET: ${{ inputs.target || 'production' }}
+      KIND: ${{ github.event_name == 'schedule' && 'nightly' || 'manual' }}
+      KEEP_DAYS: ${{ github.event_name == 'schedule' && 7 || 1 }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_HOST: ${{ vars.SUPABASE_DB_HOST }}
+      BACKUP_AGE_RECIPIENTS: ${{ vars.BACKUP_AGE_RECIPIENTS }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      # File names follow the store's calendar: Manila, UTC+8, no daylight saving. Written in
+      # POSIX form so it works without the tz database.
+      TZ: '<+08>-8'
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # No secret is in the environment while dependencies install (and run their scripts).
+      - name: Install
+        run: |
+          echo "WORK=$RUNNER_TEMP/backup" >> "$GITHUB_ENV"
+          npm ci
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq age postgresql-client
+          age --version
+
+      # Checks that the values exist and look right, without ever printing a secret.
+      - name: Check required configuration
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          missing=""
+          for name in SUPABASE_PROJECT_REF SUPABASE_DB_HOST BACKUP_AGE_RECIPIENTS; do
+            [ -n "${!name}" ] || missing="$missing $name(variable)"
+          done
+          [ -n "$SUPABASE_DB_PASSWORD" ] || missing="$missing SUPABASE_DB_PASSWORD(secret)"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing in environment backup-$TARGET:$missing. See the header of backup.yml."
+            exit 1
+          fi
+          case "$SUPABASE_DB_HOST" in
+            *.pooler.supabase.com) ;;
+            *) echo "::error::SUPABASE_DB_HOST must be the session pooler host (it ends in .pooler.supabase.com)."; exit 1 ;;
+          esac
+          for key in $BACKUP_AGE_RECIPIENTS; do
+            case "$key" in
+              age1*) ;;
+              *) echo "::error::BACKUP_AGE_RECIPIENTS must hold only age PUBLIC keys (age1...). Never put the private key (AGE-SECRET-KEY-...) in GitHub."; exit 1 ;;
+            esac
+          done
+
+      # The password travels in the environment, never inside the URL (as in deploy.yml).
+      - name: Dump the database
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          out="$WORK/dump"
+          mkdir -p "$out"
+          url="postgresql://postgres.${SUPABASE_PROJECT_REF}@${SUPABASE_DB_HOST}:5432/postgres?sslmode=require"
+          # Run from the repository, so npx uses the CLI version pinned in package-lock.json.
+          npx supabase db dump --db-url "$url" -f "$out/data.sql" --use-copy --data-only \
+            -x "storage.buckets_vectors" -x "storage.vector_indexes"
+          npx supabase db dump --db-url "$url" -f "$out/migrations.sql" --use-copy --data-only \
+            --schema supabase_migrations
+          npx supabase db dump --db-url "$url" -f "$out/schema.sql"
+          npx supabase db dump --db-url "$url" -f "$out/roles.sql" --role-only
+          cd "$out"
+
+          # A dump without users or profiles is not a backup: fail loudly instead.
+          grep -q '^COPY "auth"."users"' data.sql
+          grep -q '^COPY "public"."profiles"' data.sql
+
+          # Restoring into an existing project first empties every table the dump fills
+          # (docs/RESTORE.md), all in one transaction with the load.
+          {
+            echo '-- Empties every table that data.sql fills. Used by docs/RESTORE.md.'
+            grep -o '^COPY "[a-z0-9_]*"\."[a-z0-9_]*"' data.sql | sed 's/^COPY //' | paste -sd, - |
+              sed 's/^/TRUNCATE TABLE /; s/$/ CASCADE;/'
+          } > truncate.sql
+
+          # Row counts stay inside the encrypted file: the logs of a public repository are public.
+          {
+            echo "project:   $SUPABASE_PROJECT_REF ($TARGET)"
+            echo "taken at:  $(date +%Y-%m-%dT%H:%M:%S%z) (Manila), $KIND"
+            echo "commit:    $GITHUB_SHA"
+            echo "last migration: $(grep -oE '^[0-9]{14}' migrations.sql | sort | tail -1)"
+            echo
+            echo "rows per table:"
+            awk '/^COPY /{t=$2; n=0; next} /^\\\.$/{if (n>0) print "  " t ": " n; next} t!=""{n++}' data.sql
+            echo
+            sha256sum data.sql migrations.sql schema.sql roles.sql truncate.sql
+          } > MANIFEST.txt
+          sed -n '1,4p' MANIFEST.txt
+
+      - name: Encrypt
+        run: |
+          set -euo pipefail
+          recipients=()
+          for key in $BACKUP_AGE_RECIPIENTS; do recipients+=(-r "$key"); done
+          label=$([ "$TARGET" = production ] && echo prod || echo staging)
+          name="pos-$label-$(date +%Y-%m-%d-%H%M).tar.gz.age"
+          tar -C "$WORK/dump" -czf - . | age "${recipients[@]}" -o "$WORK/$name"
+          # Nothing readable is left on the runner.
+          rm -rf "$WORK/dump"
+          {
+            echo "FILE=$WORK/$name"
+            echo "NAME=$name"
+            echo "SIZE=$(stat -c %s "$WORK/$name")"
+            echo "SHA256=$(sha256sum "$WORK/$name" | cut -d' ' -f1)"
+          } >> "$GITHUB_ENV"
+          echo "Encrypted backup: $name"
+
+      - name: Attach the encrypted file to this run
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.NAME }}
+          path: ${{ env.FILE }}
+          retention-days: ${{ env.KEEP_DAYS }}
+          compression-level: 0 # already compressed and encrypted
+          if-no-files-found: error
+
+      # Only after the file is safely attached. Written as `postgres`; no API role can write
+      # this table (supabase/migrations/20261017000100_backup_log.sql).
+      - name: Record the backup in the app
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres.${SUPABASE_PROJECT_REF}@${SUPABASE_DB_HOST}:5432/postgres?sslmode=require" \
+            --no-psqlrc --quiet -v ON_ERROR_STOP=1 \
+            -v kind="$KIND" -v name="$NAME" -v size="$SIZE" -v sha="$SHA256" \
+            -v url="$RUN_URL" -v days="$KEEP_DAYS" <<'SQL'
+          insert into public.backup_log (kind, file_name, size_bytes, sha256, run_url, expires_at)
+          values (:'kind', :'name', :'size'::bigint, :'sha', :'url',
+                  now() + make_interval(days => :'days'::int));
+          SQL
+          {
+            echo "### Backup ready: \`$NAME\` ($SIZE bytes)"
+            echo
+            echo "Download it from **Artifacts** below within $KEEP_DAYS day(s), save it to your PC or"
+            echo "Google Drive, then delete it here. It is encrypted; you need the backup key to open it."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the local copy
+        if: always()
+        run: rm -rf "$WORK"
+
+      # GitHub turns schedules off in a public repository after 60 days without activity.
+      - name: Keep this schedule enabled
+        if: always() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/backup.yml/enable"

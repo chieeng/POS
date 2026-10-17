@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { signOutUser } from '@/features/auth/authService';
 import { ROLE_LABELS, type Role } from '@/features/auth/roles';
+import { BackupReminder } from '@/features/backups/BackupReminder';
 import { useSession } from '@/stores/session';
 
 const HOME_COPY: Record<Role, { title: string; body: string }> = {
@@ -31,6 +32,7 @@ export function HomePage({ role }: { role: Role }) {
         Signed in as <b>{user.displayName}</b> · {ROLE_LABELS[user.role]}
       </p>
       <p className="text-neutral-700">{copy.body}</p>
+      {role === 'owner' && <BackupReminder />}
       <Button
         variant="secondary"
         className="mt-[12px] min-h-11 px-6 md:hidden"

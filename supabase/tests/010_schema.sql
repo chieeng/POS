@@ -18,8 +18,8 @@ select is(
 
 select tables_are(
   'public',
-  array['branches', 'profiles', 'devices', 'audit_logs'],
-  'public holds exactly the Phase 0 tables'
+  array['branches', 'profiles', 'devices', 'audit_logs', 'backup_log'],
+  'public holds exactly the Phase 0 tables and the backup log'
 );
 
 -- ---- Nothing for anon --------------------------------------------------------------------
@@ -74,8 +74,8 @@ select is(
     from information_schema.role_table_grants
     where table_schema = 'public' and grantee = 'authenticated'
   ),
-  'audit_logs:SELECT devices:SELECT profiles:SELECT',
-  'authenticated has table-wide SELECT on three tables and nothing else'
+  'audit_logs:SELECT backup_log:SELECT devices:SELECT profiles:SELECT',
+  'authenticated has table-wide SELECT on four tables and nothing else'
 );
 
 select is(
