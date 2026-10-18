@@ -6,6 +6,8 @@ import {
   ScrollText,
   ShieldCheck,
   ShieldPlus,
+  Tags,
+  Truck,
   Store,
   UserPen,
   UserPlus,
@@ -33,6 +35,10 @@ export const ACTION_LABELS: Record<string, string> = {
   'user.signOutEverywhere': 'Sign-outs of all devices',
   'user.passwordResetLink': 'Password reset links',
   'branch.update': 'Store settings changes',
+  'category.create': 'Categories added',
+  'category.update': 'Category changes',
+  'supplier.create': 'Suppliers added',
+  'supplier.update': 'Supplier changes',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -56,6 +62,13 @@ const FIELD_LABELS: Record<string, string> = {
   paid_minutes_per_day: 'Paid minutes per day',
   afternoon_day_credit: 'Afternoon-start day',
   owner_clocks_in: 'Owner clocks in',
+};
+
+const CATALOG_LABELS: Record<string, string> = {
+  name: 'Name',
+  contact_person: 'Contact person',
+  phone: 'Phone',
+  address: 'Address',
 };
 
 const LATE_DEDUCTION_LABELS: Record<string, string> = {
@@ -135,6 +148,33 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
           )
           .join(' · '),
       };
+    case 'category.create':
+      return { icon: Tags, what: `added category “${text(after.name)}”`, change: '' };
+    case 'supplier.create':
+      return { icon: Truck, what: `added supplier “${text(after.name)}”`, change: '' };
+    case 'category.update':
+    case 'supplier.update': {
+      const kind = entry.action === 'category.update' ? 'category' : 'supplier';
+      const label = text(before.label ?? after.name);
+      const fields = Object.keys(after).filter((key) => key !== 'active');
+      const status =
+        after.active === false ? 'deactivated' : after.active === true ? 'reactivated' : '';
+      return {
+        icon: kind === 'category' ? Tags : Truck,
+        what:
+          status && fields.length === 0
+            ? `${status} ${kind} “${label}”`
+            : `changed ${kind} “${label}”`,
+        change: [
+          ...fields.map(
+            (key) => `${CATALOG_LABELS[key] ?? key}: ${text(before[key])} → ${text(after[key])}`,
+          ),
+          ...(status && fields.length > 0
+            ? [status === 'deactivated' ? 'Deactivated' : 'Reactivated']
+            : []),
+        ].join(' · '),
+      };
+    }
     case 'user.deactivate':
       return { icon: UserX, what: `deactivated ${target}`, change: entry.reason ?? '' };
     case 'user.signOutEverywhere':

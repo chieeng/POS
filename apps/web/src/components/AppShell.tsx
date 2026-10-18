@@ -3,6 +3,7 @@ import {
   CloudOff,
   LayoutDashboard,
   LogOut,
+  Package,
   Settings,
   ShoppingCart,
   type LucideIcon,
@@ -29,7 +30,14 @@ function navItems(role: Role): NavItem[] {
   if (role === 'owner') {
     return [
       { to: ROLE_HOME.owner, label: 'Dashboard', short: 'Home', icon: LayoutDashboard },
+      { to: '/products', label: 'Products', short: 'Products', icon: Package },
       { to: '/settings', label: 'Settings', short: 'Settings', icon: Settings },
+    ];
+  }
+  if (role === 'special_sales') {
+    return [
+      { to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart },
+      { to: '/products', label: 'Products', short: 'Products', icon: Package },
     ];
   }
   return [{ to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart }];
