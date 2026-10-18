@@ -138,3 +138,18 @@ test.each(['sales', 'special_sales'] as const)('%s cannot open Settings > Store'
   const router = renderAt('/settings/store');
   await vi.waitFor(() => expect(router.state.location.pathname).not.toContain('/settings'));
 });
+
+test('the Owner opens Settings > Attendance (ATT-07)', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('owner') });
+  renderAt('/settings/attendance');
+  expect(await screen.findByRole('heading', { name: 'Attendance' })).toBeInTheDocument();
+});
+
+test.each(['sales', 'special_sales'] as const)(
+  '%s cannot open Settings > Attendance',
+  async (role) => {
+    useSession.setState({ status: 'signedIn', user: userWith(role) });
+    const router = renderAt('/settings/attendance');
+    await vi.waitFor(() => expect(router.state.location.pathname).not.toContain('/settings'));
+  },
+);

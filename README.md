@@ -5,8 +5,9 @@ Requirements live in [docs/SRS.md](docs/SRS.md); IDs such as `AUTH-01` or `SEC-0
 comments and commit messages refer to it.
 
 **Status: Phase 0 (foundation).** Sign-in, user management, device tags, the audit log,
-backups and store settings (details and the store's location for clock-in) are built on
-Supabase. Attendance settings, selling, inventory and the other screens are not built yet.
+backups, store settings (details and the store's location for clock-in) and attendance
+rules (shift times, grace, late deduction) are built on Supabase. Clock-in itself, selling,
+inventory and the other screens are not built yet.
 
 ## What is in the repository
 
@@ -15,7 +16,7 @@ apps/web/                 React 18 + TypeScript + Vite PWA
   src/features/auth/      sign-in, Owner two-step, set password, idle lock
   src/features/users/     Owner user management and device list
   src/features/audit/     audit log viewer
-  src/features/store/     store settings: details, idle lock, location for clock-in
+  src/features/store/     store settings (details, idle lock, location) and attendance rules
   src/features/backups/   last backup date and overdue note for the Owner
   src/lib/supabase.ts     Supabase client and validated config
   src/styles/             design tokens (CSS variables + Tailwind theme), light and dark
