@@ -71,6 +71,12 @@ function clockTime(value: string): string {
   return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')} ${suffix}`;
 }
 
+// Amounts in pesos: shown as "₱25.50", not "25.5" as the database sends them.
+const MONEY_KEYS = new Set(['late_penalty', 'sales_discount_limit']);
+
+const peso = (amount: number) =>
+  `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 /** A settings value as the Owner would say it. */
 function settingText(key: string, value: unknown): string {
   if (value === null || value === undefined) return '—';
@@ -79,6 +85,7 @@ function settingText(key: string, value: unknown): string {
   if (key === 'late_deduction' && typeof value === 'string')
     return LATE_DEDUCTION_LABELS[value] ?? value;
   if (key === 'afternoon_day_credit') return Number(value) === 1 ? 'Full day' : 'Half day';
+  if (MONEY_KEYS.has(key) && Number.isFinite(Number(value))) return peso(Number(value));
   return text(value);
 }
 

@@ -200,4 +200,21 @@ describe('branch row and audit log', () => {
         'Afternoon-start day: Half day → Full day · Owner clocks in: No → Yes',
     );
   });
+
+  test('money reads as pesos', () => {
+    const entry: AuditRecord = {
+      id: '2',
+      action: 'branch.update',
+      actorId: 'o1',
+      targetId: 'main',
+      deviceTag: null,
+      before: { late_penalty: 0, sales_discount_limit: null },
+      after: { late_penalty: 25.5, sales_discount_limit: 1500 },
+      reason: null,
+      createdAt: null,
+    };
+    expect(describeAudit(entry, 'x').change).toBe(
+      'Flat amount: ₱0.00 → ₱25.50 · Discount limit: — → ₱1,500.00',
+    );
+  });
 });

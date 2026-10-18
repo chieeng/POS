@@ -431,6 +431,26 @@ The store can start selling after Phase 2; each later phase ships on its own.
 5. **Phase 4 – Reports.** Dashboard, report views, sales and profit reports, attendance summaries, payroll runs with payslips and cash advances, CSV export, backups verified.
 6. **Phase 5 – Polish.** Held sales, physical count, Bluetooth thermal printing if the owner wants paper slips.
 
+### Build order
+
+The phases above are built in this order, one step (one or a few pull requests) at a time:
+
+1. Store settings: details, location for clock-in, attendance rules (**done**)
+2. Product catalog: categories, suppliers, products with manual SKU, price log
+3. Owner approval requests
+4. Stock-in, stock movements, low stock, cost
+5. Product photos and CSV import/export
+6. Push notifications to the Owner
+7. Installable app, offline product list and offline queue
+8. Cash drawer
+9. Checkout: search, cart, payments, receipts, digital slip
+10. Voids, returns, sale corrections
+11. Attendance with location check and late rules, then **one week running beside the store's current method before go-live** (the Phase 2 gate)
+12. Customer credit (utang)
+13. Owner dashboard and reports
+14. Payroll
+15. Polish: held sales, physical count, printing
+
 ### Open questions
 
 - [ ] Does the owner need BIR-registered receipts? If yes, the system needs BIR accreditation or must work beside an accredited POS/receipt booklet.
