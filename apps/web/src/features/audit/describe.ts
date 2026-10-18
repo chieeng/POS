@@ -48,7 +48,39 @@ const FIELD_LABELS: Record<string, string> = {
   store_lat: 'Latitude',
   store_lng: 'Longitude',
   radius_m: 'Radius (m)',
+  morning_clock_in: 'Morning clock-in',
+  afternoon_clock_in: 'Afternoon clock-in',
+  grace_minutes: 'Grace (min)',
+  late_deduction: 'Late deduction',
+  late_penalty: 'Flat amount',
+  paid_minutes_per_day: 'Paid minutes per day',
+  afternoon_day_credit: 'Afternoon-start day',
+  owner_clocks_in: 'Owner clocks in',
 };
+
+const LATE_DEDUCTION_LABELS: Record<string, string> = {
+  none: 'None',
+  minutes: 'Minutes late',
+  flat: 'Flat amount',
+};
+
+/** "06:00:00" as "6:00 AM". */
+function clockTime(value: string): string {
+  const [hours = 0, minutes = 0] = value.split(':').map(Number);
+  const suffix = hours < 12 ? 'AM' : 'PM';
+  return `${hours % 12 || 12}:${String(minutes).padStart(2, '0')} ${suffix}`;
+}
+
+/** A settings value as the Owner would say it. */
+function settingText(key: string, value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (key.endsWith('_clock_in') && typeof value === 'string') return clockTime(value);
+  if (key === 'late_deduction' && typeof value === 'string')
+    return LATE_DEDUCTION_LABELS[value] ?? value;
+  if (key === 'afternoon_day_credit') return Number(value) === 1 ? 'Full day' : 'Half day';
+  return text(value);
+}
 
 function roleLabel(value: unknown): string {
   return typeof value === 'string' && value in ROLE_LABELS ? ROLE_LABELS[value as Role] : '—';
@@ -90,7 +122,10 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
         icon: Store,
         what: 'changed store settings',
         change: Object.keys(after)
-          .map((key) => `${FIELD_LABELS[key] ?? key}: ${text(before[key])} → ${text(after[key])}`)
+          .map(
+            (key) =>
+              `${FIELD_LABELS[key] ?? key}: ${settingText(key, before[key])} → ${settingText(key, after[key])}`,
+          )
           .join(' · '),
       };
     case 'user.deactivate':

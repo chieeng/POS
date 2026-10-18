@@ -4,7 +4,9 @@ import { useLiveRows } from '@/hooks/useLiveRows';
 import { getDeviceTag } from '@/lib/device';
 import { supabase } from '@/lib/supabase';
 
-/** The branch row (SYS-01) as the app uses it. Attendance rules join this in a later step. */
+export type LateDeduction = 'none' | 'minutes' | 'flat';
+
+/** The branch row as the app uses it: store settings (SYS-01) and attendance rules (ATT-07). */
 export interface BranchSettings {
   id: string;
   name: string;
@@ -19,6 +21,18 @@ export interface BranchSettings {
   storeLat: number | null;
   storeLng: number | null;
   radiusM: number;
+  /** "HH:MM", Manila time (ATT-06). */
+  morningClockIn: string;
+  afternoonClockIn: string;
+  graceMinutes: number;
+  lateDeduction: LateDeduction;
+  /** Pesos per late day, used when lateDeduction is "flat". */
+  latePenalty: number;
+  /** Used when lateDeduction is "minutes": daily rate / this x minutes late. */
+  paidMinutesPerDay: number;
+  /** ATT-10: 0.5 (half day) or 1 (full day) for a day starting with the afternoon shift. */
+  afternoonDayCredit: 0.5 | 1;
+  ownerClocksIn: boolean;
 }
 
 type Row = Record<string, unknown>;
@@ -29,6 +43,10 @@ const num = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
+
+/** "06:00:00" from the database as "06:00". */
+const hhmm = (value: unknown, fallback: string) =>
+  typeof value === 'string' && /^\d{2}:\d{2}/.test(value) ? value.slice(0, 5) : fallback;
 
 export const toBranch = (row: Row): BranchSettings => ({
   id: String(row.id ?? ''),
@@ -42,10 +60,20 @@ export const toBranch = (row: Row): BranchSettings => ({
   storeLat: num(row.store_lat),
   storeLng: num(row.store_lng),
   radiusM: num(row.radius_m) ?? 100,
+  morningClockIn: hhmm(row.morning_clock_in, '06:00'),
+  afternoonClockIn: hhmm(row.afternoon_clock_in, '13:00'),
+  graceMinutes: num(row.grace_minutes) ?? 15,
+  lateDeduction:
+    row.late_deduction === 'minutes' || row.late_deduction === 'flat' ? row.late_deduction : 'none',
+  latePenalty: num(row.late_penalty) ?? 0,
+  paidMinutesPerDay: num(row.paid_minutes_per_day) ?? 480,
+  afternoonDayCredit: num(row.afternoon_day_credit) === 1 ? 1 : 0.5,
+  ownerClocksIn: row.owner_clocks_in === true,
 });
 
+// One string literal, so supabase-js can type the row it returns.
 const COLUMNS =
-  'id, name, address, contact, tin, receipt_footer, sales_discount_limit, idle_lock_minutes, store_lat, store_lng, radius_m';
+  'id, name, address, contact, tin, receipt_footer, sales_discount_limit, idle_lock_minutes, store_lat, store_lng, radius_m, morning_clock_in, afternoon_clock_in, grace_minutes, late_deduction, late_penalty, paid_minutes_per_day, afternoon_day_credit, owner_clocks_in';
 
 /**
  * The signed-in user's branch, live. Row Level Security returns it only to the branch's own
@@ -85,6 +113,14 @@ export interface BranchChanges {
   store_lat?: number | null;
   store_lng?: number | null;
   radius_m?: number;
+  morning_clock_in?: string;
+  afternoon_clock_in?: string;
+  grace_minutes?: number;
+  late_deduction?: LateDeduction;
+  late_penalty?: number;
+  paid_minutes_per_day?: number;
+  afternoon_day_credit?: 0.5 | 1;
+  owner_clocks_in?: boolean;
 }
 
 /** SYS-01: the Owner saves some settings. The server checks, saves and audit-logs them. */

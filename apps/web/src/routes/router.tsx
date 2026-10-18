@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-do
 import { AppShell } from '@/components/AppShell';
 import { AuditLogPage } from '@/features/audit/AuditLogPage';
 import { BackupsPage } from '@/features/backups/BackupsPage';
+import { AttendanceSettingsPage } from '@/features/store/AttendanceSettingsPage';
 import { StoreSettingsPage } from '@/features/store/StoreSettingsPage';
 import { EnrollTotpPage } from '@/features/auth/EnrollTotpPage';
 import { ROLE_HOME } from '@/features/auth/roles';
@@ -37,6 +38,7 @@ export const routes: RouteObject[] = [
                 children: [
                   { index: true, element: <SettingsIndex /> },
                   { path: 'store', element: <StoreSettingsPage /> },
+                  { path: 'attendance', element: <AttendanceSettingsPage /> },
                   { path: 'users', element: <UsersPage /> },
                   { path: 'users/new', element: <AddUserPage /> },
                   { path: 'users/:uid', element: <UserDetailPage /> },

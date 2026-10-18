@@ -27,6 +27,14 @@ const BRANCH: BranchSettings = {
   storeLat: null,
   storeLng: null,
   radiusM: 100,
+  morningClockIn: '06:00',
+  afternoonClockIn: '13:00',
+  graceMinutes: 15,
+  lateDeduction: 'none',
+  latePenalty: 0,
+  paidMinutesPerDay: 480,
+  afternoonDayCredit: 0.5,
+  ownerClocksIn: false,
 };
 
 function renderPage(branch: BranchSettings = BRANCH) {
