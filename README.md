@@ -6,8 +6,8 @@ comments and commit messages refer to it.
 
 **Status: Phase 0 (foundation).** Sign-in, user management, device tags, the audit log,
 backups, store settings (details and the store's location for clock-in) and attendance
-rules (shift times, grace, late deduction) are built on Supabase. Clock-in itself, selling,
-inventory and the other screens are not built yet.
+rules (shift times, grace, late deduction), and product categories and suppliers are built
+on Supabase. Products, clock-in, selling, inventory and the other screens are not built yet.
 
 ## What is in the repository
 
@@ -16,6 +16,7 @@ apps/web/                 React 18 + TypeScript + Vite PWA
   src/features/auth/      sign-in, Owner two-step, set password, idle lock
   src/features/users/     Owner user management and device list
   src/features/audit/     audit log viewer
+  src/features/catalog/   products area: categories and suppliers (products next)
   src/features/store/     store settings (details, idle lock, location) and attendance rules
   src/features/backups/   last backup date and overdue note for the Owner
   src/lib/supabase.ts     Supabase client and validated config

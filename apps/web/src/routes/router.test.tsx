@@ -16,6 +16,11 @@ vi.mock('@/features/users/data', async (importOriginal) => ({
   useDevices: () => ({ data: [], loading: false, error: false }),
   useAuditLogs: () => ({ data: [], loading: false, error: false }),
 }));
+vi.mock('@/features/catalog/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/catalog/data')>()),
+  useCategories: () => ({ data: [], loading: false, error: false }),
+  useSuppliers: () => ({ data: [], loading: false, error: false }),
+}));
 vi.mock('@/features/store/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/store/data')>()),
   useBranchQuery: () => ({ data: [], loading: false, error: false }),
@@ -153,3 +158,16 @@ test.each(['sales', 'special_sales'] as const)(
     await vi.waitFor(() => expect(router.state.location.pathname).not.toContain('/settings'));
   },
 );
+
+test.each(['owner', 'special_sales'] as const)('%s opens Products > Categories', async (role) => {
+  useSession.setState({ status: 'signedIn', user: userWith(role) });
+  const router = renderAt('/products');
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/products/categories'));
+  expect(await screen.findByLabelText('New category')).toBeInTheDocument();
+});
+
+test('Sales cannot open Products', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('sales') });
+  const router = renderAt('/products/suppliers');
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sales'));
+});

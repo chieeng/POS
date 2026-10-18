@@ -1,6 +1,9 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { AuditLogPage } from '@/features/audit/AuditLogPage';
+import { CatalogLayout } from '@/features/catalog/CatalogLayout';
+import { CategoriesPage } from '@/features/catalog/CategoriesPage';
+import { SuppliersPage } from '@/features/catalog/SuppliersPage';
 import { BackupsPage } from '@/features/backups/BackupsPage';
 import { AttendanceSettingsPage } from '@/features/store/AttendanceSettingsPage';
 import { StoreSettingsPage } from '@/features/store/StoreSettingsPage';
@@ -44,6 +47,21 @@ export const routes: RouteObject[] = [
                   { path: 'users/:uid', element: <UserDetailPage /> },
                   { path: 'audit-log', element: <AuditLogPage /> },
                   { path: 'backups', element: <BackupsPage /> },
+                ],
+              },
+            ],
+          },
+          {
+            // SRS 6.1: the catalog is managed by the Owner and Special Sales.
+            element: <RequireRole role={['owner', 'special_sales']} />,
+            children: [
+              {
+                path: '/products',
+                element: <CatalogLayout />,
+                children: [
+                  { index: true, element: <Navigate to="categories" replace /> },
+                  { path: 'categories', element: <CategoriesPage /> },
+                  { path: 'suppliers', element: <SuppliersPage /> },
                 ],
               },
             ],
