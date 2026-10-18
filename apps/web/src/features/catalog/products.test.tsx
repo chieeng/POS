@@ -1,0 +1,344 @@
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { describeAudit } from '@/features/audit/describe';
+import type { AuditRecord } from '@/features/users/data';
+import { useSession, type SessionUser } from '@/stores/session';
+import { AddProductPage } from './AddProductPage';
+import {
+  createProduct,
+  describeCatalogError,
+  updateProduct,
+  type Category,
+  type PriceChange,
+  type Product,
+} from './data';
+import { matchesSearch } from './helpers';
+import { ProductDetailPage } from './ProductDetailPage';
+import { ProductsPage } from './ProductsPage';
+
+const state = vi.hoisted(() => ({
+  categories: [] as Category[],
+  products: [] as Product[],
+  history: [] as PriceChange[],
+}));
+
+vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
+vi.mock('./data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./data')>()),
+  useCategories: () => ({ data: state.categories, loading: false, error: false }),
+  useProducts: () => ({ data: state.products, loading: false, error: false }),
+  usePriceChanges: () => ({ data: state.history, loading: false, error: false }),
+  createProduct: vi.fn(),
+  updateProduct: vi.fn(),
+}));
+
+const CHIPS: Product = {
+  id: 'p1',
+  sku: 'CK-12',
+  name: 'Chips Classic',
+  categoryId: 'c1',
+  unit: 'pack',
+  sellPrice: 45,
+  stockQty: 0,
+  reorderLevel: 10,
+  active: true,
+};
+
+function signInAs(role: SessionUser['role']) {
+  useSession.setState({
+    status: 'signedIn',
+    user: {
+      uid: 'u1',
+      email: 'u@x.co',
+      displayName: 'User',
+      role,
+      branchId: 'main',
+      secondFactor: role === 'owner',
+    },
+  });
+}
+
+function renderAt(path: string) {
+  const router = createMemoryRouter(
+    [
+      { path: '/products', element: <ProductsPage /> },
+      { path: '/products/new', element: <AddProductPage /> },
+      { path: '/products/:productId', element: <ProductDetailPage /> },
+    ],
+    { initialEntries: [path] },
+  );
+  render(<RouterProvider router={router} />);
+  return { router, user: userEvent.setup() };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(createProduct).mockResolvedValue('p9');
+  vi.mocked(updateProduct).mockResolvedValue();
+  state.categories = [
+    { id: 'c1', name: 'Snacks', active: true },
+    { id: 'c2', name: 'Drinks', active: true },
+    { id: 'c3', name: 'Old stock', active: false },
+  ];
+  state.products = [
+    CHIPS,
+    {
+      ...CHIPS,
+      id: 'p2',
+      sku: 'WATER-500',
+      name: 'Water 500 ml',
+      categoryId: 'c2',
+      unit: 'pc',
+      sellPrice: 15,
+    },
+    { ...CHIPS, id: 'p3', sku: 'OLD-1', name: 'Old candy', categoryId: 'c3', active: false },
+  ];
+  state.history = [
+    {
+      id: 'h2',
+      oldPrice: 45,
+      newPrice: 48.5,
+      source: 'owner_edit',
+      changedByName: 'Rosario',
+      createdAt: new Date('2026-10-18T14:15:00+08:00'),
+    },
+    {
+      id: 'h1',
+      oldPrice: null,
+      newPrice: 45,
+      source: 'created',
+      changedByName: 'Maria',
+      createdAt: new Date('2026-10-17T09:00:00+08:00'),
+    },
+  ];
+  signInAs('owner');
+});
+
+describe('Products list', () => {
+  test('search matches the name or the SKU, ignoring case', () => {
+    expect(matchesSearch(CHIPS, 'chips')).toBe(true);
+    expect(matchesSearch(CHIPS, 'ck-1')).toBe(true);
+    expect(matchesSearch(CHIPS, '  ')).toBe(true);
+    expect(matchesSearch(CHIPS, 'water')).toBe(false);
+  });
+
+  test('shows active products with price per unit; inactive ones only on request', async () => {
+    const { user } = renderAt('/products');
+    expect(screen.getByText('Chips Classic')).toBeInTheDocument();
+    expect(screen.getByText('₱45.00')).toBeInTheDocument();
+    expect(screen.getByText(/\/ pack · 0 in stock/)).toBeInTheDocument();
+    expect(screen.queryByText('Old candy')).toBeNull();
+    await user.click(screen.getByLabelText('Show inactive'));
+    expect(screen.getByText('Old candy')).toBeInTheDocument();
+  });
+
+  test('filters by search and by category', async () => {
+    const { user } = renderAt('/products');
+    await user.type(screen.getByLabelText('Search by name or SKU'), 'water');
+    expect(screen.getByText('Water 500 ml')).toBeInTheDocument();
+    expect(screen.queryByText('Chips Classic')).toBeNull();
+    await user.clear(screen.getByLabelText('Search by name or SKU'));
+    await user.selectOptions(screen.getByLabelText('Category'), 'c1');
+    expect(screen.getByText('Chips Classic')).toBeInTheDocument();
+    expect(screen.queryByText('Water 500 ml')).toBeNull();
+  });
+
+  test.each(['owner', 'special_sales'] as const)('%s can add products', (role) => {
+    signInAs(role);
+    renderAt('/products');
+    expect(screen.getByRole('link', { name: 'Add product' })).toBeInTheDocument();
+  });
+
+  test('Sales sees the list but cannot add', () => {
+    signInAs('sales');
+    renderAt('/products');
+    expect(screen.getByText('Chips Classic')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Add product' })).toBeNull();
+  });
+});
+
+describe('Add product (PROD-02, PROD-03)', () => {
+  test('saves the product with the SKU in capitals and opens it', async () => {
+    signInAs('special_sales');
+    const { router, user } = renderAt('/products/new');
+    await user.type(screen.getByLabelText('Product name'), ' Cola 1.5 L ');
+    await user.type(screen.getByLabelText('SKU'), 'cola-15');
+    await user.selectOptions(screen.getByLabelText('Category'), 'c2');
+    await user.selectOptions(screen.getByLabelText('Unit'), 'bottle');
+    await user.type(screen.getByLabelText('Selling price (₱)'), '75.50');
+    await user.click(screen.getByRole('button', { name: 'Add product' }));
+
+    expect(createProduct).toHaveBeenCalledWith({
+      sku: 'COLA-15',
+      name: 'Cola 1.5 L',
+      category_id: 'c2',
+      unit: 'bottle',
+      sell_price: 75.5,
+      reorder_level: 0,
+    });
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/products/p9'));
+  });
+
+  test('inactive categories cannot be chosen', () => {
+    renderAt('/products/new');
+    const options = screen.getAllByRole('option').map((option) => option.textContent);
+    expect(options).toContain('Snacks');
+    expect(options).not.toContain('Old stock');
+  });
+
+  test('refuses a bad SKU, a missing category and a zero price', async () => {
+    const { user } = renderAt('/products/new');
+    await user.type(screen.getByLabelText('Product name'), 'X');
+    await user.type(screen.getByLabelText('SKU'), 'CK 12');
+    await user.type(screen.getByLabelText('Selling price (₱)'), '0');
+    await user.click(screen.getByRole('button', { name: 'Add product' }));
+    expect(await screen.findByText('Use 1 to 20 letters, digits or dashes.')).toBeInTheDocument();
+    expect(screen.getByText('Choose a category.')).toBeInTheDocument();
+    expect(screen.getByText('Use ₱0.01 to ₱1,000,000.')).toBeInTheDocument();
+    expect(createProduct).not.toHaveBeenCalled();
+  });
+
+  test('a SKU already used says so', async () => {
+    vi.mocked(createProduct).mockRejectedValue({ code: '23505', message: 'sku_taken' });
+    const { user } = renderAt('/products/new');
+    await user.type(screen.getByLabelText('Product name'), 'Copy');
+    await user.type(screen.getByLabelText('SKU'), 'ck-12');
+    await user.selectOptions(screen.getByLabelText('Category'), 'c1');
+    await user.type(screen.getByLabelText('Selling price (₱)'), '45');
+    await user.click(screen.getByRole('button', { name: 'Add product' }));
+    expect(await screen.findByText('Another product already uses this SKU.')).toBeInTheDocument();
+  });
+});
+
+describe('Product page', () => {
+  test('shows the details and the price history, newest first', () => {
+    renderAt('/products/p1');
+    expect(screen.getByRole('heading', { name: 'Chips Classic' })).toBeInTheDocument();
+    expect(screen.getByText('₱45.00 / pack')).toBeInTheDocument();
+    expect(screen.getByText('10 pack')).toBeInTheDocument();
+    const rows = screen.getAllByRole('listitem').map((row) => row.textContent);
+    expect(rows[0]).toContain('₱45.00 → ₱48.50');
+    expect(rows[0]).toContain('Rosario');
+    expect(rows[1]).toContain('₱45.00');
+    expect(rows[1]).toContain('first price');
+  });
+
+  test('the Owner edits the product', async () => {
+    const { user } = renderAt('/products/p1');
+    await user.click(screen.getByRole('button', { name: 'Edit product' }));
+    const price = screen.getByLabelText('Selling price (₱)');
+    await user.clear(price);
+    await user.type(price, '48.50');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(updateProduct).toHaveBeenCalledWith('p1', {
+      sku: 'CK-12',
+      name: 'Chips Classic',
+      category_id: 'c1',
+      unit: 'pack',
+      sell_price: 48.5,
+      reorder_level: 10,
+    });
+    expect(await screen.findByText('Saved.')).toBeInTheDocument();
+  });
+
+  test('the Owner deactivates after confirming', async () => {
+    const { user } = renderAt('/products/p1');
+    await user.click(screen.getByRole('button', { name: 'Deactivate' }));
+    expect(screen.getByText(/disappears from selling and searches/)).toBeInTheDocument();
+    await user.click(screen.getAllByRole('button', { name: 'Deactivate' }).at(-1)!);
+    expect(updateProduct).toHaveBeenCalledWith('p1', { active: false });
+  });
+
+  test('a product in an inactive category keeps it as a choice when edited', async () => {
+    const { user } = renderAt('/products/p3');
+    await user.click(screen.getByRole('button', { name: 'Edit product' }));
+    const options = screen.getAllByRole('option').map((option) => option.textContent);
+    expect(options).toContain('Old stock (inactive)');
+  });
+
+  test('Special Sales sees the price history and is told to ask the Owner', () => {
+    signInAs('special_sales');
+    renderAt('/products/p1');
+    expect(screen.getByText('To change this product, ask the Owner.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit product' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Price history' })).toBeInTheDocument();
+  });
+
+  test('Sales sees the details only', () => {
+    signInAs('sales');
+    renderAt('/products/p1');
+    expect(screen.getByText('₱45.00 / pack')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Price history' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit product' })).toBeNull();
+    expect(screen.queryByText('To change this product, ask the Owner.')).toBeNull();
+  });
+
+  test('an unknown product says so', () => {
+    renderAt('/products/nope');
+    expect(screen.getByText('This product was not found.')).toBeInTheDocument();
+  });
+});
+
+describe('messages and audit log', () => {
+  test('a category with active products explains what to do', () => {
+    expect(
+      describeCatalogError({ code: '23503', message: 'category_in_use', details: '3' }, 'category'),
+    ).toBe('Move or deactivate its 3 products first.');
+    expect(
+      describeCatalogError({ code: '23503', message: 'category_in_use', details: '1' }, 'category'),
+    ).toBe('Move or deactivate its 1 product first.');
+    expect(describeCatalogError({ message: 'category_inactive' }, 'product')).toBe(
+      'This category is inactive. Choose an active one.',
+    );
+  });
+
+  test('product entries read as sentences, with prices in pesos', () => {
+    const entry = (overrides: Partial<AuditRecord>): AuditRecord => ({
+      id: '1',
+      action: '',
+      actorId: 'o1',
+      targetId: 'p1',
+      deviceTag: null,
+      before: null,
+      after: null,
+      reason: null,
+      createdAt: null,
+      ...overrides,
+    });
+    expect(
+      describeAudit(
+        entry({
+          action: 'product.create',
+          after: { sku: 'CK-12', name: 'Chips Classic', unit: 'pack', sell_price: 45 },
+        }),
+        'x',
+      ),
+    ).toMatchObject({ what: 'added product “Chips Classic” (CK-12)', change: '₱45.00 / pack' });
+    expect(
+      describeAudit(
+        entry({
+          action: 'product.update',
+          before: { sell_price: 45, category_id: 'c1', label: 'Chips Classic' },
+          after: { sell_price: 48.5, category_id: 'c2' },
+        }),
+        'x',
+      ),
+    ).toMatchObject({
+      what: 'changed product “Chips Classic”',
+      change: 'Price: ₱45.00 → ₱48.50 · Category changed',
+    });
+    expect(
+      describeAudit(
+        entry({
+          action: 'product.update',
+          before: { active: true, label: 'Old candy' },
+          after: { active: false },
+        }),
+        'x',
+      ).what,
+    ).toBe('deactivated product “Old candy”');
+  });
+});

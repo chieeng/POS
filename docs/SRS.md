@@ -77,11 +77,11 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| PROD-01 | Products have: name, SKU, category, selling price per piece, reorder level, active flag, photo. | M |
-| PROD-02 | Special Sales types the SKU manually when adding a product. SKUs are unique per branch; duplicates are rejected. | M |
-| PROD-03 | Special Sales and the Owner add products, categories and suppliers directly. | M |
-| PROD-04 | Edits and deactivation by Special Sales (name, SKU, price, category, unit) go through an Owner approval request; the Owner edits directly. | M |
-| PROD-05 | Every price change is logged with old price, new price, user and time. | M |
+| PROD-01 | Products have: name, SKU, category, unit, selling price per unit, reorder level, active flag, photo. The unit is one of pc (default), pack, box, bottle, can, sachet, set, pair, roll; the price and every quantity (stock-in, sale, count) are per that unit, in whole numbers. An item sold in two units (for example per stick and per pack) is two products, each with its own SKU, price and stock. | M |
+| PROD-02 | Special Sales types the SKU manually when adding a product: 1 to 20 letters, digits or dashes, saved in capitals. SKUs are unique per branch whatever their case; duplicates are rejected. No barcodes. | M |
+| PROD-03 | Special Sales and the Owner add products, categories and suppliers directly. Category and supplier names are trimmed and unique per branch whatever their case. Nothing is deleted: a deactivated category or supplier stays on existing products and history but cannot be chosen for new ones, and a category that still has active products cannot be deactivated ("Move or deactivate its N products first"). | M |
+| PROD-04 | Edits and deactivation by Special Sales (name, SKU, price, category, unit) go through an Owner approval request; the Owner edits directly. Until approval requests are built (build step 3), Special Sales cannot change or deactivate products, categories or suppliers and is told to ask the Owner. | M |
+| PROD-05 | Every price is logged in `price_changes` with old price, new price, who (and their name at the time), device and time, including the first price when a product is added. The product page shows its price history, newest first, to the Owner and Special Sales. | M |
 | PROD-06 | Bulk import and export products by CSV (Owner only). | S |
 
 ### 3.3 Point of sale (POS)
@@ -238,9 +238,10 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 | `profiles` | id (= auth user id), display\_name, role (owner, special\_sales, sales), user\_code, branch\_id, active, clock\_in\_override, created\_at | Owner-only Edge Function / function |
 | `devices` | user\_id, device\_tag, label, push\_subscription, last\_seen\_at | The user (own rows) |
 | `pay_rates` | user\_id, daily\_rate, effective\_from, updated\_by | Owner only (read and write) |
-| `categories` | branch\_id, name, active | Special Sales (create), Owner |
-| `suppliers` | branch\_id, name, contact\_person, phone, address, active | Special Sales (create), Owner |
-| `products` | branch\_id, sku (unique per branch), name, category\_id, sell\_price, stock\_qty, reorder\_level, image\_path, active, updated\_at | Special Sales (create), Owner (edit); `stock_qty` only via functions |
+| `categories` | branch\_id, name (unique per branch, case-insensitive), active | Read by the branch; created by Special Sales and the Owner, changed by the Owner, through functions |
+| `suppliers` | branch\_id, name (unique per branch, case-insensitive), contact\_person, phone, address, active | Owner and Special Sales read; created by both, changed by the Owner, through functions |
+| `products` | branch\_id, sku (unique per branch), name, category\_id, unit, sell\_price, stock\_qty, reorder\_level, image\_path, active, updated\_at | Special Sales (create), Owner (edit); `stock_qty` only via functions |
+| `price_changes` | product\_id, old\_price, new\_price, source (created, owner\_edit, approval, import), changed\_by, changed\_by\_name, device\_tag, created\_at | Functions only; append-only; Owner and Special Sales read |
 | `product_costs` | product\_id, cost\_price (weighted average), updated\_at | Functions only; Owner-only read |
 | `customers` | branch\_id, name, phone, address, credit\_limit, balance, active | Sales (create), Owner (edit); `balance` only via functions |
 | `drawer_sessions` | branch\_id, business\_date (unique per branch), opened\_by, opening\_cash, prefill\_difference, closed\_by, counted\_cash, expected\_cash, over\_short, status | open\_drawer / close\_drawer functions |
@@ -458,9 +459,11 @@ The phases above are built in this order, one step (one or a few pull requests) 
 - [ ] Is VAT applicable (VAT-registered or non-VAT)? This changes receipt fields and price display.
 - [ ] Should credit customers be shared across future branches or kept per branch?
 - [ ] Are digital slips enough, or does the store want paper slips from a printer?
-- [ ] Should SKUs follow a pattern (for example a category prefix plus a number) so the app can suggest the next free one?
+- [x] Should SKUs follow a pattern so the app can suggest the next free one? *Not known yet: SKUs are free-form (PROD-02); "suggest the next number" can be added later.*
 - [x] What are this store's coordinates and allowed radius? *Set by the Owner at handover in Store settings; radius 100 m by default; location check off until set.*
 - [x] Do this store's shift start times and late deduction match pos-erag? *Not known yet: defaults 6:00 AM / 1:00 PM / 15-minute grace, editable; late deduction none by default, with "minutes late" or a flat amount (₱0 by default) as Owner choices (ATT-06).*
 - [x] Does a day that starts with the afternoon shift count as a full day or a half day of pay? *Half day by default, editable by the Owner.*
 - [x] Does the Owner clock in too, or only staff? *Staff only by default; the Owner can turn on "Owner clocks in too".*
-- [ ] Is there an existing product list (spreadsheet) to import, and roughly how many items?
+- [ ] Is there an existing product list (spreadsheet) to import, and roughly how many items? *To find out at handover; products are entered by hand until CSV import (build step 5).*
+- [ ] Does the store sell anything by weight or length (kg, g, L, m)? That needs decimal quantities in stock-in, checkout and the offline queue, so it must be decided before checkout (build step 9).
+- [ ] Does the store sell the same item in two units (for example per stick and per pack)? For now that is two products, each with its own SKU, price and stock.

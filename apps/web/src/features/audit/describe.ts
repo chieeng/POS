@@ -5,6 +5,7 @@ import {
   LogOut,
   ScrollText,
   ShieldCheck,
+  Package,
   ShieldPlus,
   Tags,
   Truck,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ROLE_LABELS, type Role } from '@/features/auth/roles';
 import type { AuditRecord } from '@/features/users/data';
+import { formatPeso } from '@/lib/money';
 
 export interface AuditLine {
   icon: LucideIcon;
@@ -39,6 +41,8 @@ export const ACTION_LABELS: Record<string, string> = {
   'category.update': 'Category changes',
   'supplier.create': 'Suppliers added',
   'supplier.update': 'Supplier changes',
+  'product.create': 'Products added',
+  'product.update': 'Product changes',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -71,6 +75,14 @@ const CATALOG_LABELS: Record<string, string> = {
   address: 'Address',
 };
 
+const PRODUCT_LABELS: Record<string, string> = {
+  sku: 'SKU',
+  name: 'Name',
+  unit: 'Unit',
+  sell_price: 'Price',
+  reorder_level: 'Reorder level',
+};
+
 const LATE_DEDUCTION_LABELS: Record<string, string> = {
   none: 'None',
   minutes: 'Minutes late',
@@ -85,10 +97,7 @@ function clockTime(value: string): string {
 }
 
 // Amounts in pesos: shown as "₱25.50", not "25.5" as the database sends them.
-const MONEY_KEYS = new Set(['late_penalty', 'sales_discount_limit']);
-
-const peso = (amount: number) =>
-  `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const MONEY_KEYS = new Set(['late_penalty', 'sales_discount_limit', 'sell_price']);
 
 /** A settings value as the Owner would say it. */
 function settingText(key: string, value: unknown): string {
@@ -98,7 +107,7 @@ function settingText(key: string, value: unknown): string {
   if (key === 'late_deduction' && typeof value === 'string')
     return LATE_DEDUCTION_LABELS[value] ?? value;
   if (key === 'afternoon_day_credit') return Number(value) === 1 ? 'Full day' : 'Half day';
-  if (MONEY_KEYS.has(key) && Number.isFinite(Number(value))) return peso(Number(value));
+  if (MONEY_KEYS.has(key) && Number.isFinite(Number(value))) return formatPeso(Number(value));
   return text(value);
 }
 
@@ -148,6 +157,32 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
           )
           .join(' · '),
       };
+    case 'product.create':
+      return {
+        icon: Package,
+        what: `added product “${text(after.name)}” (${text(after.sku)})`,
+        change: `${settingText('sell_price', after.sell_price)} / ${text(after.unit)}`,
+      };
+    case 'product.update': {
+      const fields = Object.keys(after).filter((key) => key !== 'active');
+      const status =
+        after.active === false ? 'Deactivated' : after.active === true ? 'Reactivated' : '';
+      return {
+        icon: Package,
+        what:
+          status && fields.length === 0
+            ? `${status.toLowerCase()} product “${text(before.label)}”`
+            : `changed product “${text(before.label)}”`,
+        change: [
+          ...fields.map((key) =>
+            key === 'category_id'
+              ? 'Category changed'
+              : `${PRODUCT_LABELS[key] ?? key}: ${settingText(key, before[key])} → ${settingText(key, after[key])}`,
+          ),
+          ...(status && fields.length > 0 ? [status] : []),
+        ].join(' · '),
+      };
+    }
     case 'category.create':
       return { icon: Tags, what: `added category “${text(after.name)}”`, change: '' };
     case 'supplier.create':

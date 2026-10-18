@@ -20,6 +20,7 @@ vi.mock('@/features/catalog/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/catalog/data')>()),
   useCategories: () => ({ data: [], loading: false, error: false }),
   useSuppliers: () => ({ data: [], loading: false, error: false }),
+  useProducts: () => ({ data: [], loading: false, error: false }),
 }));
 vi.mock('@/features/store/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/store/data')>()),
@@ -159,15 +160,23 @@ test.each(['sales', 'special_sales'] as const)(
   },
 );
 
+test.each(['owner', 'special_sales', 'sales'] as const)('%s opens Products', async (role) => {
+  useSession.setState({ status: 'signedIn', user: userWith(role) });
+  renderAt('/products');
+  expect(await screen.findByLabelText('Search by name or SKU')).toBeInTheDocument();
+});
+
 test.each(['owner', 'special_sales'] as const)('%s opens Products > Categories', async (role) => {
   useSession.setState({ status: 'signedIn', user: userWith(role) });
-  const router = renderAt('/products');
-  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/products/categories'));
+  renderAt('/products/categories');
   expect(await screen.findByLabelText('New category')).toBeInTheDocument();
 });
 
-test('Sales cannot open Products', async () => {
-  useSession.setState({ status: 'signedIn', user: userWith('sales') });
-  const router = renderAt('/products/suppliers');
-  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sales'));
-});
+test.each(['/products/new', '/products/categories', '/products/suppliers'])(
+  'Sales cannot open %s',
+  async (path) => {
+    useSession.setState({ status: 'signedIn', user: userWith('sales') });
+    const router = renderAt(path);
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sales'));
+  },
+);

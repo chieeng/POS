@@ -34,13 +34,10 @@ function navItems(role: Role): NavItem[] {
       { to: '/settings', label: 'Settings', short: 'Settings', icon: Settings },
     ];
   }
-  if (role === 'special_sales') {
-    return [
-      { to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart },
-      { to: '/products', label: 'Products', short: 'Products', icon: Package },
-    ];
-  }
-  return [{ to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart }];
+  return [
+    { to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart },
+    { to: '/products', label: 'Products', short: 'Products', icon: Package },
+  ];
 }
 
 function SyncPill({ compact = false }: { compact?: boolean }) {
