@@ -4,9 +4,9 @@ POS, inventory, attendance and lightweight payroll for a single retail store.
 Requirements live in [docs/SRS.md](docs/SRS.md); IDs such as `AUTH-01` or `SEC-04` in code
 comments and commit messages refer to it.
 
-**Status: Phase 0 (foundation).** Sign-in, user management, device tags and the audit log
-are built on Supabase. Store settings, selling, inventory and the other screens are not built
-yet.
+**Status: Phase 0 (foundation).** Sign-in, user management, device tags, the audit log,
+backups and store settings (details and the store's location for clock-in) are built on
+Supabase. Attendance settings, selling, inventory and the other screens are not built yet.
 
 ## What is in the repository
 
@@ -15,6 +15,8 @@ apps/web/                 React 18 + TypeScript + Vite PWA
   src/features/auth/      sign-in, Owner two-step, set password, idle lock
   src/features/users/     Owner user management and device list
   src/features/audit/     audit log viewer
+  src/features/store/     store settings: details, idle lock, location for clock-in
+  src/features/backups/   last backup date and overdue note for the Owner
   src/lib/supabase.ts     Supabase client and validated config
   src/styles/             design tokens (CSS variables + Tailwind theme), light and dark
 supabase/
@@ -218,6 +220,10 @@ by design and end up in the browser bundle anyway, SRS 6.3):
 | `VITE_STORE_NAME`         | the store name                   | the store name                      |
 | `VITE_STORE_ADDRESS`      | the store address                | the store address                   |
 | `NODE_VERSION`            | `22`                             | `22`                                |
+
+`VITE_STORE_NAME` and `VITE_STORE_ADDRESS` are shown only on the sign-in screen, before
+anyone is signed in. Inside the app, the store's name and details come from Settings > Store,
+which the Owner edits.
 
 Never add the service role key, the database password or a Turnstile secret key to
 Cloudflare Pages. Variables apply to the next build: after changing one, retry the latest

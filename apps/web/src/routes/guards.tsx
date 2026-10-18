@@ -28,5 +28,5 @@ export function SignInRoute() {
 /** /settings itself: phones show the section list; wider screens open the first section. */
 export function SettingsIndex() {
   const wide = useMediaQuery('(min-width: 768px)');
-  return wide ? <Navigate to="users" replace /> : null;
+  return wide ? <Navigate to="store" replace /> : null;
 }

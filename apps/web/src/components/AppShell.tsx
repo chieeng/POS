@@ -10,6 +10,7 @@ import {
 import { NavLink, Outlet } from 'react-router-dom';
 import { signOutUser } from '@/features/auth/authService';
 import { ROLE_HOME, ROLE_LABELS, type Role } from '@/features/auth/roles';
+import { useBranch } from '@/features/store/data';
 import { useOnline } from '@/hooks/useOnline';
 import { env } from '@/lib/supabase';
 import { cn, ICON_STROKE } from '@/lib/utils';
@@ -59,6 +60,8 @@ function SyncPill({ compact = false }: { compact?: boolean }) {
  * by Row Level Security and server functions.
  */
 export function AppShell() {
+  // SYS-01: the name the Owner set; the build's name until the branch has loaded.
+  const storeName = useBranch().branch?.name ?? env.storeName;
   const user = useSession((s) => s.user);
   if (!user) return null;
   const items = navItems(user.role);
@@ -79,8 +82,8 @@ export function AppShell() {
       >
         <div className="flex flex-col gap-[2px] xl:px-[9px]">
           <div className="font-heading text-[17px] leading-none xl:text-[28px]">POS</div>
-          {env.storeName && (
-            <div className="hidden text-[12px] text-neutral-700 xl:block">{env.storeName}</div>
+          {storeName && (
+            <div className="hidden text-[12px] text-neutral-700 xl:block">{storeName}</div>
           )}
         </div>
         <div className="flex flex-1 flex-col gap-[4px] overflow-auto md:items-center xl:items-stretch xl:gap-[2px]">

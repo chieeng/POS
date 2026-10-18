@@ -16,6 +16,10 @@ vi.mock('@/features/users/data', async (importOriginal) => ({
   useDevices: () => ({ data: [], loading: false, error: false }),
   useAuditLogs: () => ({ data: [], loading: false, error: false }),
 }));
+vi.mock('@/features/store/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/store/data')>()),
+  useBranchQuery: () => ({ data: [], loading: false, error: false }),
+}));
 vi.mock('@/features/backups/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/backups/data')>()),
   useBackups: () => ({ data: [], loading: false, error: false }),
@@ -122,3 +126,15 @@ test.each(['sales', 'special_sales'] as const)(
     await vi.waitFor(() => expect(router.state.location.pathname).not.toContain('/settings'));
   },
 );
+
+test('the Owner opens Settings > Store (SYS-01)', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('owner') });
+  renderAt('/settings/store');
+  expect(await screen.findByRole('heading', { name: 'Store' })).toBeInTheDocument();
+});
+
+test.each(['sales', 'special_sales'] as const)('%s cannot open Settings > Store', async (role) => {
+  useSession.setState({ status: 'signedIn', user: userWith(role) });
+  const router = renderAt('/settings/store');
+  await vi.waitFor(() => expect(router.state.location.pathname).not.toContain('/settings'));
+});
