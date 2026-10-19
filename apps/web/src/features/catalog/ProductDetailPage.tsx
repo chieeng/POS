@@ -154,6 +154,7 @@ function ProductDetail({ product }: { product: Product }) {
             setEditing(false);
             setError(null);
           }}
+          onEdit={() => setError(null)}
         />
       ) : (
         <dl className="grid grid-cols-[auto_1fr] gap-x-[18px] gap-y-[10px] rounded-[30px] bg-surface px-[18px] py-[16px] text-[15px] md:px-[22px]">

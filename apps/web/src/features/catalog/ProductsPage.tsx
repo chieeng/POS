@@ -1,6 +1,6 @@
 import { ChevronRight, Plus, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,9 +17,22 @@ export function ProductsPage() {
   const canAdd = role === 'owner' || role === 'special_sales';
   const products = useProducts();
   const categories = useCategories();
-  const [search, setSearch] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [showInactive, setShowInactive] = useState(false);
+  // The filters live in the URL (?q=&category=&inactive=1), so Back from a product restores
+  // them, and a filtered list can be bookmarked. Replacing, not pushing, keeps Back simple.
+  const [params, setParams] = useSearchParams();
+  const search = params.get('q') ?? '';
+  const categoryId = params.get('category') ?? '';
+  const showInactive = params.get('inactive') === '1';
+  const setParam = (key: string, value: string) =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
 
   const categoryName = useMemo(
     () => new Map(categories.data.map((category) => [category.id, category.name])),
@@ -45,7 +58,7 @@ export function ProductsPage() {
             aria-label="Search by name or SKU"
             placeholder="Search by name or SKU"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => setParam('q', event.target.value)}
             className="min-h-[46px] bg-surface pl-[40px] text-[15px]"
           />
         </div>
@@ -63,7 +76,7 @@ export function ProductsPage() {
           aria-label="Category"
           className={cn(selectClass, 'min-h-[40px] w-auto rounded-full bg-surface text-[14px]')}
           value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
+          onChange={(event) => setParam('category', event.target.value)}
         >
           <option value="">All categories</option>
           {[...categories.data]
@@ -78,7 +91,7 @@ export function ProductsPage() {
           <input
             type="checkbox"
             checked={showInactive}
-            onChange={(event) => setShowInactive(event.target.checked)}
+            onChange={(event) => setParam('inactive', event.target.checked ? '1' : '')}
             className="size-[18px] accent-accent"
           />
           Show inactive

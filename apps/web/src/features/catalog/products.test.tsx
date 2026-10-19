@@ -145,6 +145,21 @@ describe('Products list', () => {
     expect(screen.queryByText('Water 500 ml')).toBeNull();
   });
 
+  test('the filters survive opening a product and coming back', async () => {
+    const { router, user } = renderAt('/products');
+    await user.type(screen.getByLabelText('Search by name or SKU'), 'old');
+    await user.selectOptions(screen.getByLabelText('Category'), 'c3');
+    await user.click(screen.getByLabelText('Show inactive'));
+    expect(router.state.location.search).toBe('?q=old&category=c3&inactive=1');
+    await user.click(screen.getByRole('link', { name: /Old candy/ }));
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/products/p3'));
+    await router.navigate(-1);
+    expect(await screen.findByLabelText('Search by name or SKU')).toHaveValue('old');
+    expect(screen.getByLabelText('Category')).toHaveValue('c3');
+    expect(screen.getByLabelText('Show inactive')).toBeChecked();
+    expect(screen.getByText('Old candy')).toBeInTheDocument();
+  });
+
   test.each(['owner', 'special_sales'] as const)('%s can add products', (role) => {
     signInAs(role);
     renderAt('/products');
@@ -198,6 +213,34 @@ describe('Add product (PROD-02, PROD-03)', () => {
     expect(screen.getByText('Choose a category.')).toBeInTheDocument();
     expect(screen.getByText('Use ₱0.01 to ₱1,000,000.')).toBeInTheDocument();
     expect(createProduct).not.toHaveBeenCalled();
+  });
+
+  test('a refused save’s message goes away once the form is edited', async () => {
+    vi.mocked(createProduct).mockRejectedValue({ code: '23505', message: 'sku_taken' });
+    const { user } = renderAt('/products/new');
+    await user.type(screen.getByLabelText('Product name'), 'Copy');
+    await user.type(screen.getByLabelText('SKU'), 'ck-12');
+    await user.selectOptions(screen.getByLabelText('Category'), 'c1');
+    await user.type(screen.getByLabelText('Selling price (₱)'), '45');
+    await user.click(screen.getByRole('button', { name: 'Add product' }));
+    expect(await screen.findByText('Another product already uses this SKU.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('SKU'), 'X');
+    expect(screen.queryByText('Another product already uses this SKU.')).toBeNull();
+  });
+
+  test('…and on a new attempt that fails on the form itself', async () => {
+    vi.mocked(createProduct).mockRejectedValue({ code: '23505', message: 'sku_taken' });
+    const { user } = renderAt('/products/new');
+    await user.type(screen.getByLabelText('Product name'), 'Copy');
+    await user.type(screen.getByLabelText('SKU'), 'ck-12');
+    await user.selectOptions(screen.getByLabelText('Category'), 'c1');
+    await user.type(screen.getByLabelText('Selling price (₱)'), '45');
+    await user.click(screen.getByRole('button', { name: 'Add product' }));
+    expect(await screen.findByText('Another product already uses this SKU.')).toBeInTheDocument();
+    await user.clear(screen.getByLabelText('Selling price (₱)'));
+    await user.click(screen.getByRole('button', { name: 'Add product' }));
+    expect(await screen.findByText(/Enter a price in pesos/)).toBeInTheDocument();
+    expect(screen.queryByText('Another product already uses this SKU.')).toBeNull();
   });
 
   test('a SKU already used says so', async () => {
