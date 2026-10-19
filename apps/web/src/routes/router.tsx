@@ -1,8 +1,11 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
 import { AuditLogPage } from '@/features/audit/AuditLogPage';
+import { AddProductPage } from '@/features/catalog/AddProductPage';
 import { CatalogLayout } from '@/features/catalog/CatalogLayout';
 import { CategoriesPage } from '@/features/catalog/CategoriesPage';
+import { ProductDetailPage } from '@/features/catalog/ProductDetailPage';
+import { ProductsPage } from '@/features/catalog/ProductsPage';
 import { SuppliersPage } from '@/features/catalog/SuppliersPage';
 import { BackupsPage } from '@/features/backups/BackupsPage';
 import { AttendanceSettingsPage } from '@/features/store/AttendanceSettingsPage';
@@ -52,18 +55,21 @@ export const routes: RouteObject[] = [
             ],
           },
           {
-            // SRS 6.1: the catalog is managed by the Owner and Special Sales.
-            element: <RequireRole role={['owner', 'special_sales']} />,
+            // SRS 6.1: everyone sees products; the Owner and Special Sales add products and
+            // manage categories and suppliers. The database enforces the same rules.
+            path: '/products',
+            element: <CatalogLayout />,
             children: [
+              { index: true, element: <ProductsPage /> },
               {
-                path: '/products',
-                element: <CatalogLayout />,
+                element: <RequireRole role={['owner', 'special_sales']} />,
                 children: [
-                  { index: true, element: <Navigate to="categories" replace /> },
+                  { path: 'new', element: <AddProductPage /> },
                   { path: 'categories', element: <CategoriesPage /> },
                   { path: 'suppliers', element: <SuppliersPage /> },
                 ],
               },
+              { path: ':productId', element: <ProductDetailPage /> },
             ],
           },
           {

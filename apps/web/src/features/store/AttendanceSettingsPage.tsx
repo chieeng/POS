@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Segmented } from '@/components/ui/segmented';
 import { PageHeader } from '@/features/settings/PageHeader';
+import { formatPeso } from '@/lib/money';
 import { describeSaveError, updateBranchSettings, useBranch, type BranchSettings } from './data';
 import { attendanceSchema, LATE_DEDUCTION_OPTIONS, type AttendanceValues } from './schemas';
 
@@ -19,8 +20,7 @@ const inputClass = 'min-h-[48px] bg-bg text-[15px]';
 const EXAMPLE_RATE = 600;
 const EXAMPLE_MINUTES = 10;
 
-const peso = (amount: number) =>
-  `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const peso = formatPeso;
 
 function Field({
   id,
