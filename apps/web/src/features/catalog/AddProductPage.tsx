@@ -43,6 +43,7 @@ export function AddProductPage() {
             }
           }}
           onCancel={() => navigate('/products')}
+          onEdit={() => setError(null)}
         />
       )}
     </div>

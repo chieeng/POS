@@ -54,6 +54,8 @@ interface ProductFormProps {
   submittingLabel: string;
   onSubmit: (values: ProductValues) => Promise<void>;
   onCancel?: () => void;
+  /** Called on every edit and every submit attempt, so a stale server error can be cleared. */
+  onEdit?: () => void;
 }
 
 /** Add product and the Owner's edit (PROD-01). Only active categories can be chosen. */
@@ -65,6 +67,7 @@ export function ProductForm({
   submittingLabel,
   onSubmit,
   onCancel,
+  onEdit,
 }: ProductFormProps) {
   const {
     register,
@@ -78,7 +81,11 @@ export function ProductForm({
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={(event) => {
+        onEdit?.();
+        void handleSubmit(onSubmit)(event);
+      }}
+      onChange={onEdit}
       noValidate
       className="flex flex-col gap-[14px] rounded-[30px] bg-surface px-[18px] py-[18px] md:px-[22px]"
     >
