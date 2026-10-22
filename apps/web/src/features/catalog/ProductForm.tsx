@@ -56,6 +56,8 @@ interface ProductFormProps {
   onCancel?: () => void;
   /** Called on every edit and every submit attempt, so a stale server error can be cleared. */
   onEdit?: () => void;
+  /** Extra fields shown before the buttons, for example a request's reason. */
+  children?: ReactNode;
 }
 
 /** Add product and the Owner's edit (PROD-01). Only active categories can be chosen. */
@@ -68,6 +70,7 @@ export function ProductForm({
   onSubmit,
   onCancel,
   onEdit,
+  children,
 }: ProductFormProps) {
   const {
     register,
@@ -196,6 +199,7 @@ export function ProductForm({
           {...register('reorderLevel')}
         />
       </Field>
+      {children}
       <div className="flex flex-wrap gap-[10px]">
         <Button type="submit" className="min-h-[46px] px-[22px]" disabled={isSubmitting}>
           {isSubmitting ? submittingLabel : submitLabel}

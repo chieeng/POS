@@ -1,6 +1,6 @@
 import { ChevronRight, Plus, Search } from 'lucide-react';
 import { useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ export function ProductsPage() {
   const categories = useCategories();
   // The filters live in the URL (?q=&category=&inactive=1), so Back from a product restores
   // them, and a filtered list can be bookmarked. Replacing, not pushing, keeps Back simple.
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const search = params.get('q') ?? '';
   const categoryId = params.get('category') ?? '';
@@ -122,6 +123,7 @@ export function ProductsPage() {
               <li key={product.id} className="border-b border-text/8 last:border-b-0">
                 <Link
                   to={product.id}
+                  state={{ listSearch: location.search }}
                   className="flex min-h-[60px] items-center gap-[12px] rounded-[18px] px-[8px] py-[8px] text-text no-underline hover:bg-text/5"
                 >
                   <span

@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
+import { ApprovalsPage } from '@/features/approvals/ApprovalsPage';
+import { MyRequestsPage } from '@/features/approvals/MyRequestsPage';
 import { AuditLogPage } from '@/features/audit/AuditLogPage';
 import { AddProductPage } from '@/features/catalog/AddProductPage';
 import { CatalogLayout } from '@/features/catalog/CatalogLayout';
@@ -38,6 +40,7 @@ export const routes: RouteObject[] = [
             element: <RequireRole role="owner" />,
             children: [
               { path: ROLE_HOME.owner, element: <HomePage role="owner" /> },
+              { path: '/approvals', element: <ApprovalsPage /> },
               {
                 path: '/settings',
                 element: <SettingsLayout />,
@@ -76,6 +79,7 @@ export const routes: RouteObject[] = [
             element: <RequireRole role="special_sales" />,
             children: [
               { path: ROLE_HOME.special_sales, element: <HomePage role="special_sales" /> },
+              { path: '/requests', element: <MyRequestsPage /> },
             ],
           },
           {

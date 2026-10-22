@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Tag } from '@/components/ui/tag';
+import { RequestChangePanel } from '@/features/approvals/RequestChangePanel';
 import { PageHeader } from '@/features/settings/PageHeader';
 import { formatPeso } from '@/lib/money';
 import { useSession } from '@/stores/session';
@@ -43,8 +44,8 @@ const SOURCE_LABELS: Record<string, string> = {
 
 /**
  * Products > one product (SRS 3.2). Everyone sees the details. The Owner edits, changes the
- * price and deactivates (PROD-04); until approval requests exist (build step 3), Special Sales
- * asks the Owner. The Owner and Special Sales see the price history (PROD-05).
+ * price and deactivates (PROD-04); Special Sales requests a change for the Owner to approve
+ * (SRS 3.9). The Owner and Special Sales see the price history (PROD-05).
  */
 export function ProductDetailPage() {
   const { productId = '' } = useParams();
@@ -77,6 +78,10 @@ function ProductDetail({ product }: { product: Product }) {
   const role = useSession((s) => s.user?.role);
   const isOwner = role === 'owner';
   const location = useLocation();
+  // Back to the list as the user left it: the list passes its filters (?q=&category=…) along.
+  // Opened any other way (a link, the Approvals page), back goes to the plain list.
+  const listSearch = (location.state as { listSearch?: string } | null)?.listSearch;
+  const backTo = `/products${listSearch?.startsWith('?') ? listSearch : ''}`;
   const categories = useCategories();
   const category = categories.data.find((row) => row.id === product.categoryId);
 
@@ -116,7 +121,7 @@ function ProductDetail({ product }: { product: Product }) {
 
   return (
     <>
-      <PageHeader title={product.name} backTo="/products" backLabel="Back to products" alwaysBack>
+      <PageHeader title={product.name} backTo={backTo} backLabel="Back to products" alwaysBack>
         {!product.active && <Tag variant="muted">Inactive</Tag>}
       </PageHeader>
       {notice && (
@@ -191,9 +196,7 @@ function ProductDetail({ product }: { product: Product }) {
         </div>
       )}
       {role === 'special_sales' && (
-        <p className="px-[4px] text-[13.5px] text-neutral-700">
-          To change this product, ask the Owner.
-        </p>
+        <RequestChangePanel product={product} categories={categories.data} />
       )}
 
       {(isOwner || role === 'special_sales') && <PriceHistory productId={product.id} />}
