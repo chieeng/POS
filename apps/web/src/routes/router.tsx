@@ -11,6 +11,9 @@ import { ProductsPage } from '@/features/catalog/ProductsPage';
 import { SuppliersPage } from '@/features/catalog/SuppliersPage';
 import { BackupsPage } from '@/features/backups/BackupsPage';
 import { AttendanceSettingsPage } from '@/features/store/AttendanceSettingsPage';
+import { NewStockInPage } from '@/features/stock/NewStockInPage';
+import { StockInListPage } from '@/features/stock/StockInListPage';
+import { StockReceiptPage } from '@/features/stock/StockReceiptPage';
 import { StoreSettingsPage } from '@/features/store/StoreSettingsPage';
 import { EnrollTotpPage } from '@/features/auth/EnrollTotpPage';
 import { ROLE_HOME } from '@/features/auth/roles';
@@ -55,6 +58,15 @@ export const routes: RouteObject[] = [
                   { path: 'backups', element: <BackupsPage /> },
                 ],
               },
+            ],
+          },
+          {
+            // INV-02: stock-in by the Owner and Special Sales.
+            element: <RequireRole role={['owner', 'special_sales']} />,
+            children: [
+              { path: '/stock-in', element: <StockInListPage /> },
+              { path: '/stock-in/new', element: <NewStockInPage /> },
+              { path: '/stock-in/:receiptId', element: <StockReceiptPage /> },
             ],
           },
           {

@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  PackagePlus,
   Settings,
   ShoppingCart,
   Inbox,
@@ -43,6 +44,7 @@ function navItems(role: Role, pending: number): NavItem[] {
         badge: pending,
       },
       { to: '/products', label: 'Products', short: 'Products', icon: Package },
+      { to: '/stock-in', label: 'Stock-in', short: 'Stock-in', icon: PackagePlus },
       { to: '/settings', label: 'Settings', short: 'Settings', icon: Settings },
     ];
   }
@@ -50,6 +52,7 @@ function navItems(role: Role, pending: number): NavItem[] {
     return [
       { to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart },
       { to: '/products', label: 'Products', short: 'Products', icon: Package },
+      { to: '/stock-in', label: 'Stock-in', short: 'Stock-in', icon: PackagePlus },
       { to: '/requests', label: 'My requests', short: 'Requests', icon: Inbox, badge: pending },
     ];
   }

@@ -7,6 +7,7 @@ import {
   ScrollText,
   ShieldCheck,
   Package,
+  PackagePlus,
   ShieldPlus,
   Tags,
   Truck,
@@ -44,6 +45,7 @@ export const ACTION_LABELS: Record<string, string> = {
   'supplier.update': 'Supplier changes',
   'product.create': 'Products added',
   'product.update': 'Product changes',
+  'stock.in': 'Stock-ins',
   'approval.request': 'Change requests',
   'approval.withdraw': 'Requests withdrawn',
   'approval.approve': 'Requests approved',
@@ -162,6 +164,15 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
           )
           .join(' · '),
       };
+    case 'stock.in': {
+      const reference = typeof after.reference === 'string' ? ` “${after.reference}”` : '';
+      const supplier = typeof after.supplier === 'string' ? ` from ${after.supplier}` : '';
+      return {
+        icon: PackagePlus,
+        what: `recorded a stock-in${reference}${supplier}`,
+        change: `${text(after.lines)} lines · ${text(after.units)} units · ${settingText('sell_price', after.value)}`,
+      };
+    }
     case 'approval.request':
     case 'approval.withdraw':
     case 'approval.approve':
@@ -203,9 +214,10 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
       return {
         icon: Package,
         what:
-          status && fields.length === 0
+          (status && fields.length === 0
             ? `${status.toLowerCase()} product “${text(before.label)}”`
-            : `changed product “${text(before.label)}”`,
+            : `changed product “${text(before.label)}”`) +
+          (before.via === 'approval' ? ' (approved request)' : ''),
         change: [
           ...fields.map((key) =>
             key === 'category_id'

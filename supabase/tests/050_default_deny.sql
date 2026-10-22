@@ -53,7 +53,7 @@ select is(
   caller || ' finds no table called ' || missing
 )
 from unnest(array['anon', 'sales', 'owner']) as caller
-cross join unnest(array['stock_movements', 'sales', 'pay_rates']) as missing;
+cross join unnest(array['customers', 'sales', 'pay_rates']) as missing;
 
 -- Nothing new is ever open by accident: a table created later starts with no API access.
 create table public.later_table (id int primary key);

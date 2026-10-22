@@ -8,6 +8,7 @@ import { Tag } from '@/components/ui/tag';
 import { formatPeso } from '@/lib/money';
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
+import { isLowStock } from '@/features/stock/data';
 import { useCategories, useProducts } from './data';
 import { matchesSearch, selectClass } from './helpers';
 
@@ -24,6 +25,7 @@ export function ProductsPage() {
   const search = params.get('q') ?? '';
   const categoryId = params.get('category') ?? '';
   const showInactive = params.get('inactive') === '1';
+  const lowOnly = params.get('low') === '1';
   const setParam = (key: string, value: string) =>
     setParams(
       (current) => {
@@ -42,6 +44,7 @@ export function ProductsPage() {
   const shown = products.data
     .filter((product) => showInactive || product.active)
     .filter((product) => !categoryId || product.categoryId === categoryId)
+    .filter((product) => !lowOnly || isLowStock(product))
     .filter((product) => matchesSearch(product, search));
 
   return (
@@ -97,6 +100,15 @@ export function ProductsPage() {
           />
           Show inactive
         </label>
+        <label className="flex items-center gap-[8px] text-[14px]">
+          <input
+            type="checkbox"
+            checked={lowOnly}
+            onChange={(event) => setParam('low', event.target.checked ? '1' : '')}
+            className="size-[18px] accent-accent"
+          />
+          Low stock only
+        </label>
       </div>
 
       {products.error ? (
@@ -135,6 +147,7 @@ export function ProductsPage() {
                     </span>
                   </span>
                   {!product.active && <Tag variant="muted">Inactive</Tag>}
+                  {isLowStock(product) && <Tag variant="accent">Low stock</Tag>}
                   <span className="text-right leading-[1.3]">
                     <span className="block text-[15px] font-semibold">
                       {formatPeso(product.sellPrice)}
