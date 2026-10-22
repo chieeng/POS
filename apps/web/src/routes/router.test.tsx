@@ -16,6 +16,10 @@ vi.mock('@/features/users/data', async (importOriginal) => ({
   useDevices: () => ({ data: [], loading: false, error: false }),
   useAuditLogs: () => ({ data: [], loading: false, error: false }),
 }));
+vi.mock('@/features/approvals/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/approvals/data')>()),
+  useApprovalRequests: () => ({ data: [], loading: false, error: false }),
+}));
 vi.mock('@/features/catalog/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/catalog/data')>()),
   useCategories: () => ({ data: [], loading: false, error: false }),
@@ -180,3 +184,27 @@ test.each(['/products/new', '/products/categories', '/products/suppliers'])(
     await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sales'));
   },
 );
+
+test('the Owner opens Approvals; others cannot', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('owner') });
+  renderAt('/approvals');
+  expect(await screen.findByRole('heading', { name: 'Approvals' })).toBeInTheDocument();
+});
+
+test.each(['special_sales', 'sales'] as const)('%s cannot open Approvals', async (role) => {
+  useSession.setState({ status: 'signedIn', user: userWith(role) });
+  const router = renderAt('/approvals');
+  await vi.waitFor(() => expect(router.state.location.pathname).not.toBe('/approvals'));
+});
+
+test('Special Sales opens My requests; Sales cannot', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('special_sales') });
+  renderAt('/requests');
+  expect(await screen.findByRole('heading', { name: 'My requests' })).toBeInTheDocument();
+});
+
+test('Sales cannot open My requests', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('sales') });
+  const router = renderAt('/requests');
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sales'));
+});

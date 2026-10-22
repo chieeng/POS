@@ -1,4 +1,5 @@
 import {
+  ClipboardCheck,
   KeyRound,
   LockKeyhole,
   LogIn,
@@ -43,6 +44,10 @@ export const ACTION_LABELS: Record<string, string> = {
   'supplier.update': 'Supplier changes',
   'product.create': 'Products added',
   'product.update': 'Product changes',
+  'approval.request': 'Change requests',
+  'approval.withdraw': 'Requests withdrawn',
+  'approval.approve': 'Requests approved',
+  'approval.reject': 'Requests rejected',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -157,6 +162,34 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
           )
           .join(' · '),
       };
+    case 'approval.request':
+    case 'approval.withdraw':
+    case 'approval.approve':
+    case 'approval.reject': {
+      const product = `“${text(after.label)}”`;
+      const changes =
+        typeof after.changes === 'object' && after.changes !== null ? after.changes : {};
+      const fields = Object.keys(changes)
+        .map((key) =>
+          key === 'active'
+            ? 'Status'
+            : key === 'category_id'
+              ? 'Category'
+              : (PRODUCT_LABELS[key] ?? key),
+        )
+        .join(', ');
+      const what = {
+        'approval.request': `requested a change to ${product}`,
+        'approval.withdraw': `withdrew a request for ${product}`,
+        'approval.approve': `approved a request for ${product}`,
+        'approval.reject': `rejected a request for ${product}`,
+      }[entry.action];
+      return {
+        icon: ClipboardCheck,
+        what,
+        change: [fields, entry.reason].filter(Boolean).join(' · '),
+      };
+    }
     case 'product.create':
       return {
         icon: Package,

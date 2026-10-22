@@ -25,6 +25,10 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
+vi.mock('@/features/approvals/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/approvals/data')>()),
+  useApprovalRequests: () => ({ data: [], loading: false, error: false }),
+}));
 vi.mock('./data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./data')>()),
   useCategories: () => ({ data: state.categories, loading: false, error: false }),
@@ -158,6 +162,25 @@ describe('Products list', () => {
     expect(screen.getByLabelText('Category')).toHaveValue('c3');
     expect(screen.getByLabelText('Show inactive')).toBeChecked();
     expect(screen.getByText('Old candy')).toBeInTheDocument();
+  });
+
+  test('the product page’s back arrow returns to the list with its filters', async () => {
+    const { router, user } = renderAt('/products');
+    await user.type(screen.getByLabelText('Search by name or SKU'), 'chips');
+    await user.click(screen.getByRole('link', { name: /Chips Classic/ }));
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/products/p1'));
+    expect(screen.getByRole('link', { name: 'Back to products' })).toHaveAttribute(
+      'href',
+      '/products?q=chips',
+    );
+  });
+
+  test('opened from elsewhere, the back arrow goes to the plain list', () => {
+    renderAt('/products/p1');
+    expect(screen.getByRole('link', { name: 'Back to products' })).toHaveAttribute(
+      'href',
+      '/products',
+    );
   });
 
   test.each(['owner', 'special_sales'] as const)('%s can add products', (role) => {
@@ -301,10 +324,10 @@ describe('Product page', () => {
     expect(options).toContain('Old stock (inactive)');
   });
 
-  test('Special Sales sees the price history and is told to ask the Owner', () => {
+  test('Special Sales sees the price history and can request a change', () => {
     signInAs('special_sales');
     renderAt('/products/p1');
-    expect(screen.getByText('To change this product, ask the Owner.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Request a change' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit product' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Price history' })).toBeInTheDocument();
@@ -316,7 +339,7 @@ describe('Product page', () => {
     expect(screen.getByText('₱45.00 / pack')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Price history' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Edit product' })).toBeNull();
-    expect(screen.queryByText('To change this product, ask the Owner.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Request a change' })).toBeNull();
   });
 
   test('an unknown product says so', () => {

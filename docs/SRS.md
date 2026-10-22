@@ -80,7 +80,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | PROD-01 | Products have: name, SKU, category, unit, selling price per unit, reorder level, active flag, photo. The unit is one of pc (default), pack, box, bottle, can, sachet, set, pair, roll; the price and every quantity (stock-in, sale, count) are per that unit, in whole numbers. An item sold in two units (for example per stick and per pack) is two products, each with its own SKU, price and stock. | M |
 | PROD-02 | Special Sales types the SKU manually when adding a product: 1 to 20 letters, digits or dashes, saved in capitals. SKUs are unique per branch whatever their case; duplicates are rejected. No barcodes. | M |
 | PROD-03 | Special Sales and the Owner add products, categories and suppliers directly. Category and supplier names are trimmed and unique per branch whatever their case. Nothing is deleted: a deactivated category or supplier stays on existing products and history but cannot be chosen for new ones, and a category that still has active products cannot be deactivated ("Move or deactivate its N products first"). | M |
-| PROD-04 | Edits and deactivation by Special Sales (name, SKU, price, category, unit) go through an Owner approval request; the Owner edits directly. Until approval requests are built (build step 3), Special Sales cannot change or deactivate products, categories or suppliers and is told to ask the Owner. | M |
+| PROD-04 | Edits and deactivation by Special Sales (name, SKU, category, unit, price, reorder level, deactivate or reactivate) go through an Owner approval request (SRS 3.9); the Owner edits directly. Categories and suppliers are changed by the Owner only, with no requests: Special Sales asks the Owner in person. | M |
 | PROD-05 | Every price is logged in `price_changes` with old price, new price, who (and their name at the time), device and time, including the first price when a product is added. The product page shows its price history, newest first, to the Owner and Special Sales. | M |
 | PROD-06 | Bulk import and export products by CSV (Owner only). | S |
 
@@ -159,10 +159,12 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | APPR-01 | These actions by non-Owners create an approval request instead of applying: product edit or deactivation, stock adjustment, correcting or deleting a stock-in, physical count differences, sale correction, void, return/refund, discount over limit, credit sale over limit. | M |
-| APPR-02 | A request stores what changes (before and after), the reason, the requester and the time. Nothing changes until the Owner approves. | M |
+| APPR-02 | A request stores what changes (the requested fields as they were then, and as requested), the reason (required), the requester and the time. Nothing changes until the Owner approves. A requester has at most one pending request per item, and may withdraw it while it is pending (status "withdrawn", audit-logged). Requests do not expire. | M |
 | APPR-03 | The Owner gets a push notification and a pending list, and approves or rejects with an optional note. | M |
-| APPR-04 | On approval, the decide\_approval database function applies the change in one transaction, writes the stock movement if any, and logs it. | M |
-| APPR-05 | The requester sees the status of their requests and the Owner's note. | M |
+| APPR-04 | On approval, the database applies the change exactly as requested in one transaction, with the same checks as the Owner's own edit, writes the stock movement if any, and logs it. If the item changed after the request was made (any requested field differs from the value then), the request is **outdated**: it shows the current, original and requested values, cannot be approved, only rejected, and the requester makes a new one. The Owner approves as requested or rejects; there is no "approve with changes". | M |
+| APPR-05 | The requester sees the status of their requests (pending, approved, rejected, withdrawn, outdated) and the Owner's note, live, under My requests. | M |
+
+Build step 3 delivers the requests and the product edit type. The other types in APPR-01 arrive with the features they change: stock adjustments, stock-in corrections and counts (step 4), discounts, voids, returns and sale corrections (steps 9 and 10), credit over the limit (step 12). Push notifications come in step 6; until then the Owner sees a live count in the app.
 
 ### 3.10 Attendance (ATT)
 
@@ -253,7 +255,7 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 | `stock_receipts`, `stock_receipt_items` | supplier\_id, reference, received\_by, created\_at; product\_id, qty, unit\_cost | record\_stock\_in function |
 | `stock_movements` | product\_id, type (sale, void, return, stock\_in, adjustment, count), qty\_change, unit\_cost, ref\_type, ref\_id, user\_id, device\_tag, created\_at | Functions only; append-only |
 | `credit_ledger` | customer\_id, type (charge, payment), amount, sale\_id, method, reference, user\_id, created\_at | Functions only; append-only |
-| `approval_requests` | type, target\_type, target\_id, before (jsonb), after (jsonb), reason, requested\_by, status (pending, approved, rejected), decided\_by, decided\_at, owner\_note, created\_at | Requester creates pending; decide\_approval (Owner only) |
+| `approval_requests` | type (product\_edit; later steps add theirs), target\_type, target\_id, before (jsonb), after (jsonb), reason, requested\_by, status (pending, approved, rejected, withdrawn), decided\_by, decided\_at, owner\_note, created\_at | Created by request functions (one pending per item per requester); withdraw\_request (requester); decide\_approval (Owner only) |
 | `attendance` | user\_id, work\_date (unique per user), shift\_slot, device\_at, server\_at, lat, lng, accuracy\_m, distance\_m, location\_status, scheduled\_clock\_in, grace\_minutes, late\_minutes, late\_deduction, day\_credit, flags, edited\_by, edit\_reason | clock\_in function; Owner edits with reason |
 | `payroll_runs` | period\_start, period\_end, status (draft, finalized), totals, finalized\_by, finalized\_at; finalized ranges may not overlap | Owner only |
 | `payslips` | run\_id, user\_id, full\_days, half\_days, daily\_rate, gross\_pay, late\_penalties, additions (jsonb), deductions (jsonb), net\_pay, paid\_at, paid\_method, paid\_reference | Drafted by function; Owner edits until finalized; staff read own finalized |
