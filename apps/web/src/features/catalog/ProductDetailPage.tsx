@@ -13,6 +13,8 @@ import {
 import { Tag } from '@/components/ui/tag';
 import { RequestChangePanel } from '@/features/approvals/RequestChangePanel';
 import { PageHeader } from '@/features/settings/PageHeader';
+import { isLowStock, useProductCost } from '@/features/stock/data';
+import { StockHistory } from '@/features/stock/StockHistory';
 import { formatPeso } from '@/lib/money';
 import { useSession } from '@/stores/session';
 import {
@@ -84,6 +86,9 @@ function ProductDetail({ product }: { product: Product }) {
   const backTo = `/products${listSearch?.startsWith('?') ? listSearch : ''}`;
   const categories = useCategories();
   const category = categories.data.find((row) => row.id === product.categoryId);
+  // INV-08: the Owner only; Row Level Security returns nothing to anyone else.
+  const cost = useProductCost(product.id);
+  const averageCost = isOwner ? cost.data[0] : undefined;
 
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +117,10 @@ function ProductDetail({ product }: { product: Product }) {
     ['SKU', product.sku],
     ['Category', category ? `${category.name}${category.active ? '' : ' (inactive)'}` : '—'],
     ['Price', `${formatPeso(product.sellPrice)} / ${product.unit}`],
-    ['In stock', `${product.stockQty} ${product.unit}`],
+    ['In stock', `${product.stockQty} ${product.unit}${isLowStock(product) ? ' (low stock)' : ''}`],
+    ...(averageCost === undefined
+      ? []
+      : ([['Average cost', `${formatPeso(averageCost)} / ${product.unit}`]] as [string, string][])),
     [
       'Reorder level',
       product.reorderLevel === 0 ? 'Off' : `${product.reorderLevel} ${product.unit}`,
@@ -200,6 +208,9 @@ function ProductDetail({ product }: { product: Product }) {
       )}
 
       {(isOwner || role === 'special_sales') && <PriceHistory productId={product.id} />}
+      {(isOwner || role === 'special_sales') && (
+        <StockHistory productId={product.id} unit={product.unit} showCost={isOwner} />
+      )}
 
       <Dialog open={confirming} onOpenChange={(open) => !open && !busy && setConfirming(false)}>
         <DialogContent>

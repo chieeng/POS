@@ -41,6 +41,10 @@ export function RequestChangePanel({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The request just sent. "Request sent…" shows only until it appears in the list (as pending,
+  // or already decided): from then on the request itself, or its outcome, speaks for itself.
+  const [sentId, setSentId] = useState<string | null>(null);
+  const showSent = sentId !== null && !requests.data.some((request) => request.id === sentId);
 
   if (requests.loading) return null;
 
@@ -105,9 +109,11 @@ export function RequestChangePanel({
   if (!open) {
     return (
       <div className="flex flex-col gap-[8px]">
-        {notice && (
+        {(showSent || notice) && (
           <p role="status" className="px-[4px] text-[14px] text-neutral-800">
-            {notice}
+            {showSent
+              ? 'Request sent. The Owner will decide; you can follow it in My requests.'
+              : notice}
           </p>
         )}
         <div className="flex flex-wrap items-center gap-[12px]">
@@ -170,9 +176,10 @@ export function RequestChangePanel({
           }
           setBusy(true);
           try {
-            await requestProductChange(product.id, changes, reason.trim());
+            const id = await requestProductChange(product.id, changes, reason.trim());
             setOpen(false);
-            setNotice('Request sent. The Owner will decide; you can follow it in My requests.');
+            setNotice(null);
+            setSentId(String(id));
           } catch (caught) {
             setError(describeApprovalError(caught));
           } finally {

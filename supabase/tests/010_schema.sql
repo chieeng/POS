@@ -18,7 +18,7 @@ select is(
 
 select tables_are(
   'public',
-  array['branches', 'profiles', 'devices', 'audit_logs', 'backup_log', 'categories', 'suppliers', 'products', 'price_changes', 'approval_requests'],
+  array['branches', 'profiles', 'devices', 'audit_logs', 'backup_log', 'categories', 'suppliers', 'products', 'price_changes', 'approval_requests', 'product_costs', 'stock_receipts', 'stock_receipt_items', 'stock_movements'],
   'public holds exactly the expected tables'
 );
 
@@ -74,8 +74,8 @@ select is(
     from information_schema.role_table_grants
     where table_schema = 'public' and grantee = 'authenticated'
   ),
-  'approval_requests:SELECT audit_logs:SELECT backup_log:SELECT branches:SELECT categories:SELECT devices:SELECT price_changes:SELECT products:SELECT profiles:SELECT suppliers:SELECT',
-  'authenticated has table-wide SELECT on ten tables and nothing else'
+  'approval_requests:SELECT audit_logs:SELECT backup_log:SELECT branches:SELECT categories:SELECT devices:SELECT price_changes:SELECT product_costs:SELECT products:SELECT profiles:SELECT stock_movements:SELECT stock_receipt_items:SELECT stock_receipts:SELECT suppliers:SELECT',
+  'authenticated has table-wide SELECT on fourteen tables and nothing else'
 );
 
 select is(
@@ -96,7 +96,7 @@ select is(
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')
   ),
-  'create_category create_product create_supplier decide_approval record_account_event record_sign_in request_product_change update_branch_settings update_category update_product update_supplier withdraw_request',
+  'create_category create_product create_supplier decide_approval product_stock_history record_account_event record_sign_in record_stock_in request_product_change update_branch_settings update_category update_product update_supplier withdraw_request',
   'only the API functions in public are callable by a signed-in user'
 );
 

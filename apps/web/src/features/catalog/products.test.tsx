@@ -25,6 +25,11 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
+vi.mock('@/features/stock/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/stock/data')>()),
+  useProductCost: () => ({ data: [33], loading: false, error: false }),
+  useStockHistory: () => ({ data: [], loading: false, error: false }),
+}));
 vi.mock('@/features/approvals/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/approvals/data')>()),
   useApprovalRequests: () => ({ data: [], loading: false, error: false }),
@@ -333,11 +338,38 @@ describe('Product page', () => {
     expect(screen.getByRole('heading', { name: 'Price history' })).toBeInTheDocument();
   });
 
+  test('the Owner sees the average cost and the stock history', () => {
+    renderAt('/products/p1');
+    expect(screen.getByText('₱33.00 / pack')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Stock history' })).toBeInTheDocument();
+  });
+
+  test('Special Sales sees the stock history but no cost', () => {
+    signInAs('special_sales');
+    renderAt('/products/p1');
+    expect(screen.queryByText('Average cost')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Stock history' })).toBeInTheDocument();
+  });
+
+  test('the Low stock filter shows only products at or below their reorder level', async () => {
+    state.products = [
+      { ...CHIPS, stockQty: 3 },
+      { ...CHIPS, id: 'p2', sku: 'WATER-500', name: 'Water 500 ml', stockQty: 50 },
+    ];
+    const { user } = renderAt('/products');
+    await user.click(screen.getByLabelText('Low stock only'));
+    expect(screen.getByText('Chips Classic')).toBeInTheDocument();
+    expect(screen.queryByText('Water 500 ml')).toBeNull();
+    expect(screen.getByText('Low stock')).toBeInTheDocument();
+  });
+
   test('Sales sees the details only', () => {
     signInAs('sales');
     renderAt('/products/p1');
     expect(screen.getByText('₱45.00 / pack')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Price history' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Stock history' })).toBeNull();
+    expect(screen.queryByText('Average cost')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Edit product' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Request a change' })).toBeNull();
   });

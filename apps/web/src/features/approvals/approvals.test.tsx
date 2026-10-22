@@ -248,6 +248,32 @@ describe('Request a change (PROD-04)', () => {
     expect(await screen.findByText(/Request sent/)).toBeInTheDocument();
   });
 
+  test('“Request sent” goes away once the request shows up (and so after it is decided)', async () => {
+    vi.mocked(requestProductChange).mockResolvedValue('r9');
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <MemoryRouter>
+        <RequestChangePanel product={CHIPS} categories={state.categories} />
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Request a change' }));
+    await user.click(screen.getByLabelText('Deactivate this product'));
+    await user.type(screen.getByLabelText('Reason for the Owner'), 'Discontinued');
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByText(/Request sent/)).toBeInTheDocument();
+
+    state.requests = [
+      request({ id: 'r9', status: 'rejected', decidedBy: 'o1', decidedAt: new Date() }),
+    ];
+    rerender(
+      <MemoryRouter>
+        <RequestChangePanel product={CHIPS} categories={state.categories} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/Request sent/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Request a change' })).toBeInTheDocument();
+  });
+
   test('asks to deactivate', async () => {
     const user = panel();
     await user.click(screen.getByRole('button', { name: 'Request a change' }));

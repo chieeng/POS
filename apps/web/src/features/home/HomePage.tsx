@@ -2,12 +2,13 @@ import { Button } from '@/components/ui/button';
 import { signOutUser } from '@/features/auth/authService';
 import { ROLE_LABELS, type Role } from '@/features/auth/roles';
 import { BackupReminder } from '@/features/backups/BackupReminder';
+import { LowStockCard } from '@/features/stock/LowStockCard';
 import { useSession } from '@/stores/session';
 
 const HOME_COPY: Record<Role, { title: string; body: string }> = {
   owner: {
     title: 'Owner home',
-    body: 'The dashboard and approvals will appear here. Users and the audit log are under Settings.',
+    body: 'The dashboard will appear here. Approvals, products and stock-in are in the menu; users and the audit log under Settings.',
   },
   special_sales: {
     title: 'Special Sales home',
@@ -33,6 +34,7 @@ export function HomePage({ role }: { role: Role }) {
       </p>
       <p className="text-neutral-700">{copy.body}</p>
       {role === 'owner' && <BackupReminder />}
+      {role === 'owner' && <LowStockCard />}
       <Button
         variant="secondary"
         className="mt-[12px] min-h-11 px-6 md:hidden"

@@ -115,14 +115,14 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| INV-01 | Every quantity change writes a stock movement: sale, void, return, stock-in, adjustment, count correction. | M |
-| INV-02 | Stock-in (Special Sales, Owner): search the product by name or SKU, type the quantity and unit cost, with optional supplier and DR/invoice number. Applied immediately. | M |
+| INV-01 | Every quantity change writes a stock movement (append-only): sale, void, return, stock-in, stock-in reversal, adjustment, count correction. Stock-ins, adjustments and corrections never take stock below zero ("Only N in stock; this would leave −M"); only a sale may (POS-09). | M |
+| INV-02 | Stock-in (Special Sales, Owner): search the product by name or SKU, type the quantity (whole units) and unit cost (at least ₱0.01), with optional supplier and DR/invoice number. Each product once per stock-in ("Chips Classic is already on line 3"); active products and suppliers only; up to 100 lines. Applied immediately. The stock on the shelves at go-live is entered the same way, as a stock-in with the reference "Opening stock", no supplier, and an estimated unit cost (never ₱0). | M |
 | INV-03 | A new product can be created during stock-in, with its SKU typed manually. | M |
-| INV-04 | Adjustments (damage, loss, expiry, found items) and corrections or deletions of past stock-ins: Special Sales submits an Owner approval request with a reason; the Owner applies them directly. | M |
-| INV-05 | Low-stock list of products at or below reorder level, shown on the dashboard. | M |
-| INV-06 | Stock movement history per product, filterable by date and type. | M |
+| INV-04 | Adjustments (damage, loss, expiry, found, store use, other) and corrections or deletions of past stock-ins (quantity, unit cost, supplier, reference): Special Sales submits an Owner approval request with a reason, for their own stock-ins only; the Owner applies them directly. The original stock-in is never edited or deleted: a correction posts reversing and new movements and recomputes the cost. | M |
+| INV-05 | Low-stock list of active products with a reorder level and stock at or below it: a card on the Owner's home and a "Low stock only" filter on Products. | M |
+| INV-06 | Stock movement history per product, filterable by date and type, for the Owner and Special Sales; the cost per unit is shown to the Owner only. Sales see stock levels only. | M |
 | INV-07 | Physical count: enter counted quantities; the differences are submitted together as one approval request. | S |
-| INV-08 | Cost price updates on stock-in use weighted average cost. | S |
+| INV-08 | Cost price updates on stock-in use weighted average cost: (stock on hand × average + quantity × unit cost) ÷ new stock, or the delivery's unit cost when nothing is on hand. A correction revalues only the units of that delivery still on hand (at most its quantity) from the old to the corrected cost; units already sold keep the cost recorded with the sale, so past profit never changes. Costs are visible to the Owner only, except that whoever recorded a stock-in sees the unit costs they typed on it. | S |
 
 ### 3.6 Customers and credit (CRED)
 
@@ -244,7 +244,7 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 | `suppliers` | branch\_id, name (unique per branch, case-insensitive), contact\_person, phone, address, active | Owner and Special Sales read; created by both, changed by the Owner, through functions |
 | `products` | branch\_id, sku (unique per branch), name, category\_id, unit, sell\_price, stock\_qty, reorder\_level, image\_path, active, updated\_at | Special Sales (create), Owner (edit); `stock_qty` only via functions |
 | `price_changes` | product\_id, old\_price, new\_price, source (created, owner\_edit, approval, import), changed\_by, changed\_by\_name, device\_tag, created\_at | Functions only; append-only; Owner and Special Sales read |
-| `product_costs` | product\_id, cost\_price (weighted average), updated\_at | Functions only; Owner-only read |
+| `product_costs` | product\_id, cost\_price (weighted average, 4 decimals), updated\_at | Functions only; Owner-only read |
 | `customers` | branch\_id, name, phone, address, credit\_limit, balance, active | Sales (create), Owner (edit); `balance` only via functions |
 | `drawer_sessions` | branch\_id, business\_date (unique per branch), opened\_by, opening\_cash, prefill\_difference, closed\_by, counted\_cash, expected\_cash, over\_short, status | open\_drawer / close\_drawer functions |
 | `drawer_entries` | session\_id, type (cash\_in, cash\_out), amount, reason, user\_id, created\_at | Function; append-only |
@@ -252,8 +252,8 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 | `sale_items` | sale\_id, product\_id, name, sku, qty, unit\_price, unit\_cost, discount, line\_total | complete\_sale only |
 | `sale_payments` | sale\_id, method (cash, gcash, maya, credit), amount, reference | complete\_sale only; duplicate GCash/Maya references checked |
 | `returns` | sale\_id, items (jsonb), refund\_amount, refund\_method, reason, approval\_id, created\_at | Approval function |
-| `stock_receipts`, `stock_receipt_items` | supplier\_id, reference, received\_by, created\_at; product\_id, qty, unit\_cost | record\_stock\_in function |
-| `stock_movements` | product\_id, type (sale, void, return, stock\_in, adjustment, count), qty\_change, unit\_cost, ref\_type, ref\_id, user\_id, device\_tag, created\_at | Functions only; append-only |
+| `stock_receipts`, `stock_receipt_items` | supplier\_id, reference, received\_by, received\_by\_name, device\_tag, created\_at; line\_no, product\_id (once per receipt), qty, unit\_cost | record\_stock\_in function; the Owner reads all, the receiver reads their own (with costs) |
+| `stock_movements` | product\_id, type (stock\_in, stock\_in\_reversal, adjustment, sale, void, return, count), qty\_change, stock\_after, unit\_cost, ref\_type, ref\_id, user\_id, user\_name, device\_tag, created\_at | Functions only; append-only; Owner reads directly, Special Sales through product\_stock\_history (no cost) |
 | `credit_ledger` | customer\_id, type (charge, payment), amount, sale\_id, method, reference, user\_id, created\_at | Functions only; append-only |
 | `approval_requests` | type (product\_edit; later steps add theirs), target\_type, target\_id, before (jsonb), after (jsonb), reason, requested\_by, status (pending, approved, rejected, withdrawn), decided\_by, decided\_at, owner\_note, created\_at | Created by request functions (one pending per item per requester); withdraw\_request (requester); decide\_approval (Owner only) |
 | `attendance` | user\_id, work\_date (unique per user), shift\_slot, device\_at, server\_at, lat, lng, accuracy\_m, distance\_m, location\_status, scheduled\_clock\_in, grace\_minutes, late\_minutes, late\_deduction, day\_credit, flags, edited\_by, edit\_reason | clock\_in function; Owner edits with reason |
