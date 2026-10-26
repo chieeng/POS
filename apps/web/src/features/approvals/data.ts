@@ -4,11 +4,15 @@ import { supabase } from '@/lib/supabase';
 import type { Product } from '@/features/catalog/data';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
+export type RequestType = 'product_edit' | 'stock_adjustment' | 'stock_in_correction';
 
-/** SRS 3.9: one approval request. Only product edits exist so far (build step 3). */
+/** SRS 3.9: one approval request. */
 export interface ApprovalRequest {
   id: string;
-  type: 'product_edit';
+  type: RequestType;
+  /** The product (product_edit, stock_adjustment) or stock-in (stock_in_correction). */
+  targetId: string;
+  /** The product, for the types that target one; empty for a stock-in correction. */
   productId: string;
   /** The requested fields as they were when the request was made. */
   before: Record<string, unknown>;
@@ -28,10 +32,13 @@ type Row = Record<string, unknown>;
 const toObject = (value: unknown): Record<string, unknown> =>
   typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
 
+const TYPES: RequestType[] = ['product_edit', 'stock_adjustment', 'stock_in_correction'];
+
 const toRequest = (row: Row): ApprovalRequest => ({
   id: String(row.id ?? ''),
-  type: 'product_edit',
-  productId: String(row.target_id ?? ''),
+  type: TYPES.includes(row.type as RequestType) ? (row.type as RequestType) : 'product_edit',
+  targetId: String(row.target_id ?? ''),
+  productId: row.target_type === 'stock_receipt' ? '' : String(row.target_id ?? ''),
   before: toObject(row.before),
   after: toObject(row.after),
   reason: String(row.reason ?? ''),
@@ -53,7 +60,7 @@ export function useApprovalRequests(count = 100) {
     queryKey: String(count),
     load: async () => {
       const columns =
-        'id, target_id, before, after, reason, requested_by, status, decided_by, decided_at, owner_note, created_at';
+        'id, type, target_type, target_id, before, after, reason, requested_by, status, decided_by, decided_at, owner_note, created_at';
       const pending = await supabase
         .from('approval_requests')
         .select(columns)
@@ -99,9 +106,18 @@ export function currentValue(product: Product, key: string): unknown {
 const same = (a: unknown, b: unknown) =>
   typeof a === 'number' || typeof b === 'number' ? Number(a) === Number(b) : a === b;
 
-/** The product changed since the request was made: the Owner can only reject it. */
-export function isOutdated(request: ApprovalRequest, product: Product | undefined): boolean {
-  if (!product) return false;
+/**
+ * The Owner can only reject an outdated request. A product edit is outdated when a requested
+ * field changed since; a stock-in correction when that stock-in was corrected since. An
+ * adjustment never is (the server checks the stock again when it is approved).
+ */
+export function isOutdated(
+  request: ApprovalRequest,
+  product: Product | undefined,
+  receiptCorrected = false,
+): boolean {
+  if (request.type === 'stock_in_correction') return receiptCorrected;
+  if (request.type !== 'product_edit' || !product) return false;
   return Object.keys(request.before).some(
     (key) => !same(currentValue(product, key), request.before[key]),
   );
@@ -139,7 +155,9 @@ export function describeApprovalError(error: unknown): string {
     case 'request_pending':
       return 'You already have a pending request for this product. Withdraw it first to make a new one.';
     case 'request_outdated':
-      return 'The product changed since this request was made, so it can only be rejected.';
+      return 'This changed since the request was made, so it can only be rejected.';
+    case 'stock_negative':
+      return 'Approving this would take stock below zero. Reject it, or adjust the stock first.';
     case 'request_closed':
       return 'This request was already decided or withdrawn.';
     case 'sku_taken':

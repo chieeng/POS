@@ -10,6 +10,10 @@ export interface StockReceipt {
   receivedByName: string;
   createdAt: Date;
   lines: ReceiptLine[];
+  /** INV-04: this stock-in replaces an earlier one (a correction, or its deletion). */
+  correctsReceiptId: string | null;
+  isDeletion: boolean;
+  correctedByName: string | null;
 }
 
 export interface ReceiptLine {
@@ -55,6 +59,9 @@ const toReceipt = (row: Row): StockReceipt => ({
   reference: typeof row.reference === 'string' ? row.reference : null,
   receivedByName: String(row.received_by_name ?? ''),
   createdAt: new Date(String(row.created_at)),
+  correctsReceiptId: typeof row.corrects_receipt_id === 'string' ? row.corrects_receipt_id : null,
+  isDeletion: row.is_deletion === true,
+  correctedByName: typeof row.corrected_by_name === 'string' ? row.corrected_by_name : null,
   lines: (Array.isArray(row.stock_receipt_items) ? (row.stock_receipt_items as Row[]) : [])
     .map((line) => ({
       lineNo: Number(line.line_no ?? 0),
@@ -78,7 +85,7 @@ const toMovement = (row: Row): Movement => ({
 });
 
 const RECEIPT_COLUMNS =
-  'id, supplier_id, reference, received_by_name, created_at, stock_receipt_items(line_no, product_id, qty, unit_cost)';
+  'id, supplier_id, reference, received_by_name, created_at, corrects_receipt_id, is_deletion, corrected_by_name, stock_receipt_items(line_no, product_id, qty, unit_cost)';
 
 /** Stock-ins, newest first: all of the branch's for the Owner, one's own for Special Sales. */
 export function useStockReceipts(count = 100) {
@@ -95,11 +102,17 @@ export function useStockReceipts(count = 100) {
   });
 }
 
+/** One stock-in, together with the stock-in that corrects it, if any. */
 export function useStockReceipt(id: string) {
   return useLiveRows({
     table: 'stock_receipts',
     queryKey: `one:${id}`,
-    load: () => supabase.from('stock_receipts').select(RECEIPT_COLUMNS).eq('id', id).limit(1),
+    load: () =>
+      supabase
+        .from('stock_receipts')
+        .select(RECEIPT_COLUMNS)
+        .or(`id.eq.${id},corrects_receipt_id.eq.${id}`)
+        .limit(2),
     map: toReceipt,
   });
 }
@@ -173,6 +186,75 @@ export async function recordStockIn(
   return String(data);
 }
 
+export const ADJUSTMENT_TYPES = [
+  'damage',
+  'loss',
+  'expiry',
+  'found',
+  'store_use',
+  'other',
+] as const;
+export type AdjustmentType = (typeof ADJUSTMENT_TYPES)[number];
+
+export const ADJUSTMENT_LABELS: Record<AdjustmentType, string> = {
+  damage: 'Damage',
+  loss: 'Loss',
+  expiry: 'Expiry',
+  found: 'Found',
+  store_use: 'Store use',
+  other: 'Other',
+};
+
+async function call(fn: string, args: Record<string, unknown>): Promise<unknown> {
+  const { data, error } = await supabase.rpc(fn, { ...args, p_device_tag: getDeviceTag() });
+  if (error) throw error;
+  return data;
+}
+
+/** INV-04: the Owner adjusts stock directly. qty is signed: -2 takes two away. */
+export const adjustStock = (productId: string, type: AdjustmentType, qty: number, reason: string) =>
+  call('adjust_stock', { p_product_id: productId, p_type: type, p_qty: qty, p_reason: reason });
+
+/** INV-04: Special Sales asks the Owner for an adjustment. */
+export const requestStockAdjustment = (
+  productId: string,
+  type: AdjustmentType,
+  qty: number,
+  reason: string,
+) =>
+  call('request_stock_adjustment', {
+    p_product_id: productId,
+    p_type: type,
+    p_qty: qty,
+    p_reason: reason,
+  });
+
+export interface Correction {
+  supplierId: string | null;
+  reference: string;
+  /** Every product of the stock-in once; qty 0 takes it off. Ignored when deleting. */
+  lines: StockInLine[];
+  delete: boolean;
+  reason: string;
+}
+
+const correctionArgs = (receiptId: string, correction: Correction) => ({
+  p_receipt_id: receiptId,
+  p_supplier_id: correction.supplierId,
+  p_reference: correction.reference.trim() || null,
+  p_lines: correction.delete ? null : correction.lines,
+  p_delete: correction.delete,
+  p_reason: correction.reason.trim() || null,
+});
+
+/** INV-04: the Owner corrects or deletes a stock-in. Returns the correcting stock-in's id. */
+export const correctStockIn = (receiptId: string, correction: Correction) =>
+  call('correct_stock_in', correctionArgs(receiptId, correction)).then(String);
+
+/** INV-04: Special Sales asks the Owner to correct or delete one of their own stock-ins. */
+export const requestStockInCorrection = (receiptId: string, correction: Correction) =>
+  call('request_stock_in_correction', correctionArgs(receiptId, correction));
+
 /** Reorder level set, and stock at or below it (INV-05). */
 export const isLowStock = (product: { stockQty: number; reorderLevel: number; active: boolean }) =>
   product.active && product.reorderLevel > 0 && product.stockQty <= product.reorderLevel;
@@ -195,6 +277,25 @@ export function describeStockError(error: unknown, productName: (id: string) => 
     return `${productName(String(details))} is inactive and cannot be stocked in.`;
   }
   if (message === 'supplier_inactive') return 'This supplier is inactive. Choose another.';
+  if (message === 'stock_negative') {
+    try {
+      const detail = JSON.parse(String(details)) as {
+        product_id?: string;
+        stock?: number;
+        result?: number;
+      };
+      return `${productName(detail.product_id ?? '')}: only ${detail.stock} in stock; this would leave ${detail.result}.`;
+    } catch {
+      return 'This would take stock below zero.';
+    }
+  }
+  if (message === 'receipt_corrected') {
+    return 'This stock-in was already corrected. Correct the newer version instead.';
+  }
+  if (message === 'no_change') return 'Change at least one thing, or close the form.';
+  if (message === 'request_pending') {
+    return 'You already have a pending request for this. Withdraw it first to make a new one.';
+  }
   if (message === 'invalid_input')
     return 'Some lines are not valid. Check the quantities and costs.';
   if (message === 'not_found') return 'A product or supplier no longer exists. Reload the page.';

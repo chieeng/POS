@@ -14,6 +14,7 @@ import { Tag } from '@/components/ui/tag';
 import { RequestChangePanel } from '@/features/approvals/RequestChangePanel';
 import { PageHeader } from '@/features/settings/PageHeader';
 import { isLowStock, useProductCost } from '@/features/stock/data';
+import { AdjustStockPanel } from '@/features/stock/AdjustStockPanel';
 import { StockHistory } from '@/features/stock/StockHistory';
 import { formatPeso } from '@/lib/money';
 import { useSession } from '@/stores/session';
@@ -208,6 +209,9 @@ function ProductDetail({ product }: { product: Product }) {
       )}
 
       {(isOwner || role === 'special_sales') && <PriceHistory productId={product.id} />}
+      {(isOwner || role === 'special_sales') && !editing && (
+        <AdjustStockPanel product={product} isOwner={isOwner} />
+      )}
       {(isOwner || role === 'special_sales') && (
         <StockHistory productId={product.id} unit={product.unit} showCost={isOwner} />
       )}

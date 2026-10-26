@@ -47,6 +47,17 @@ export function NewStockInPage() {
     .filter((supplier) => supplier.active)
     .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
 
+  // Inactive products are never stocked in; say so, so nobody adds the same product again.
+  const inactiveMatches = useMemo(
+    () =>
+      search.trim()
+        ? products.data
+            .filter((product) => !product.active && matchesSearch(product, search))
+            .slice(0, 3)
+        : [],
+    [products.data, search],
+  );
+
   const matches = useMemo(
     () =>
       search.trim()
@@ -215,9 +226,14 @@ export function NewStockInPage() {
         </div>
         {search.trim() && (
           <ul aria-label="Matching products" className="rounded-[22px] bg-surface p-[6px]">
-            {matches.length === 0 ? (
+            {inactiveMatches.map((product) => (
+              <li key={product.id} className="px-[10px] py-[8px] text-[14px] text-warn-fg">
+                {product.name} ({product.sku}) is inactive. Ask the Owner to reactivate it.
+              </li>
+            ))}
+            {matches.length === 0 && inactiveMatches.length === 0 ? (
               <li className="px-[10px] py-[8px] text-[14px] text-neutral-700">
-                No active product matches. Add it with “New product”.
+                No product matches. Add it with “New product”.
               </li>
             ) : (
               matches.map((product) => (
@@ -271,22 +287,28 @@ export function NewStockInPage() {
               >
                 <Trash2 size={16} strokeWidth={ICON_STROKE} aria-hidden />
               </Button>
-              <Input
-                aria-label={`Quantity of ${line.name}`}
-                placeholder="Qty"
-                inputMode="numeric"
-                value={line.qty}
-                onChange={(event) => update(index, { qty: event.target.value })}
-                className="col-start-2 min-h-[44px] bg-bg text-[15px] md:col-start-auto"
-              />
-              <Input
-                aria-label={`Unit cost of ${line.name}`}
-                placeholder="Unit cost ₱"
-                inputMode="decimal"
-                value={line.cost}
-                onChange={(event) => update(index, { cost: event.target.value })}
-                className="col-start-2 min-h-[44px] bg-bg text-[15px] md:col-start-auto"
-              />
+              <label className="col-start-2 flex flex-col gap-[2px] text-[12px] text-neutral-700 md:col-start-auto">
+                Qty
+                <Input
+                  aria-label={`Quantity of ${line.name}`}
+                  placeholder="Qty"
+                  inputMode="numeric"
+                  value={line.qty}
+                  onChange={(event) => update(index, { qty: event.target.value })}
+                  className="min-h-[44px] bg-bg text-[15px] text-text"
+                />
+              </label>
+              <label className="col-start-2 flex flex-col gap-[2px] text-[12px] text-neutral-700 md:col-start-auto">
+                Unit cost ₱
+                <Input
+                  aria-label={`Unit cost of ${line.name}`}
+                  placeholder="Unit cost ₱"
+                  inputMode="decimal"
+                  value={line.cost}
+                  onChange={(event) => update(index, { cost: event.target.value })}
+                  className="min-h-[44px] bg-bg text-[15px] text-text"
+                />
+              </label>
               <span className="col-start-2 text-right text-[14px] font-semibold md:col-start-auto">
                 {QTY.test(line.qty) && COST.test(line.cost)
                   ? formatPeso(Number(line.qty) * Number(line.cost))

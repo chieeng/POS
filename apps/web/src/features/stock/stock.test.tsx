@@ -34,6 +34,10 @@ vi.mock('@/features/catalog/data', async (importOriginal) => ({
   useCategories: () => ({ data: state.categories, loading: false, error: false }),
   createProduct: vi.fn(),
 }));
+vi.mock('@/features/approvals/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/approvals/data')>()),
+  useApprovalRequests: () => ({ data: [], loading: false, error: false }),
+}));
 vi.mock('./data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./data')>()),
   useStockReceipt: () => ({ data: state.receipts, loading: false, error: false }),
@@ -167,7 +171,13 @@ describe('New stock-in (INV-02)', () => {
       within(screen.getByLabelText('Supplier (optional)')).queryByText('Old Supplier'),
     ).toBeNull();
     await user.type(screen.getByLabelText('Find a product by name or SKU'), 'old');
-    expect(screen.getByText(/No active product matches/)).toBeInTheDocument();
+    expect(
+      screen.getByText('Old candy (OLD-1) is inactive. Ask the Owner to reactivate it.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Old candy/ })).toBeNull();
+    await user.clear(screen.getByLabelText('Find a product by name or SKU'));
+    await user.type(screen.getByLabelText('Find a product by name or SKU'), 'nothing like it');
+    expect(screen.getByText(/No product matches/)).toBeInTheDocument();
   });
 
   test('every line needs a whole quantity and a unit cost of at least ₱0.01', async () => {
@@ -225,6 +235,9 @@ describe('Stock-in page', () => {
         reference: 'DR 1234',
         receivedByName: 'Maria',
         createdAt: new Date('2026-10-22T10:00:00+08:00'),
+        correctsReceiptId: null,
+        isDeletion: false,
+        correctedByName: null,
         lines: [
           { lineNo: 1, productId: 'p1', qty: 30, unitCost: 34 },
           { lineNo: 2, productId: 'p2', qty: 24, unitCost: 8.5 },

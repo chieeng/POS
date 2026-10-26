@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { describeAudit } from '@/features/audit/describe';
 import type { Category, Product } from '@/features/catalog/data';
+import type { StockReceipt } from '@/features/stock/data';
 import type { AuditRecord, UserRecord } from '@/features/users/data';
 import { useSession, type SessionUser } from '@/stores/session';
 import { ApprovalsPage } from './ApprovalsPage';
@@ -23,6 +24,7 @@ const state = vi.hoisted(() => ({
   products: [] as Product[],
   categories: [] as Category[],
   users: [] as UserRecord[],
+  receipts: [] as StockReceipt[],
 }));
 
 vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
@@ -37,6 +39,11 @@ vi.mock('@/features/catalog/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/catalog/data')>()),
   useProducts: () => ({ data: state.products, loading: false, error: false }),
   useCategories: () => ({ data: state.categories, loading: false, error: false }),
+  useSuppliers: () => ({ data: [], loading: false, error: false }),
+}));
+vi.mock('@/features/stock/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/stock/data')>()),
+  useStockReceipts: () => ({ data: state.receipts, loading: false, error: false }),
 }));
 vi.mock('@/features/users/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/users/data')>()),
@@ -58,6 +65,7 @@ const CHIPS: Product = {
 const request = (overrides: Partial<ApprovalRequest> = {}): ApprovalRequest => ({
   id: 'r1',
   type: 'product_edit',
+  targetId: 'p1',
   productId: 'p1',
   before: { sell_price: 45 },
   after: { sell_price: 48.5 },
@@ -111,6 +119,7 @@ beforeEach(() => {
     },
   ];
   state.requests = [request()];
+  state.receipts = [];
   signInAs('owner');
 });
 
@@ -129,7 +138,7 @@ describe('outdated (decision 3)', () => {
 
   test('errors read as sentences', () => {
     expect(describeApprovalError({ message: 'request_outdated' })).toBe(
-      'The product changed since this request was made, so it can only be rejected.',
+      'This changed since the request was made, so it can only be rejected.',
     );
     expect(describeApprovalError({ message: 'request_pending' })).toMatch(
       /already have a pending request/,
@@ -151,7 +160,7 @@ describe('Approvals (Owner)', () => {
 
   test('approves with a note', async () => {
     const user = renderPage(<ApprovalsPage />);
-    await user.click(screen.getByRole('button', { name: /Approve the request/ }));
+    await user.click(screen.getByRole('button', { name: /^Approve: / }));
     await user.type(screen.getByLabelText('Note (optional)'), 'OK');
     await user.click(screen.getByRole('button', { name: 'Approve' }));
     expect(decideApproval).toHaveBeenCalledWith('r1', true, 'OK');
@@ -160,7 +169,7 @@ describe('Approvals (Owner)', () => {
 
   test('rejects', async () => {
     const user = renderPage(<ApprovalsPage />);
-    await user.click(screen.getByRole('button', { name: /Reject the request/ }));
+    await user.click(screen.getByRole('button', { name: /^Reject: / }));
     await user.click(screen.getByRole('button', { name: 'Reject' }));
     expect(decideApproval).toHaveBeenCalledWith('r1', false, '');
   });
@@ -173,8 +182,8 @@ describe('Approvals (Owner)', () => {
     expect(within(row).getByText('₱45.00')).toBeInTheDocument();
     expect(within(row).getByText('₱49.00')).toBeInTheDocument();
     expect(within(row).getByText('₱48.50')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Approve the request/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Reject the request/ })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /^Approve: / })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Reject: / })).toBeEnabled();
   });
 
   test('decided requests are listed with their status and note', () => {
