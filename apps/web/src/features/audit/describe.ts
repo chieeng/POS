@@ -46,6 +46,8 @@ export const ACTION_LABELS: Record<string, string> = {
   'product.create': 'Products added',
   'product.update': 'Product changes',
   'stock.in': 'Stock-ins',
+  'stock.adjust': 'Stock adjustments',
+  'stock.correct': 'Stock-in corrections',
   'approval.request': 'Change requests',
   'approval.withdraw': 'Requests withdrawn',
   'approval.approve': 'Requests approved',
@@ -89,6 +91,21 @@ const PRODUCT_LABELS: Record<string, string> = {
   sell_price: 'Price',
   reorder_level: 'Reorder level',
 };
+
+const ADJUSTMENT_WORDS: Record<string, string> = {
+  damage: 'Damage',
+  loss: 'Loss',
+  expiry: 'Expiry',
+  found: 'Found',
+  store_use: 'Store use',
+  other: 'Other',
+};
+
+/** "1 line", "2 lines". */
+function plural(value: unknown, word: string): string {
+  const count = Number(value);
+  return `${text(value)} ${count === 1 ? word : `${word}s`}`;
+}
 
 const LATE_DEDUCTION_LABELS: Record<string, string> = {
   none: 'None',
@@ -170,7 +187,25 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
       return {
         icon: PackagePlus,
         what: `recorded a stock-in${reference}${supplier}`,
-        change: `${text(after.lines)} lines · ${text(after.units)} units · ${settingText('sell_price', after.value)}`,
+        change: `${plural(after.lines, 'line')} · ${plural(after.units, 'unit')} · ${settingText('sell_price', after.value)}`,
+      };
+    }
+    case 'stock.adjust': {
+      const qty = Number(after.qty);
+      return {
+        icon: PackagePlus,
+        what:
+          `adjusted the stock of “${text(after.label)}”` +
+          (after.via === 'approval' ? ' (approved request)' : ''),
+        change: `${ADJUSTMENT_WORDS[String(after.type)] ?? text(after.type)} ${qty > 0 ? '+' : '−'}${Math.abs(qty)} ${text(after.unit)} · now ${text(after.stock_after)}${entry.reason ? ` · ${entry.reason}` : ''}`,
+      };
+    }
+    case 'stock.correct': {
+      const reference = typeof before.reference === 'string' ? ` “${before.reference}”` : '';
+      return {
+        icon: PackagePlus,
+        what: `${after.deleted === true ? 'deleted' : 'corrected'} the stock-in${reference}`,
+        change: entry.reason ?? '',
       };
     }
     case 'approval.request':

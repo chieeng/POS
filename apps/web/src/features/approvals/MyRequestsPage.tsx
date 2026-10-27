@@ -1,16 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useCategories, useProducts } from '@/features/catalog/data';
-import {
-  describeApprovalError,
-  formatWhen,
-  isOutdated,
-  useApprovalRequests,
-  withdrawRequest,
-} from './data';
-import { RequestChanges } from './RequestChanges';
+import { describeApprovalError, formatWhen, useApprovalRequests, withdrawRequest } from './data';
+import { useRequestContext } from './context';
+import { RequestDetails } from './RequestDetails';
 import { StatusTag } from './StatusTag';
 
 /**
@@ -19,16 +13,10 @@ import { StatusTag } from './StatusTag';
  */
 export function MyRequestsPage() {
   const requests = useApprovalRequests();
-  const products = useProducts();
-  const categories = useCategories();
+  const context = useRequestContext();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-
-  const productById = useMemo(
-    () => new Map(products.data.map((product) => [product.id, product])),
-    [products.data],
-  );
 
   const withdraw = async (id: string) => {
     setBusyId(id);
@@ -48,8 +36,8 @@ export function MyRequestsPage() {
     <div className="flex w-full max-w-[760px] flex-col gap-[14px] p-[14px] md:px-[26px] md:py-[22px] xl:py-[28px] xl:pl-[16px]">
       <h1 className="text-[28px] md:text-[30px]">My requests</h1>
       <p className="px-[4px] text-[13.5px] text-neutral-700">
-        To ask for a change, open the product and press “Request a change”. The Owner decides; you
-        see the answer here.
+        To ask for a change, open the product (“Request a change”, “Request an adjustment”) or your
+        stock-in (“Request a correction”). The Owner decides; you see the answer here.
       </p>
       {notice && (
         <p role="status" className="px-[4px] text-[14px] text-neutral-800">
@@ -62,7 +50,7 @@ export function MyRequestsPage() {
         <Alert variant="danger">
           <b>Couldn&apos;t load your requests.</b> Check your connection and reload.
         </Alert>
-      ) : requests.loading || products.loading ? (
+      ) : requests.loading || context.loading ? (
         <p className="text-neutral-700" role="status">
           Loading…
         </p>
@@ -71,16 +59,16 @@ export function MyRequestsPage() {
       ) : (
         <ul className="flex flex-col gap-[12px]">
           {requests.data.map((request) => {
-            const product = productById.get(request.productId);
-            const outdated = request.status === 'pending' && isOutdated(request, product);
+            const outdated = request.status === 'pending' && context.outdated(request);
+            const title = context.title(request);
             return (
               <li
                 key={request.id}
                 className="flex flex-col gap-[10px] rounded-[30px] bg-surface px-[18px] py-[16px] md:px-[22px]"
               >
                 <div className="flex flex-wrap items-center gap-x-[10px] gap-y-[4px]">
-                  <Link to={`/products/${request.productId}`} className="text-[16px] font-semibold">
-                    {product?.name ?? 'Product'}
+                  <Link to={title.to} className="text-[16px] font-semibold">
+                    {title.label}
                   </Link>
                   <StatusTag status={request.status} outdated={outdated} />
                   <span className="text-[13px] text-neutral-700">
@@ -90,17 +78,15 @@ export function MyRequestsPage() {
                 {outdated && (
                   <Alert variant="warn">
                     <span>
-                      <b>Outdated:</b> the product changed since you asked. Withdraw this request
-                      and make a new one if the change is still needed.
+                      <b>Outdated:</b>{' '}
+                      {request.type === 'stock_in_correction'
+                        ? 'this stock-in was corrected since you asked.'
+                        : 'the product changed since you asked.'}{' '}
+                      Withdraw this request and make a new one if the change is still needed.
                     </span>
                   </Alert>
                 )}
-                <RequestChanges
-                  request={request}
-                  product={product}
-                  categories={categories.data}
-                  outdated={outdated}
-                />
+                <RequestDetails request={request} context={context} outdated={outdated} />
                 <p className="text-[14px]">
                   <span className="text-neutral-700">Your reason: </span>
                   {request.reason}

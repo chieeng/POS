@@ -32,7 +32,10 @@ export function RequestChangePanel({
 }) {
   const requests = useApprovalRequests(20);
   const pending = requests.data.find(
-    (request) => request.productId === product.id && request.status === 'pending',
+    (request) =>
+      request.type === 'product_edit' &&
+      request.productId === product.id &&
+      request.status === 'pending',
   );
 
   const [open, setOpen] = useState(false);

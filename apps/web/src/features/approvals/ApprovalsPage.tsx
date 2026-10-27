@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -12,32 +12,31 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useCategories, useProducts } from '@/features/catalog/data';
 import { useUsers } from '@/features/users/data';
 import { useSession } from '@/stores/session';
 import {
   decideApproval,
   describeApprovalError,
   formatWhen,
-  isOutdated,
   useApprovalRequests,
   type ApprovalRequest,
 } from './data';
-import { RequestChanges } from './RequestChanges';
+import { useRequestContext } from './context';
+import { RequestDetails } from './RequestDetails';
 import { StatusTag } from './StatusTag';
 
 type Decision = { request: ApprovalRequest; approve: boolean } | null;
 
 /**
  * Approvals (SRS 3.9, APPR-03, APPR-04), the Owner only: pending requests first, each with what
- * it changes, the reason and who asked; Approve applies it exactly as asked, Reject leaves the
- * product as it is. An outdated request (the product changed since) can only be rejected.
+ * it changes, the reason and who asked; Approve applies it exactly as asked, Reject changes
+ * nothing. Product edits, stock adjustments and stock-in corrections. An outdated request (the
+ * product or stock-in changed since) can only be rejected.
  */
 export function ApprovalsPage() {
   const branchId = useSession((s) => s.user?.branchId ?? '');
   const requests = useApprovalRequests();
-  const products = useProducts();
-  const categories = useCategories();
+  const context = useRequestContext();
   const users = useUsers(branchId);
 
   const [decision, setDecision] = useState<Decision>(null);
@@ -46,10 +45,6 @@ export function ApprovalsPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const productById = useMemo(
-    () => new Map(products.data.map((product) => [product.id, product])),
-    [products.data],
-  );
   const nameOf = (uid: string | null) =>
     (uid && users.data.find((user) => user.uid === uid)?.displayName) || 'Someone';
 
@@ -69,9 +64,8 @@ export function ApprovalsPage() {
     setError(null);
     try {
       await decideApproval(decision.request.id, decision.approve, note);
-      const product = productById.get(decision.request.productId);
       setNotice(
-        `${decision.approve ? 'Approved' : 'Rejected'}: ${product?.name ?? 'the request'}.`,
+        `${decision.approve ? 'Approved' : 'Rejected'}: ${context.title(decision.request).label}.`,
       );
       setDecision(null);
     } catch (caught) {
@@ -81,7 +75,7 @@ export function ApprovalsPage() {
     }
   };
 
-  const loading = requests.loading || products.loading || categories.loading;
+  const loading = requests.loading || context.loading;
 
   return (
     <div className="flex w-full max-w-[760px] flex-col gap-[14px] p-[14px] md:px-[26px] md:py-[22px] xl:py-[28px] xl:pl-[16px]">
@@ -110,19 +104,16 @@ export function ApprovalsPage() {
           ) : (
             <ul className="flex flex-col gap-[12px]">
               {pending.map((request) => {
-                const product = productById.get(request.productId);
-                const outdated = isOutdated(request, product);
+                const outdated = context.outdated(request);
+                const title = context.title(request);
                 return (
                   <li
                     key={request.id}
                     className="flex flex-col gap-[10px] rounded-[30px] bg-surface px-[18px] py-[16px] md:px-[22px]"
                   >
                     <div className="flex flex-wrap items-baseline gap-x-[10px]">
-                      <Link
-                        to={`/products/${request.productId}`}
-                        className="text-[16px] font-semibold"
-                      >
-                        {product?.name ?? 'Product'}
+                      <Link to={title.to} className="text-[16px] font-semibold">
+                        {title.label}
                       </Link>
                       <span className="text-[13px] text-neutral-700">
                         {nameOf(request.requestedBy)} · {formatWhen(request.createdAt)}
@@ -131,17 +122,15 @@ export function ApprovalsPage() {
                     {outdated && (
                       <Alert variant="warn">
                         <span>
-                          <b>Outdated:</b> the product changed since this request. It can only be
-                          rejected; {nameOf(request.requestedBy)} can make a new one.
+                          <b>Outdated:</b>{' '}
+                          {request.type === 'stock_in_correction'
+                            ? 'this stock-in was corrected since this request.'
+                            : 'the product changed since this request.'}{' '}
+                          It can only be rejected; {nameOf(request.requestedBy)} can make a new one.
                         </span>
                       </Alert>
                     )}
-                    <RequestChanges
-                      request={request}
-                      product={product}
-                      categories={categories.data}
-                      outdated={outdated}
-                    />
+                    <RequestDetails request={request} context={context} outdated={outdated} />
                     <p className="text-[14px]">
                       <span className="text-neutral-700">Reason: </span>
                       {request.reason}
@@ -151,7 +140,7 @@ export function ApprovalsPage() {
                         className="min-h-[44px] px-[20px]"
                         disabled={outdated}
                         onClick={() => open(request, true)}
-                        aria-label={`Approve the request for ${product?.name ?? 'this product'}`}
+                        aria-label={`Approve: ${title.label}`}
                       >
                         Approve
                       </Button>
@@ -159,7 +148,7 @@ export function ApprovalsPage() {
                         variant="secondary"
                         className="min-h-[44px] px-[18px]"
                         onClick={() => open(request, false)}
-                        aria-label={`Reject the request for ${product?.name ?? 'this product'}`}
+                        aria-label={`Reject: ${title.label}`}
                       >
                         Reject
                       </Button>
@@ -177,14 +166,13 @@ export function ApprovalsPage() {
               </h2>
               <ul className="rounded-[30px] bg-surface px-[14px] py-[6px] md:px-[22px]">
                 {decided.map((request) => {
-                  const product = productById.get(request.productId);
                   return (
                     <li
                       key={request.id}
                       className="flex flex-col gap-[4px] border-b border-text/8 py-[10px] text-[14px] last:border-b-0"
                     >
                       <span className="flex flex-wrap items-center gap-[8px]">
-                        <b>{product?.name ?? 'Product'}</b>
+                        <b>{context.title(request).label}</b>
                         <StatusTag status={request.status} />
                       </span>
                       <span className="text-[12.5px] text-neutral-700">

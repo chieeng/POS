@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Tag } from '@/components/ui/tag';
 import { useSuppliers } from '@/features/catalog/data';
 import { formatPeso } from '@/lib/money';
 import { ICON_STROKE } from '@/lib/utils';
@@ -15,6 +16,15 @@ export function StockInListPage() {
   const isOwner = useSession((s) => s.user?.role === 'owner');
   const receipts = useStockReceipts();
   const suppliers = useSuppliers();
+  const corrected = useMemo(
+    () =>
+      new Set(
+        receipts.data.flatMap((receipt) =>
+          receipt.correctsReceiptId ? [receipt.correctsReceiptId] : [],
+        ),
+      ),
+    [receipts.data],
+  );
   const supplierName = useMemo(
     () => new Map(suppliers.data.map((supplier) => [supplier.id, supplier.name])),
     [suppliers.data],
@@ -68,6 +78,11 @@ export function StockInListPage() {
                     {receipt.lines.length} {receipt.lines.length === 1 ? 'line' : 'lines'}
                   </span>
                 </span>
+                {receipt.isDeletion && <Tag variant="muted">Deleted</Tag>}
+                {receipt.correctsReceiptId && !receipt.isDeletion && (
+                  <Tag variant="accent-2">Correction</Tag>
+                )}
+                {corrected.has(receipt.id) && <Tag variant="neutral">Corrected</Tag>}
                 <span className="text-[15px] font-semibold">
                   {formatPeso(receiptTotal(receipt))}
                 </span>
