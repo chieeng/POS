@@ -27,6 +27,7 @@ import {
   type Product,
 } from './data';
 import { toFields } from './helpers';
+import { PhotoPanel } from './PhotoPanel';
 import { ProductForm } from './ProductForm';
 
 const formatWhen = (when: Date) =>
@@ -46,7 +47,7 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 /**
- * Products > one product (SRS 3.2). Everyone sees the details. The Owner edits, changes the
+ * Products > one product (SRS 3.2). Everyone sees the details and the photo. The Owner edits, changes the
  * price and deactivates (PROD-04); Special Sales requests a change for the Owner to approve
  * (SRS 3.9). The Owner and Special Sales see the price history (PROD-05).
  */
@@ -94,7 +95,11 @@ function ProductDetail({ product }: { product: Product }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(
-    (location.state as { added?: boolean } | null)?.added ? 'Product added.' : null,
+    (location.state as { added?: boolean; photoFailed?: boolean } | null)?.added
+      ? (location.state as { photoFailed?: boolean }).photoFailed
+        ? 'Product added. The photo didn’t upload; add it again below.'
+        : 'Product added.'
+      : null,
   );
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -139,6 +144,7 @@ function ProductDetail({ product }: { product: Product }) {
         </p>
       )}
       {error && <Alert variant="danger">{error}</Alert>}
+      {!editing && <PhotoPanel product={product} role={role} />}
 
       {editing ? (
         <ProductForm

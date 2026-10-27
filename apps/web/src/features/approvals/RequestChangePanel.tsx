@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Category, Product } from '@/features/catalog/data';
 import { toFields } from '@/features/catalog/helpers';
+import { deletePhotoFiles, describePhotoError, uploadPhoto } from '@/features/catalog/photos';
 import { ProductForm } from '@/features/catalog/ProductForm';
 import {
+  cleanUpRequestPhoto,
   currentValue,
   describeApprovalError,
   isOutdated,
@@ -41,6 +43,10 @@ export function RequestChangePanel({
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [toggleActive, setToggleActive] = useState(false);
+  // PROD-07: replacing or removing the photo is part of the request (adding the first photo
+  // is done directly on the product page).
+  const [photo, setPhoto] = useState<'keep' | 'replace' | 'remove'>('keep');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,6 +63,7 @@ export function RequestChangePanel({
     setError(null);
     try {
       await withdrawRequest(pending.id);
+      cleanUpRequestPhoto(pending, 'withdrawn');
       setNotice('Request withdrawn.');
     } catch (caught) {
       setError(describeApprovalError(caught));
@@ -127,6 +134,8 @@ export function RequestChangePanel({
               setError(null);
               setReason('');
               setToggleActive(false);
+              setPhoto('keep');
+              setPhotoFile(null);
               setOpen(true);
             }}
           >
@@ -169,7 +178,12 @@ export function RequestChangePanel({
             }),
           );
           if (toggleActive) changes.active = !product.active;
-          if (Object.keys(changes).length === 0) {
+          if (photo === 'remove') changes.photo_key = null;
+          if (photo === 'replace' && !photoFile) {
+            setError('Choose the new photo, or keep the current one.');
+            return;
+          }
+          if (Object.keys(changes).length === 0 && photo !== 'replace') {
             setError('Change at least one thing, or close the form.');
             return;
           }
@@ -178,12 +192,23 @@ export function RequestChangePanel({
             return;
           }
           setBusy(true);
+          let newKey: string | null = null;
           try {
+            if (photo === 'replace' && photoFile) {
+              try {
+                newKey = await uploadPhoto(product.id, photoFile);
+              } catch (caught) {
+                setError(describePhotoError(caught));
+                return;
+              }
+              changes.photo_key = newKey;
+            }
             const id = await requestProductChange(product.id, changes, reason.trim());
             setOpen(false);
             setNotice(null);
             setSentId(String(id));
           } catch (caught) {
+            await deletePhotoFiles(product.id, newKey);
             setError(describeApprovalError(caught));
           } finally {
             setBusy(false);
@@ -199,6 +224,41 @@ export function RequestChangePanel({
           />
           {product.active ? 'Deactivate this product' : 'Reactivate this product'}
         </label>
+        {product.photoKey && (
+          <fieldset className="flex flex-col gap-[8px]">
+            <legend className="mb-[6px] text-[13px] font-semibold">Photo</legend>
+            {(
+              [
+                ['keep', 'Keep the photo'],
+                ['replace', 'Replace the photo'],
+                ['remove', 'Remove the photo'],
+              ] as const
+            ).map(([value, label]) => (
+              <label key={value} className="flex items-center gap-[10px] text-[14.5px]">
+                <input
+                  type="radio"
+                  name="request-photo"
+                  checked={photo === value}
+                  onChange={() => {
+                    setPhoto(value);
+                    setError(null);
+                  }}
+                  className="size-[18px] accent-accent"
+                />
+                {label}
+              </label>
+            ))}
+            {photo === 'replace' && (
+              <input
+                type="file"
+                accept="image/*"
+                aria-label="New photo"
+                onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)}
+                className="text-[14px]"
+              />
+            )}
+          </fieldset>
+        )}
         <div>
           <Label htmlFor="request-reason" className="text-[13px]">
             Reason for the Owner

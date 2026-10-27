@@ -43,6 +43,8 @@ export interface Product {
   stockQty: number;
   reorderLevel: number;
   active: boolean;
+  /** PROD-07: the current photo's key (see photos.ts), or null for none. */
+  photoKey: string | null;
 }
 
 /** PROD-05: one price a product has had. */
@@ -84,6 +86,7 @@ const toProduct = (row: Row): Product => ({
   stockQty: Number(row.stock_qty ?? 0),
   reorderLevel: Number(row.reorder_level ?? 0),
   active: row.active !== false,
+  photoKey: text(row.photo_key),
 });
 
 const toPriceChange = (row: Row): PriceChange => ({
@@ -139,7 +142,9 @@ async function loadProducts(): Promise<{ data: Row[] | null; error: unknown }> {
   for (let from = 0; from < MAX_PRODUCTS; from += PAGE) {
     const { data, error } = await supabase
       .from('products')
-      .select('id, sku, name, category_id, unit, sell_price, stock_qty, reorder_level, active')
+      .select(
+        'id, sku, name, category_id, unit, sell_price, stock_qty, reorder_level, active, photo_key',
+      )
       .order('name')
       .order('id')
       .range(from, from + PAGE - 1);

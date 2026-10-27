@@ -2,6 +2,7 @@ import { useLiveRows } from '@/hooks/useLiveRows';
 import { getDeviceTag } from '@/lib/device';
 import { supabase } from '@/lib/supabase';
 import type { Product } from '@/features/catalog/data';
+import { deletePhotoFiles } from '@/features/catalog/photos';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
 export type RequestType = 'product_edit' | 'stock_adjustment' | 'stock_in_correction';
@@ -98,6 +99,8 @@ export function currentValue(product: Product, key: string): unknown {
       return product.reorderLevel;
     case 'active':
       return product.active;
+    case 'photo_key':
+      return product.photoKey;
     default:
       return undefined;
   }
@@ -147,6 +150,21 @@ export const withdrawRequest = (id: string) => call('withdraw_request', { p_id: 
 export const decideApproval = (id: string, approve: boolean, note: string) =>
   call('decide_approval', { p_id: id, p_approve: approve, p_note: note.trim() || null });
 
+/**
+ * After a product change request is closed, deletes the photo files nothing shows any more:
+ * the replaced photo when approved, the proposed one when rejected or withdrawn (PROD-07).
+ */
+export function cleanUpRequestPhoto(
+  request: ApprovalRequest,
+  outcome: 'approved' | 'rejected' | 'withdrawn',
+): void {
+  if (request.type !== 'product_edit' || !('photo_key' in request.after)) return;
+  void deletePhotoFiles(
+    request.productId,
+    outcome === 'approved' ? request.before.photo_key : request.after.photo_key,
+  );
+}
+
 export function describeApprovalError(error: unknown): string {
   const { code, message } = (error ?? {}) as { code?: unknown; message?: unknown };
   switch (message) {
@@ -166,6 +184,8 @@ export function describeApprovalError(error: unknown): string {
       return 'This category is inactive. Choose an active one.';
     case 'invalid_input':
       return 'Some details are not valid. Check the form.';
+    case 'photo_missing':
+      return 'The new photo didn’t finish uploading. Try again.';
     case 'not_found':
       return 'This request or product no longer exists. Reload the page.';
   }

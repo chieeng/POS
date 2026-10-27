@@ -1,5 +1,5 @@
-import { ChevronRight, Plus, Search } from 'lucide-react';
-import { useMemo } from 'react';
+import { ChevronRight, Download, Plus, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -10,14 +10,32 @@ import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 import { isLowStock } from '@/features/stock/data';
 import { useCategories, useProducts } from './data';
+import { exportProducts } from './export';
 import { matchesSearch, selectClass } from './helpers';
+import { ProductPhoto } from './ProductPhoto';
 
-/** Products (SRS 3.2): everyone in the branch sees them; the Owner and Special Sales add. */
+/**
+ * Products (SRS 3.2): everyone in the branch sees them; the Owner and Special Sales add. The
+ * Owner exports the whole list as CSV (PROD-06).
+ */
 export function ProductsPage() {
   const role = useSession((s) => s.user?.role);
   const canAdd = role === 'owner' || role === 'special_sales';
   const products = useProducts();
   const categories = useCategories();
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const runExport = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await exportProducts(products.data, categories.data);
+    } catch {
+      setExportError('The export didn’t finish. Check your connection and try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
   // The filters live in the URL (?q=&category=&inactive=1), so Back from a product restores
   // them, and a filtered list can be bookmarked. Replacing, not pushing, keeps Back simple.
   const location = useLocation();
@@ -74,7 +92,19 @@ export function ProductsPage() {
             </Link>
           </Button>
         )}
+        {role === 'owner' && (
+          <Button
+            variant="secondary"
+            className="min-h-[46px] px-[18px]"
+            disabled={exporting || products.loading || products.data.length === 0}
+            onClick={() => void runExport()}
+          >
+            <Download size={17} strokeWidth={ICON_STROKE} aria-hidden />
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </Button>
+        )}
       </div>
+      {exportError && <Alert variant="danger">{exportError}</Alert>}
       <div className="flex flex-wrap items-center gap-[12px]">
         <select
           aria-label="Category"
@@ -138,6 +168,12 @@ export function ProductsPage() {
                   state={{ listSearch: location.search }}
                   className="flex min-h-[60px] items-center gap-[12px] rounded-[18px] px-[8px] py-[8px] text-text no-underline hover:bg-text/5"
                 >
+                  <ProductPhoto
+                    productId={product.id}
+                    photoKey={product.photoKey}
+                    size={200}
+                    className={cn('size-[44px] rounded-[12px]', !product.active && 'opacity-55')}
+                  />
                   <span
                     className={cn('min-w-0 flex-1 leading-[1.3]', !product.active && 'opacity-55')}
                   >

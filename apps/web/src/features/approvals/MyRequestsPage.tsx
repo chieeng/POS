@@ -2,7 +2,13 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { describeApprovalError, formatWhen, useApprovalRequests, withdrawRequest } from './data';
+import {
+  cleanUpRequestPhoto,
+  describeApprovalError,
+  formatWhen,
+  useApprovalRequests,
+  withdrawRequest,
+} from './data';
 import { useRequestContext } from './context';
 import { RequestDetails } from './RequestDetails';
 import { StatusTag } from './StatusTag';
@@ -24,6 +30,8 @@ export function MyRequestsPage() {
     setNotice(null);
     try {
       await withdrawRequest(id);
+      const request = requests.data.find((row) => row.id === id);
+      if (request) cleanUpRequestPhoto(request, 'withdrawn');
       setNotice('Request withdrawn.');
     } catch (caught) {
       setError(describeApprovalError(caught));

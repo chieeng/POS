@@ -1,5 +1,5 @@
 -- Structure-level guarantees (SRS 6.2, SEC-01, SEC-07, SEC-09): RLS on every table, nothing
--- for anon, append-only audit log, safe functions, constraints, closed storage.
+-- for anon, append-only audit log, safe functions, constraints, storage only for product photos.
 begin;
 select * from no_plan();
 select tests.fixture();
@@ -96,7 +96,7 @@ select is(
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')
   ),
-  'adjust_stock correct_stock_in create_category create_product create_supplier decide_approval product_stock_history record_account_event record_sign_in record_stock_in request_product_change request_stock_adjustment request_stock_in_correction update_branch_settings update_category update_product update_supplier withdraw_request',
+  'adjust_stock correct_stock_in create_category create_product create_supplier decide_approval product_stock_history record_account_event record_product_export record_sign_in record_stock_in request_product_change request_stock_adjustment request_stock_in_correction set_product_photo update_branch_settings update_category update_product update_supplier withdraw_request',
   'only the API functions in public are callable by a signed-in user'
 );
 
@@ -245,13 +245,18 @@ select throws_ok(
   'a profile that devices or audit rows point to cannot be hard-deleted (AUTH-02)'
 );
 
--- ---- Storage is closed until product photos are built (SEC-09) ---------------------------
-select is((select count(*) from storage.buckets), 0::bigint, 'there is no storage bucket yet');
+-- ---- Storage: only the product photo bucket (SEC-09; 150_product_photos.sql tests it) -----
+select is(
+  (select string_agg(id, ',') from storage.buckets),
+  'product-images',
+  'the only storage bucket is product-images'
+);
 
 select is(
-  (select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects'),
-  0::bigint,
-  'storage.objects has no policy, so nobody can read or upload'
+  (select string_agg(policyname || ':' || cmd, ' ' order by policyname) from pg_policies
+   where schemaname = 'storage' and tablename = 'objects'),
+  'product_images_delete:DELETE product_images_insert:INSERT product_images_select:SELECT',
+  'storage.objects has only the product photo policies, and no update'
 );
 
 select is(
@@ -263,7 +268,7 @@ select is(
 select is(
   tests.rows(caller, 'select * from storage.objects'),
   0::bigint,
-  caller || ' reads nothing from storage'
+  caller || ' reads nothing from an empty storage'
 )
 from unnest(tests.everyone()) as caller;
 

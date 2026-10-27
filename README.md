@@ -7,7 +7,7 @@ comments and commit messages refer to it.
 **Status: Phase 0 (foundation).** Sign-in, user management, device tags, the audit log,
 backups, store settings (details and the store's location for clock-in) and attendance
 rules (shift times, grace, late deduction), the product catalog (categories, suppliers,
-products with price history), Owner approval requests (product changes by Special Sales),
+products with price history and photos, CSV export), Owner approval requests (product changes by Special Sales),
 and stock (stock-in, adjustments and stock-in corrections, with weighted-average cost, stock
 history and low stock) are built on Supabase. Clock-in, selling and the other screens are not
 built yet.
@@ -21,7 +21,7 @@ apps/web/                 React 18 + TypeScript + Vite PWA
   src/features/audit/     audit log viewer
   src/features/approvals/ Owner approvals, change requests, My requests
   src/features/stock/     stock-in, adjustments, corrections, history, low stock, cost
-  src/features/catalog/   products, categories, suppliers, price history
+  src/features/catalog/   products, photos, CSV export, categories, suppliers, price history
   src/features/store/     store settings (details, idle lock, location) and attendance rules
   src/features/backups/   last backup date and overdue note for the Owner
   src/lib/supabase.ts     Supabase client and validated config

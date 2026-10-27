@@ -1,5 +1,6 @@
 import {
   ClipboardCheck,
+  FileDown,
   KeyRound,
   LockKeyhole,
   LogIn,
@@ -45,6 +46,7 @@ export const ACTION_LABELS: Record<string, string> = {
   'supplier.update': 'Supplier changes',
   'product.create': 'Products added',
   'product.update': 'Product changes',
+  'products.export': 'Product list exports',
   'stock.in': 'Stock-ins',
   'stock.adjust': 'Stock adjustments',
   'stock.correct': 'Stock-in corrections',
@@ -200,6 +202,12 @@ function correctionChanges(
   ];
 }
 
+/** A photo change in plain words (the keys themselves mean nothing to a person). */
+function photoText(old: unknown, next: unknown): string {
+  if (typeof next !== 'string') return 'Remove the photo';
+  return typeof old === 'string' ? 'Replace the photo' : 'Add a photo';
+}
+
 /** What a request asks for, in plain words. */
 function requestChanges(after: Json): string[] {
   const changes = asObject(after.changes);
@@ -224,6 +232,7 @@ function requestChanges(after: Json): string[] {
     default:
       return Object.keys(changes).map((key) => {
         if (key === 'active') return changes.active === false ? 'Deactivate' : 'Reactivate';
+        if (key === 'photo_key') return photoText(before.photo_key, changes.photo_key);
         if (key === 'category_id')
           return key in before
             ? `Category: ${text(names[String(before.category_id)])} → ${text(names[String(changes.category_id)])}`
@@ -363,12 +372,22 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
           ...fields.map((key) =>
             key === 'category_id'
               ? 'Category changed'
-              : `${PRODUCT_LABELS[key] ?? key}: ${settingText(key, before[key])} → ${settingText(key, after[key])}`,
+              : key === 'photo_key'
+                ? ({ 'Remove the photo': 'Photo removed', 'Replace the photo': 'Photo replaced' }[
+                    photoText(before.photo_key, after.photo_key)
+                  ] ?? 'Photo added')
+                : `${PRODUCT_LABELS[key] ?? key}: ${settingText(key, before[key])} → ${settingText(key, after[key])}`,
           ),
           ...(status && fields.length > 0 ? [status] : []),
         ].join(' · '),
       };
     }
+    case 'products.export':
+      return {
+        icon: FileDown,
+        what: 'exported the product list (CSV)',
+        change: plural(after.rows, 'product'),
+      };
     case 'category.create':
       return { icon: Tags, what: `added category “${text(after.name)}”`, change: '' };
     case 'supplier.create':
