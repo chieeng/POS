@@ -372,6 +372,33 @@ select is(
   'the Owner approves it'
 );
 select is(pg_temp.stock('a1') like '14 @%', true, 'one more pack is in stock');
+select is(
+  (select after ->> 'via' from public.audit_logs where action = 'stock.correct' and after ? 'via'),
+  'approval',
+  'the approved correction is marked as approved in the audit log'
+);
+select is(
+  (select count(*) from public.audit_logs where action = 'stock.correct' and after ? 'via'),
+  1::bigint,
+  'only the approved one'
+);
+select is(
+  (select before -> 'lines' -> 0 ->> 'name' || ' · ' || (before -> 'lines' -> 0 ->> 'unit') || ' · ' || (after -> 'names' ->> '00000000-0000-4000-8000-0000000000e1')
+   from public.audit_logs where action = 'stock.correct' and after ? 'via'),
+  'Chips Classic · pack · ABC Trading',
+  'the correction''s audit row names the products and the supplier'
+);
+select is(
+  (select (after -> 'products' -> '00000000-0000-4000-8000-0000000000a1' ->> 'name') || ' · ' || (after -> 'before' -> 'lines' -> 0 ->> 'qty')
+   from public.audit_logs where action = 'approval.approve' and after ->> 'type' = 'stock_in_correction'),
+  'Chips Classic · 5',
+  'an approval entry names the stock-in''s products and keeps what was recorded'
+);
+select is(
+  (select after ->> 'unit' from public.audit_logs where action = 'approval.request' and after ->> 'type' = 'stock_adjustment' limit 1),
+  'pack',
+  'an adjustment request carries the product''s unit'
+);
 
 -- ---- Reading -----------------------------------------------------------------------------------
 select is(tests.rows('owner', 'select * from public.stock_adjustments'), 4::bigint, 'the Owner reads adjustments');

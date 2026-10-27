@@ -346,5 +346,5 @@ by Row Level Security and database functions on the server (SRS 6.3). It does me
 
 ## Branching
 
-Feature branches > pull request into `dev` > release pull request into `main` (SRS 7.3).
+Feature branches > pull request into `dev` > release pull request into `main` (SRS 7.4).
 Commits follow Conventional Commits.

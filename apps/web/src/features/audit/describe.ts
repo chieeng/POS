@@ -135,6 +135,107 @@ function settingText(key: string, value: unknown): string {
   return text(value);
 }
 
+type Json = Record<string, unknown>;
+
+const asObject = (value: unknown): Json =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Json) : {};
+
+/** "Expiry −2 pack". */
+function adjustmentText(type: unknown, qty: unknown, unit: unknown): string {
+  const count = Number(qty);
+  const sign = count > 0 ? '+' : '−';
+  return `${ADJUSTMENT_WORDS[String(type)] ?? text(type)} ${sign}${Math.abs(count)}${unit ? ` ${text(unit)}` : ''}`;
+}
+
+interface LineValue {
+  name: string;
+  qty: number;
+  cost: number;
+}
+
+/**
+ * A stock-in correction in plain words: "Soda 1 L: 12 → 10", "Chips Classic: ₱34.00 → ₱32.00",
+ * "Water 500 ml: 5 @ ₱8.00 → 6 @ ₱9.00", "Supplier: ABC Trading → XYZ Foods". `before` holds
+ * the stock-in as recorded ({supplier_id, reference, lines: [{product_id, qty, unit_cost,
+ * name?}]}); `wanted` the lines as corrected, as an array or keyed by product id.
+ */
+function correctionChanges(
+  before: Json,
+  after: { supplierId: unknown; reference: unknown; lines: unknown; deleted: boolean },
+  names: Json,
+  products: Json,
+): string[] {
+  const nameOf = (id: unknown) => text(names[String(id)] ?? (id ? 'Unknown' : '—'));
+  const wanted = new Map<string, Json>();
+  if (Array.isArray(after.lines)) {
+    for (const line of after.lines) wanted.set(String(asObject(line).product_id), asObject(line));
+  } else {
+    for (const [id, line] of Object.entries(asObject(after.lines))) wanted.set(id, asObject(line));
+  }
+  const lines = (Array.isArray(before.lines) ? before.lines : []).map((raw) => {
+    const line = asObject(raw);
+    const id = String(line.product_id);
+    const old: LineValue = {
+      name: text(line.name ?? asObject(products[id]).name ?? 'Product'),
+      qty: Number(line.qty),
+      cost: Number(line.unit_cost),
+    };
+    const next = wanted.get(id);
+    const qty = after.deleted ? 0 : Number(next?.qty ?? old.qty);
+    const cost = Number(next?.unit_cost ?? old.cost);
+    if (qty === old.qty && cost === old.cost) return '';
+    if (cost === old.cost || qty === 0) return `${old.name}: ${old.qty} → ${qty}`;
+    if (qty === old.qty) return `${old.name}: ${formatPeso(old.cost)} → ${formatPeso(cost)}`;
+    return `${old.name}: ${old.qty} @ ${formatPeso(old.cost)} → ${qty} @ ${formatPeso(cost)}`;
+  });
+  if (after.deleted) return lines.filter(Boolean);
+  return [
+    ...(before.supplier_id !== after.supplierId
+      ? [`Supplier: ${nameOf(before.supplier_id)} → ${nameOf(after.supplierId)}`]
+      : []),
+    ...((before.reference ?? null) !== (after.reference ?? null)
+      ? [`Reference: ${text(before.reference)} → ${text(after.reference)}`]
+      : []),
+    ...lines.filter(Boolean),
+  ];
+}
+
+/** What a request asks for, in plain words. */
+function requestChanges(after: Json): string[] {
+  const changes = asObject(after.changes);
+  const before = asObject(after.before);
+  const names = asObject(after.names);
+  switch (after.type) {
+    case 'stock_adjustment':
+      return [adjustmentText(changes.type, changes.qty, after.unit)];
+    case 'stock_in_correction':
+      if (changes.delete === true) return ['Delete the stock-in'];
+      return correctionChanges(
+        before,
+        {
+          supplierId: changes.supplier_id,
+          reference: changes.reference,
+          lines: changes.lines,
+          deleted: false,
+        },
+        names,
+        asObject(after.products),
+      );
+    default:
+      return Object.keys(changes).map((key) => {
+        if (key === 'active') return changes.active === false ? 'Deactivate' : 'Reactivate';
+        if (key === 'category_id')
+          return key in before
+            ? `Category: ${text(names[String(before.category_id)])} → ${text(names[String(changes.category_id)])}`
+            : 'Category';
+        const label = PRODUCT_LABELS[key] ?? key;
+        return key in before
+          ? `${label}: ${settingText(key, before[key])} → ${settingText(key, changes[key])}`
+          : `${label}: ${settingText(key, changes[key])}`;
+      });
+  }
+}
+
 function roleLabel(value: unknown): string {
   return typeof value === 'string' && value in ROLE_LABELS ? ROLE_LABELS[value as Role] : '—';
 }
@@ -190,22 +291,38 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
         change: `${plural(after.lines, 'line')} · ${plural(after.units, 'unit')} · ${settingText('sell_price', after.value)}`,
       };
     }
-    case 'stock.adjust': {
-      const qty = Number(after.qty);
+    case 'stock.adjust':
       return {
         icon: PackagePlus,
         what:
           `adjusted the stock of “${text(after.label)}”` +
           (after.via === 'approval' ? ' (approved request)' : ''),
-        change: `${ADJUSTMENT_WORDS[String(after.type)] ?? text(after.type)} ${qty > 0 ? '+' : '−'}${Math.abs(qty)} ${text(after.unit)} · now ${text(after.stock_after)}${entry.reason ? ` · ${entry.reason}` : ''}`,
+        change: `${adjustmentText(after.type, after.qty, after.unit)} · now ${text(after.stock_after)}${entry.reason ? ` · ${entry.reason}` : ''}`,
       };
-    }
     case 'stock.correct': {
       const reference = typeof before.reference === 'string' ? ` “${before.reference}”` : '';
+      const deleted = after.deleted === true;
       return {
         icon: PackagePlus,
-        what: `${after.deleted === true ? 'deleted' : 'corrected'} the stock-in${reference}`,
-        change: entry.reason ?? '',
+        what:
+          `${deleted ? 'deleted' : 'corrected'} the stock-in${reference}` +
+          (after.via === 'approval' ? ' (approved request)' : ''),
+        change: [
+          ...correctionChanges(
+            before,
+            {
+              supplierId: after.supplier_id,
+              reference: after.reference,
+              lines: after.lines,
+              deleted,
+            },
+            asObject(after.names),
+            {},
+          ),
+          entry.reason,
+        ]
+          .filter(Boolean)
+          .join(' · '),
       };
     }
     case 'approval.request':
@@ -213,17 +330,6 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
     case 'approval.approve':
     case 'approval.reject': {
       const product = `“${text(after.label)}”`;
-      const changes =
-        typeof after.changes === 'object' && after.changes !== null ? after.changes : {};
-      const fields = Object.keys(changes)
-        .map((key) =>
-          key === 'active'
-            ? 'Status'
-            : key === 'category_id'
-              ? 'Category'
-              : (PRODUCT_LABELS[key] ?? key),
-        )
-        .join(', ');
       const what = {
         'approval.request': `requested a change to ${product}`,
         'approval.withdraw': `withdrew a request for ${product}`,
@@ -233,7 +339,7 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
       return {
         icon: ClipboardCheck,
         what,
-        change: [fields, entry.reason].filter(Boolean).join(' · '),
+        change: [...requestChanges(after), entry.reason].filter(Boolean).join(' · '),
       };
     }
     case 'product.create':

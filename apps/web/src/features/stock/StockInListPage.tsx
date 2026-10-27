@@ -74,8 +74,11 @@ export function StockInListPage() {
                       ` · ${supplierName.get(receipt.supplierId) ?? 'Supplier'}`}
                   </span>
                   <span className="block truncate text-[12.5px] text-neutral-700">
-                    {formatWhen(receipt.createdAt)} · {receipt.receivedByName} ·{' '}
-                    {receipt.lines.length} {receipt.lines.length === 1 ? 'line' : 'lines'}
+                    {formatWhen(receipt.createdAt)} · {receipt.receivedByName}
+                    {receipt.correctedByName &&
+                      receipt.correctedByName !== receipt.receivedByName &&
+                      ` · corrected by ${receipt.correctedByName}`}{' '}
+                    · {receipt.lines.length} {receipt.lines.length === 1 ? 'line' : 'lines'}
                   </span>
                 </span>
                 {receipt.isDeletion && <Tag variant="muted">Deleted</Tag>}
