@@ -55,6 +55,7 @@ const product = (overrides: Partial<Product>): Product => ({
   stockQty: 0,
   reorderLevel: 10,
   active: true,
+  photoKey: null,
   ...overrides,
 });
 

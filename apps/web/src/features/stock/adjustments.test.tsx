@@ -60,6 +60,7 @@ const CHIPS: Product = {
   stockQty: 10,
   reorderLevel: 0,
   active: true,
+  photoKey: null,
 };
 
 const RECEIPT: StockReceipt = {

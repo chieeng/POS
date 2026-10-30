@@ -12,9 +12,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ProductPhoto } from '@/features/catalog/ProductPhoto';
 import { useUsers } from '@/features/users/data';
 import { useSession } from '@/stores/session';
 import {
+  cleanUpRequestPhoto,
   decideApproval,
   describeApprovalError,
   formatWhen,
@@ -64,6 +66,7 @@ export function ApprovalsPage() {
     setError(null);
     try {
       await decideApproval(decision.request.id, decision.approve, note);
+      cleanUpRequestPhoto(decision.request, decision.approve ? 'approved' : 'rejected');
       setNotice(
         `${decision.approve ? 'Approved' : 'Rejected'}: ${context.title(decision.request).label}.`,
       );
@@ -111,13 +114,23 @@ export function ApprovalsPage() {
                     key={request.id}
                     className="flex flex-col gap-[10px] rounded-[30px] bg-surface px-[18px] py-[16px] md:px-[22px]"
                   >
-                    <div className="flex flex-wrap items-baseline gap-x-[10px]">
-                      <Link to={title.to} className="text-[16px] font-semibold">
-                        {title.label}
-                      </Link>
-                      <span className="text-[13px] text-neutral-700">
-                        {nameOf(request.requestedBy)} · {formatWhen(request.createdAt)}
-                      </span>
+                    <div className="flex items-center gap-[12px]">
+                      {request.productId && (
+                        <ProductPhoto
+                          productId={request.productId}
+                          photoKey={context.productById.get(request.productId)?.photoKey}
+                          size={200}
+                          className="size-[44px] rounded-[12px]"
+                        />
+                      )}
+                      <div className="flex min-w-0 flex-wrap items-baseline gap-x-[10px]">
+                        <Link to={title.to} className="text-[16px] font-semibold">
+                          {title.label}
+                        </Link>
+                        <span className="text-[13px] text-neutral-700">
+                          {nameOf(request.requestedBy)} · {formatWhen(request.createdAt)}
+                        </span>
+                      </div>
                     </div>
                     {outdated && (
                       <Alert variant="warn">

@@ -15,6 +15,7 @@ import {
   type Product,
 } from '@/features/catalog/data';
 import { matchesSearch, selectClass, toFields } from '@/features/catalog/helpers';
+import { ProductPhoto } from '@/features/catalog/ProductPhoto';
 import { ProductForm } from '@/features/catalog/ProductForm';
 import { PageHeader } from '@/features/settings/PageHeader';
 import { formatPeso } from '@/lib/money';
@@ -243,6 +244,12 @@ export function NewStockInPage() {
                     onClick={() => addLine(product)}
                     className="flex w-full items-center gap-[10px] rounded-[16px] px-[10px] py-[8px] text-left text-[14.5px] hover:bg-text/5"
                   >
+                    <ProductPhoto
+                      productId={product.id}
+                      photoKey={product.photoKey}
+                      size={200}
+                      className="size-[36px] rounded-[10px]"
+                    />
                     <span className="flex-1">
                       <b>{product.name}</b>{' '}
                       <span className="text-neutral-700">

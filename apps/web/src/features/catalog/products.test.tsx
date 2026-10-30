@@ -53,6 +53,7 @@ const CHIPS: Product = {
   stockQty: 0,
   reorderLevel: 10,
   active: true,
+  photoKey: null,
 };
 
 function signInAs(role: SessionUser['role']) {
