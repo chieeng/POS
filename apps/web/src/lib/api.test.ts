@@ -25,6 +25,14 @@ describe('api', () => {
     });
   });
 
+  test('reactivateUser calls the reactivate action', async () => {
+    invoke.mockResolvedValue({ data: { uid: 'u1', active: true }, error: null });
+    await api.reactivateUser({ uid: 'u1' });
+    expect(invoke).toHaveBeenCalledWith('admin-users', {
+      body: { action: 'reactivate', input: { uid: 'u1', deviceTag: 'A1B2' } },
+    });
+  });
+
   test('a refusal carries the code and message the server gave', async () => {
     invoke.mockResolvedValue(
       refusal(409, {

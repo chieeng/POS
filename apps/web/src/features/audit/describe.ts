@@ -14,6 +14,7 @@ import {
   Truck,
   Store,
   UserPen,
+  UserCheck,
   UserPlus,
   UserX,
   type LucideIcon,
@@ -37,6 +38,7 @@ export const ACTION_LABELS: Record<string, string> = {
   'user.update': 'User edits',
   'user.setRole': 'Role changes',
   'user.deactivate': 'Deactivations',
+  'user.reactivate': 'Reactivations',
   'user.signOutEverywhere': 'Sign-outs of all devices',
   'user.passwordResetLink': 'Password reset links',
   'branch.update': 'Store settings changes',
@@ -417,6 +419,8 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
     }
     case 'user.deactivate':
       return { icon: UserX, what: `deactivated ${target}`, change: entry.reason ?? '' };
+    case 'user.reactivate':
+      return { icon: UserCheck, what: `reactivated ${target}`, change: '' };
     case 'user.signOutEverywhere':
       return { icon: LogOut, what: `signed ${target} out of all devices`, change: '' };
     case 'user.passwordResetLink':

@@ -116,7 +116,7 @@ The Supabase URL and anon key are public, so the app itself is never trusted (SR
   rows, column by column (SYS-02). `audit_logs` is append-only for every API role. New tables
   and functions start with no API access.
 - **Edge Function `admin-users`.** Actions `create`, `update`, `setRole`, `deactivate`,
-  `signOutEverywhere`, `passwordResetLink`. Each checks the token, the live profile (Owner,
+  `reactivate`, `signOutEverywhere`, `passwordResetLink`. Each checks the token, the live profile (Owner,
   active) and `aal2`, validates input with strict Zod schemas and writes `audit_logs` with
   the device tag (SEC-08). The Owner cannot demote or turn off their own account. This is the
   only place the service role key is used.
@@ -130,7 +130,6 @@ Known limits, to be aware of:
 - The idle lock (AUTH-05) asks for the password. A staff PIN is not used.
 - The device tag in audit logs is reported by the client, so it is a label, not proof.
   Devices cannot be signed out one at a time.
-- A deactivated account cannot be turned back on from the app yet.
 - The idle time is fixed at 15 minutes until the settings screen (SYS-01) exists.
 - There is no self-service "forgot password": the Owner makes a reset link.
 - A device that is offline learns about a deactivation when it is back online; the server

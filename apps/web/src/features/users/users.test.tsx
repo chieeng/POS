@@ -1,5 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useSyncExternalStore } from 'react';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { describeAudit } from '@/features/audit/describe';
@@ -42,6 +43,24 @@ const USERS: UserRecord[] = [
     active: false,
   },
 ];
+// Like the live list: a change to a user re-renders whoever shows the list.
+const usersListeners = new Set<() => void>();
+let usersSnapshot = { data: USERS, loading: false, error: false };
+function setUser(index: number, change: Partial<UserRecord>) {
+  USERS[index] = { ...USERS[index]!, ...change };
+  usersSnapshot = { ...usersSnapshot, data: [...USERS] };
+  usersListeners.forEach((listener) => listener());
+}
+function useUsersMock() {
+  return useSyncExternalStore(
+    (listener) => {
+      usersListeners.add(listener);
+      return () => usersListeners.delete(listener);
+    },
+    () => usersSnapshot,
+  );
+}
+
 const DEVICES: DeviceRecord[] = [
   { uid: 's1', deviceTag: 'A1B2', label: 'Android phone · Chrome', lastSeenAt: new Date() },
 ];
@@ -53,6 +72,7 @@ vi.mock('@/lib/api', () => ({
     updateUser: vi.fn(),
     setUserRole: vi.fn(),
     deactivateUser: vi.fn(),
+    reactivateUser: vi.fn(),
     signOutEverywhere: vi.fn(),
     createPasswordResetLink: vi.fn(),
   },
@@ -60,7 +80,7 @@ vi.mock('@/lib/api', () => ({
 }));
 vi.mock('./data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./data')>()),
-  useUsers: () => ({ data: USERS, loading: false, error: false }),
+  useUsers: () => useUsersMock(),
   useDevices: () => ({ data: DEVICES, loading: false, error: false }),
 }));
 
@@ -81,6 +101,8 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Ricky is turned off at the start of every test; the reactivate test turns him on.
+  setUser(2, { active: false });
   useSession.setState({
     status: 'signedIn',
     user: {
@@ -192,10 +214,47 @@ describe('UserDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Sign out of all devices' })).toBeInTheDocument();
   });
 
-  test('a deactivated user has no actions', () => {
+  test('a deactivated user can only be reactivated', () => {
     renderAt('/settings/users/s2');
     expect(screen.getByText(/turned off/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reactivate Ricky' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Deactivate|Sign out|reset/i })).toBeNull();
+  });
+
+  test('an active user has no Reactivate button', () => {
+    renderAt('/settings/users/s1');
+    expect(screen.queryByRole('button', { name: /Reactivate/ })).toBeNull();
+  });
+
+  test('reactivates after confirmation; the reset link is then available (AUTH-02, SEC-04)', async () => {
+    mocked.reactivateUser.mockImplementation(async ({ uid }) => {
+      setUser(2, { active: true });
+      return { uid };
+    });
+    const user = renderAt('/settings/users/s2');
+    await user.click(screen.getByRole('button', { name: 'Reactivate Ricky' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText(/same role, user code and password/)).toBeInTheDocument();
+    await user.click(dialog.getByRole('button', { name: 'Reactivate' }));
+    expect(mocked.reactivateUser).toHaveBeenCalledWith({ uid: 's2' });
+    expect(
+      await screen.findByText(
+        'Ricky Flores can sign in again with their old password. If they forgot it, use Password reset link below.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Password reset link' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Reactivate/ })).toBeNull();
+  });
+
+  test('a failed reactivation shows the error and keeps the account off', async () => {
+    mocked.reactivateUser.mockRejectedValue(new Error('Only the Owner can do this.'));
+    const user = renderAt('/settings/users/s2');
+    await user.click(screen.getByRole('button', { name: 'Reactivate Ricky' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Reactivate' }),
+    );
+    expect(await screen.findByText('Only the Owner can do this.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reactivate Ricky' })).toBeInTheDocument();
   });
 
   test('an unknown user id shows a message', () => {
@@ -274,6 +333,9 @@ describe('helpers', () => {
     expect(
       describeAudit(entry({ action: 'user.deactivate', reason: 'Left' }), 'Jun Reyes').change,
     ).toBe('Left');
+    expect(describeAudit(entry({ action: 'user.reactivate' }), 'Ricky Flores').what).toBe(
+      'reactivated Ricky Flores',
+    );
     expect(describeAudit(entry({ action: 'auth.passwordSet' }), 'x').what).toBe(
       'set their password',
     );
