@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,7 @@ export function CorrectionPanel({
   isOwner: boolean;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const requests = useApprovalRequests(20);
   const pending = isOwner
     ? undefined
@@ -77,6 +78,9 @@ export function CorrectionPanel({
     setError(null);
     setNotice(null);
     setOpen(true);
+    // The page's "Stock-in saved" line belongs to the save that brought us here; drop it so it
+    // does not sit next to this panel's own message, or come back on a reload.
+    if (location.state) navigate(location.pathname, { replace: true, state: null });
   };
 
   // Suppliers that can be chosen: the active ones, plus the one already on it.

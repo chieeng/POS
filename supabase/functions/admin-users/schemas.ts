@@ -8,6 +8,7 @@ export const ACTIONS = [
   'update',
   'setRole',
   'deactivate',
+  'reactivate',
   'signOutEverywhere',
   'passwordResetLink',
 ] as const;

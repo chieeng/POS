@@ -68,7 +68,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | AUTH-01 | Users sign in with email and password through Supabase Auth on their own phone or laptop. | M |
-| AUTH-02 | The Owner creates, edits, deactivates users and assigns one role each: Owner, Special Sales or Sales. A new user gets a one-time link to set their own password; the Owner never sets or sees a password. User codes are 2 to 6 letters or digits, unique per branch. The Owner cannot demote or deactivate their own account. Users are never hard-deleted. | M |
+| AUTH-02 | The Owner creates, edits, deactivates and reactivates users and assigns one role each: Owner, Special Sales or Sales. A new user gets a one-time link to set their own password; the Owner never sets or sees a password. User codes are 2 to 6 letters or digits, unique per branch. The Owner cannot demote or deactivate their own account. A reactivated user keeps their role, user code, history and password; if they forgot the password, the Owner makes a one-time reset link from the user's page, as for any active user. Users are never hard-deleted. | M |
 | AUTH-03 | Role and active flag are stored in the profiles table and can be changed only through an Owner-only Edge Function or database function, never by direct table writes. | M |
 | AUTH-04 | A user may be signed in on more than one of their own devices. The Owner can sign a user out of all devices (lost phone, staff leaving). | M |
 | AUTH-05 | The app locks after 15 minutes idle (configurable) and asks for the user's password to resume. A staff PIN is not used. | S |
@@ -335,7 +335,7 @@ The Supabase project URL and anon key are public by design, so anyone can call t
 | SEC-01 | Sign-up | "Allow new users to sign up" is off in Supabase Auth. Accounts are created only by an Owner-only Edge Function using the service role on the server. Supabase's default lets anyone with the public anon key sign up, so this closes the biggest backdoor. |
 | SEC-02 | Accounts | Policies require an active `profiles` row with a valid role. A user with no profile, or an inactive one, can read and write nothing. |
 | SEC-03 | First Owner | The first Owner is created once by a local script run with the service role key from the developer's machine (never committed), which refuses to run if an Owner exists and is deleted after use. No default credentials, hard-coded admins or hidden setup pages. |
-| SEC-04 | Deactivation | Deactivating sets `active = false`, bans the Auth user and signs out all sessions in one Edge Function call. Because RLS reads `active` live, access ends immediately. |
+| SEC-04 | Deactivation | Deactivating sets `active = false`, bans the Auth user and signs out all sessions in one Edge Function call. Because RLS reads `active` live, access ends immediately. Reactivating sets `active = true` and lifts the ban in one Edge Function call, by an active Owner of the same branch with the second step (SEC-05), and is written to the audit log. |
 | SEC-05 | Owner login | The Owner account requires TOTP two-factor; Owner-only data requires an `aal2` session. Staff passwords: minimum 10 characters. Supabase's leaked-password protection needs a paid plan, so the app checks a new password against Have I Been Pwned's Pwned Passwords range API before saving it: only the first 5 characters of its SHA-1 hash leave the device, and a password found in a breach is refused. If the service cannot be reached, the password is accepted. This check runs in the browser, so it guards against careless choices, not a user who bypasses the app. |
 | SEC-06 | Bots and abuse | CAPTCHA (Cloudflare Turnstile) on sign-in and password reset; Supabase Auth rate limits tightened; Edge Functions verify the caller's JWT. |
 | SEC-07 | Policy depth | Column privileges, CHECK constraints (positive amounts, valid statuses) and input validation in every function. Only the needed schemas are exposed through the API, and GraphQL is disabled if unused. Sales see only what their screens need. |
@@ -369,7 +369,7 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | Receipts | On-screen slip rendered to image or PDF and shared with the Web Share API; browser print as a fallback |
 | Notifications | Web Push (VAPID) sent by an Edge Function when an approval request is created |
 | Database | Supabase Postgres (Singapore): SQL migrations, RLS, security-definer functions, pg\_cron for scheduled jobs |
-| Edge Functions | Deno + TypeScript: `admin-users` (create, role, deactivate, sign out everywhere), `notify` (push) |
+| Edge Functions | Deno + TypeScript: `admin-users` (create, role, deactivate, reactivate, sign out everywhere, password reset link), `notify` (push) |
 | Auth | Supabase Auth: email and password, TOTP two-factor, Turnstile CAPTCHA |
 | Hosting | Cloudflare Pages (static SPA), headers in `apps/web/public/_headers` |
 | Testing | Vitest, pgTAP (`supabase test db`), Playwright for the checkout flow |
@@ -440,7 +440,7 @@ Phase 0 was first built on Firebase. The UI, design tokens, routing and app shel
 | Firebase Auth email + password, TOTP second factor | Supabase Auth email + password, TOTP MFA (`aal2`) |
 | Custom claims (role, branchId, active) | `profiles` table read live by RLS helpers; no token-expiry gap after a role change or deactivation |
 | Blocking `beforeUserSignedIn` (refuse accounts without claims, log sign-ins) | Sign-in proceeds, then the app loads the profile and signs out users with no active profile; RLS denies them anyway. Sign-ins are logged by a `record_sign_in` function called after sign-in, plus Supabase Auth logs |
-| Callable functions `createUser`, `updateUser`, `setUserRole`, `deactivateUser`, `signOutEverywhere`, `createPasswordResetLink` | Edge Function `admin-users` with the same actions, same Zod schemas and the same Owner-only guard (JWT, role, active, `aal2`) |
+| Callable functions `createUser`, `updateUser`, `setUserRole`, `deactivateUser`, `signOutEverywhere`, `createPasswordResetLink` | Edge Function `admin-users` with the same actions plus `reactivate` (AUTH-02), same Zod schemas and the same Owner-only guard (JWT, role, active, `aal2`) |
 | Shared guard incl. App Check | Same guard minus App Check; Turnstile CAPTCHA on sign-in and password reset instead |
 | `users/{uid}`, `users/{uid}/devices/{tag}`, `auditLogs` | `profiles`, `devices`, `audit_logs` tables |
 | `firestore.rules`, `storage.rules` and rules tests | RLS policies and storage policies in migrations, with pgTAP tests porting the same cases |

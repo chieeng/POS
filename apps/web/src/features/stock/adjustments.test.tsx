@@ -211,10 +211,10 @@ describe('Adjust stock (INV-04)', () => {
   });
 });
 
-function renderReceipt(id = 'r1') {
+function renderReceipt(id = 'r1', state?: object) {
   const router = createMemoryRouter(
     [{ path: '/stock-in/:receiptId', element: <StockReceiptPage /> }],
-    { initialEntries: [`/stock-in/${id}`] },
+    { initialEntries: [{ pathname: `/stock-in/${id}`, state }] },
   );
   render(<RouterProvider router={router} />);
   return { router, user: userEvent.setup() };
@@ -264,6 +264,20 @@ describe('Correct a stock-in (INV-04)', () => {
     );
     expect(correctStockIn).not.toHaveBeenCalled();
     expect(await screen.findByText(/Request sent/)).toBeInTheDocument();
+  });
+
+  test('the "Stock-in saved" line goes once a correction is started, and stays gone', async () => {
+    signInAs('special_sales');
+    const { router, user } = renderReceipt('r1', { saved: true });
+    expect(screen.getByText('Stock-in saved. The stock is updated.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Request a correction' }));
+    await user.type(screen.getByLabelText('Reason'), 'Two more packs');
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByText(/Request sent/)).toBeInTheDocument();
+    expect(screen.queryByText(/Stock-in saved/)).toBeNull();
+    // A reload reads the same history entry: nothing brings the line back.
+    expect(router.state.location.state).toBeNull();
+    expect(router.state.location.pathname).toBe('/stock-in/r1');
   });
 
   test('a corrected stock-in links to its correction and cannot be corrected again', () => {

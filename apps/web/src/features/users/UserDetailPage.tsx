@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { KeyRound, Laptop, LogOut, Smartphone, Tablet, UserX } from 'lucide-react';
+import { KeyRound, Laptop, LogOut, Smartphone, Tablet, UserCheck, UserX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
@@ -31,6 +31,7 @@ type Pending =
   | { kind: 'role'; role: Role }
   | { kind: 'signOut' }
   | { kind: 'deactivate' }
+  | { kind: 'reactivate' }
   | { kind: 'resetLink'; link: string }
   | null;
 
@@ -161,9 +162,22 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
       {notice && <Alert variant="warn">{notice}</Alert>}
 
       {!user.active ? (
-        <p className="text-[14px] text-neutral-700">
-          This account is turned off and cannot sign in. Its sales and history are kept.
-        </p>
+        <>
+          <p className="text-[14px] text-neutral-700">
+            This account is turned off and cannot sign in. Its sales and history are kept.
+          </p>
+          {!isSelf && (
+            <Button
+              variant="secondary"
+              className="min-h-[50px]"
+              disabled={busy}
+              onClick={() => setPending({ kind: 'reactivate' })}
+            >
+              <UserCheck size={16} strokeWidth={ICON_STROKE} aria-hidden />
+              Reactivate {firstName}
+            </Button>
+          )}
+        </>
       ) : (
         <>
           <div>
@@ -359,7 +373,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
             <DialogTitle>Deactivate {firstName}?</DialogTitle>
             <DialogDescription>
               {firstName} will be signed out everywhere and can no longer sign in. Their sales and
-              history are kept. This cannot be undone from the app yet.
+              history are kept. You can reactivate {firstName} later.
             </DialogDescription>
             <div>
               <Label htmlFor="deactivate-reason" className="text-[13px]">
@@ -394,6 +408,35 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
                 }
               >
                 {busy ? 'Deactivating…' : 'Deactivate'}
+              </Button>
+            </DialogActions>
+          </DialogContent>
+        )}
+
+        {pending?.kind === 'reactivate' && (
+          <DialogContent>
+            <DialogTitle>Reactivate {firstName}?</DialogTitle>
+            <DialogDescription>
+              {firstName} can sign in again with the same role, user code and password. Their sales
+              and history are as they were.
+            </DialogDescription>
+            <DialogActions>
+              <DialogClose asChild>
+                <Button variant="secondary" className="min-h-[46px] px-[18px]" disabled={busy}>
+                  Cancel
+                </Button>
+              </DialogClose>
+              <Button
+                className="min-h-[46px] px-[22px]"
+                disabled={busy}
+                onClick={() =>
+                  run(
+                    () => api.reactivateUser({ uid: user.uid }),
+                    `${user.displayName} can sign in again with their old password. If they forgot it, use Password reset link below.`,
+                  )
+                }
+              >
+                {busy ? 'Reactivating…' : 'Reactivate'}
               </Button>
             </DialogActions>
           </DialogContent>
