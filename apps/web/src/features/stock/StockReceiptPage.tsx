@@ -58,7 +58,7 @@ export function StockReceiptPage() {
           {found.correctsReceiptId && (
             <p className="px-[4px] text-[14px]">
               {found.isDeletion ? 'Deletes' : 'Corrects'}{' '}
-              <Link to={`/stock-in/${found.correctsReceiptId}`}>
+              <Link to={`/stock-in/${found.correctsReceiptId}`} className="font-semibold underline">
                 the stock-in as first recorded
               </Link>
               {found.correctedByName && `, by ${found.correctedByName}`}.
@@ -73,10 +73,13 @@ export function StockReceiptPage() {
                   {correction.correctedByName && ` by ${correction.correctedByName}`}.
                 </b>{' '}
                 This is how it was first recorded; stock and cost follow the{' '}
-                <Link to={`/stock-in/${correction.id}`}>
-                  {correction.isDeletion ? 'deletion' : 'correction'}
+                {correction.isDeletion ? 'deletion' : 'correction'}.{' '}
+                <Link
+                  to={`/stock-in/${correction.id}`}
+                  className="font-semibold whitespace-nowrap text-warn-fg underline"
+                >
+                  Open the {correction.isDeletion ? 'deletion' : 'correction'}
                 </Link>
-                .
               </span>
             </Alert>
           )}

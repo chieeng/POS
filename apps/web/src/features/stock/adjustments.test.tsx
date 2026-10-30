@@ -19,6 +19,7 @@ import {
   requestStockInCorrection,
   type StockReceipt,
 } from './data';
+import { StockInListPage } from './StockInListPage';
 import { StockReceiptPage } from './StockReceiptPage';
 
 const state = vi.hoisted(() => ({
@@ -42,6 +43,7 @@ vi.mock('@/features/catalog/data', async (importOriginal) => ({
 vi.mock('./data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./data')>()),
   useStockReceipt: () => ({ data: state.receipts, loading: false, error: false }),
+  useStockReceipts: () => ({ data: state.receipts, loading: false, error: false }),
   adjustStock: vi.fn(),
   requestStockAdjustment: vi.fn(),
   correctStockIn: vi.fn(),
@@ -276,7 +278,7 @@ describe('Correct a stock-in (INV-04)', () => {
     ];
     renderReceipt('r1');
     expect(screen.getByText(/Corrected on .* by Rosario\./)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'correction' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open the correction' })).toHaveAttribute(
       'href',
       '/stock-in/r2',
     );
@@ -293,6 +295,27 @@ describe('Correct a stock-in (INV-04)', () => {
       'href',
       '/stock-in/r1',
     );
+  });
+
+  test('the list says who corrected another person’s stock-in', () => {
+    state.receipts = [
+      { ...RECEIPT, id: 'r2', correctsReceiptId: 'r1', correctedByName: 'Rosario' },
+      {
+        ...RECEIPT,
+        id: 'r3',
+        reference: 'DR 31',
+        correctsReceiptId: 'r9',
+        correctedByName: 'Maria',
+      },
+      RECEIPT,
+    ];
+    render(
+      <MemoryRouter>
+        <StockInListPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByText(/corrected by Rosario/)).toHaveLength(1);
+    expect(screen.queryByText(/corrected by Maria/)).toBeNull();
   });
 
   test('errors read as sentences', () => {
@@ -511,5 +534,38 @@ describe('audit log', () => {
         'x',
       ),
     ).toMatchObject({ what: 'deleted the stock-in “DR 30”', change: 'Twice' });
+    expect(
+      describeAudit(
+        entry({
+          action: 'stock.correct',
+          before: {
+            reference: 'DR 30',
+            supplier_id: 's1',
+            lines: [
+              { product_id: 'p1', name: 'Chips Classic', qty: 10, unit_cost: 34 },
+              { product_id: 'p2', name: 'Soda 1 L', qty: 12, unit_cost: 50 },
+              { product_id: 'p3', name: 'Water 500 ml', qty: 5, unit_cost: 8 },
+            ],
+          },
+          after: {
+            reference: 'DR 30',
+            supplier_id: 's1',
+            deleted: false,
+            via: 'approval',
+            lines: {
+              p1: { qty: 10, unit_cost: 32 },
+              p2: { qty: 10, unit_cost: 50 },
+              p3: { qty: 6, unit_cost: 9 },
+            },
+          },
+          reason: 'Price was wrong',
+        }),
+        'x',
+      ),
+    ).toMatchObject({
+      what: 'corrected the stock-in “DR 30” (approved request)',
+      change:
+        'Chips Classic: ₱34.00 → ₱32.00 · Soda 1 L: 12 → 10 · Water 500 ml: 5 @ ₱8.00 → 6 @ ₱9.00 · Price was wrong',
+    });
   });
 });

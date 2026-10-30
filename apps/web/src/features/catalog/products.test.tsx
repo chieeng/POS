@@ -338,6 +338,13 @@ describe('Product page', () => {
     expect(screen.getByRole('heading', { name: 'Price history' })).toBeInTheDocument();
   });
 
+  test('Adjust stock sits with the product actions, above the price history', () => {
+    renderAt('/products/p1');
+    const adjust = screen.getByRole('button', { name: 'Adjust stock' });
+    const history = screen.getByRole('heading', { name: 'Price history' });
+    expect(adjust.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   test('the Owner sees the average cost and the stock history', () => {
     renderAt('/products/p1');
     expect(screen.getByText('₱33.00 / pack')).toBeInTheDocument();

@@ -207,11 +207,11 @@ function ProductDetail({ product }: { product: Product }) {
       {role === 'special_sales' && (
         <RequestChangePanel product={product} categories={categories.data} />
       )}
-
-      {(isOwner || role === 'special_sales') && <PriceHistory productId={product.id} />}
       {(isOwner || role === 'special_sales') && !editing && (
         <AdjustStockPanel product={product} isOwner={isOwner} />
       )}
+
+      {(isOwner || role === 'special_sales') && <PriceHistory productId={product.id} />}
       {(isOwner || role === 'special_sales') && (
         <StockHistory productId={product.id} unit={product.unit} showCost={isOwner} />
       )}

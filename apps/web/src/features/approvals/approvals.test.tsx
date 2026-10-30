@@ -332,10 +332,83 @@ describe('audit log', () => {
     };
     expect(describeAudit(entry, 'x')).toMatchObject({
       what: 'requested a change to “Chips Classic”',
-      change: 'Price, Status · Supplier raised the price',
+      change: 'Price: ₱48.50 · Deactivate · Supplier raised the price',
     });
+    expect(
+      describeAudit(
+        {
+          ...entry,
+          after: {
+            ...entry.after,
+            before: { sell_price: 45, category_id: 'c1' },
+            changes: { sell_price: 48.5, category_id: 'c2' },
+            names: { c1: 'Snacks', c2: 'Drinks' },
+          },
+        },
+        'x',
+      ).change,
+    ).toBe('Price: ₱45.00 → ₱48.50 · Category: Snacks → Drinks · Supplier raised the price');
     expect(describeAudit({ ...entry, action: 'approval.approve', reason: 'OK' }, 'x').what).toBe(
       'approved a request for “Chips Classic”',
+    );
+  });
+
+  test('stock requests read in plain words, not field names', () => {
+    const entry: AuditRecord = {
+      id: '2',
+      action: 'approval.request',
+      actorId: 's1',
+      targetId: 'r2',
+      deviceTag: null,
+      before: null,
+      after: {
+        type: 'stock_adjustment',
+        label: 'Chips Classic',
+        unit: 'pack',
+        changes: { type: 'expiry', qty: -2 },
+      },
+      reason: 'Expired',
+      createdAt: null,
+    };
+    expect(describeAudit(entry, 'x').change).toBe('Expiry −2 pack · Expired');
+    expect(
+      describeAudit(
+        {
+          ...entry,
+          after: {
+            type: 'stock_in_correction',
+            label: 'stock-in 1237',
+            before: {
+              supplier_id: 's1',
+              reference: '1237',
+              lines: [
+                { product_id: 'p1', qty: 5, unit_cost: 9 },
+                { product_id: 'p2', qty: 12, unit_cost: 34 },
+                { product_id: 'p3', qty: 3, unit_cost: 20 },
+              ],
+            },
+            changes: {
+              supplier_id: 's2',
+              reference: '1237',
+              delete: false,
+              lines: [
+                { product_id: 'p1', qty: 6, unit_cost: 9 },
+                { product_id: 'p2', qty: 12, unit_cost: 32 },
+                { product_id: 'p3', qty: 3, unit_cost: 20 },
+              ],
+            },
+            names: { s1: 'ABC Trading', s2: 'XYZ Foods' },
+            products: {
+              p1: { name: 'Water 500 ml', unit: 'pc' },
+              p2: { name: 'Chips Classic', unit: 'pack' },
+            },
+          },
+          reason: 'Typo',
+        },
+        'x',
+      ).change,
+    ).toBe(
+      'Supplier: ABC Trading → XYZ Foods · Water 500 ml: 5 → 6 · Chips Classic: ₱34.00 → ₱32.00 · Typo',
     );
   });
 });

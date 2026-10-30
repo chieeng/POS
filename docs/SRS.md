@@ -82,7 +82,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | PROD-03 | Special Sales and the Owner add products, categories and suppliers directly. Category and supplier names are trimmed and unique per branch whatever their case. Nothing is deleted: a deactivated category or supplier stays on existing products and history but cannot be chosen for new ones, and a category that still has active products cannot be deactivated ("Move or deactivate its N products first"). | M |
 | PROD-04 | Edits and deactivation by Special Sales (name, SKU, category, unit, price, reorder level, deactivate or reactivate) go through an Owner approval request (SRS 3.9); the Owner edits directly. Categories and suppliers are changed by the Owner only, with no requests: Special Sales asks the Owner in person. | M |
 | PROD-05 | Every price is logged in `price_changes` with old price, new price, who (and their name at the time), device and time, including the first price when a product is added. The product page shows its price history, newest first, to the Owner and Special Sales. | M |
-| PROD-06 | Bulk import and export products by CSV (Owner only). | S |
+| PROD-06 | Export the product list as CSV (Owner only): SKU, name, category, unit, price, reorder level, active, stock on hand, average cost. The file opens correctly in Excel: UTF-8 with a BOM (₱ and ñ intact), plain numbers without ₱ or thousands separators. Each export is in the audit log. Bulk import by CSV comes later (build step 15). | S |
 
 ### 3.3 Point of sale (POS)
 
@@ -256,7 +256,7 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 | `stock_movements` | product\_id, type (stock\_in, stock\_in\_reversal, adjustment, sale, void, return, count), qty\_change, stock\_after, unit\_cost, ref\_type, ref\_id, user\_id, user\_name, device\_tag, created\_at | Functions only; append-only; Owner reads directly, Special Sales through product\_stock\_history (no cost) |
 | `stock_adjustments` | product\_id, type (damage, loss, expiry, found, store\_use, other), qty\_change, reason, unit\_cost (average at the time), created\_by, created\_by\_name, approval\_id, device\_tag, created\_at | adjust\_stock (Owner) or an approved request; append-only; Owner-only read |
 | `credit_ledger` | customer\_id, type (charge, payment), amount, sale\_id, method, reference, user\_id, created\_at | Functions only; append-only |
-| `approval_requests` | type (product\_edit; later steps add theirs), target\_type, target\_id, before (jsonb), after (jsonb), reason, requested\_by, status (pending, approved, rejected, withdrawn), decided\_by, decided\_at, owner\_note, created\_at | Created by request functions (one pending per item per requester); withdraw\_request (requester); decide\_approval (Owner only) |
+| `approval_requests` | type (product\_edit, stock\_adjustment, stock\_in\_correction; later steps add theirs), target\_type (product, stock\_receipt), target\_id, before (jsonb), after (jsonb), reason, requested\_by, status (pending, approved, rejected, withdrawn), decided\_by, decided\_at, owner\_note, created\_at | Created by request functions (one pending per type, item and requester); withdraw\_request (requester); decide\_approval (Owner only) |
 | `attendance` | user\_id, work\_date (unique per user), shift\_slot, device\_at, server\_at, lat, lng, accuracy\_m, distance\_m, location\_status, scheduled\_clock\_in, grace\_minutes, late\_minutes, late\_deduction, day\_credit, flags, edited\_by, edit\_reason | clock\_in function; Owner edits with reason |
 | `payroll_runs` | period\_start, period\_end, status (draft, finalized), totals, finalized\_by, finalized\_at; finalized ranges may not overlap | Owner only |
 | `payslips` | run\_id, user\_id, full\_days, half\_days, daily\_rate, gross\_pay, late\_penalties, additions (jsonb), deductions (jsonb), net\_pay, paid\_at, paid\_method, paid\_reference | Drafted by function; Owner edits until finalized; staff read own finalized |
@@ -317,7 +317,7 @@ Role and active flag live in `profiles`. RLS policies check them through small h
 ### 6.2 Row Level Security principles
 
 - Default deny: RLS is enabled on every table; a table with no policy for a role gives that role nothing. The `anon` role gets no access to any table.
-- Clients write through database functions only, except: creating categories, suppliers and customers, creating their own pending approval requests, and managing their own `devices` rows. Each of these policies checks role, active flag, own `user_id` and `branch_id`.
+- Clients write through database functions only, including creating categories, suppliers and approval requests. The exceptions are managing their own `devices` rows (build step 6) and uploading or deleting product photos in Storage (SEC-09); each of these policies checks role, active flag, own `user_id` and `branch_id`.
 - `sales`, `sale_items`, `sale_payments`, `stock_movements`, `credit_ledger`, `drawer_entries` and `audit_logs` have no UPDATE or DELETE grants for API roles. Corrections are new rows.
 - On `products`, UPDATE on `stock_qty` and `sell_price` is revoked from the `authenticated` role (column privileges); only functions change them.
 - `product_costs`, `pay_rates`, `payroll_runs`, `cash_advances` and cost/profit views are readable by the Owner only. Staff read only their own finalized `payslips`. Non-Owners read sale lines through a view without `unit_cost`.
@@ -360,10 +360,10 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | --- | --- |
 | Frontend | React 18 + TypeScript, Vite, React Router |
 | UI | Tailwind CSS + shadcn/ui, responsive layouts for phone, tablet and laptop |
-| Data | `supabase-js` with TanStack Query; Supabase Realtime for live stock and approvals; Zustand for cart and session |
+| Data | `supabase-js` through a small live-list hook (`useLiveRows`: load the rows, then load them again when Supabase Realtime reports a change) for live stock and approvals; Zustand for cart and session |
 | Forms | React Hook Form + Zod |
 | Offline / install | `vite-plugin-pwa`; IndexedDB (Dexie) for the cached product list and the outbox of sales and clock-ins |
-| Product search | Client-side filtering of the cached product list (Fuse.js) |
+| Product search | Client-side filtering of the cached product list (a plain text match on name and SKU; a fuzzy matcher only if the store needs one) |
 | Location | Browser Geolocation API (`enableHighAccuracy`, 10 s timeout); distance computed again in `clock_in` |
 | Receipts | On-screen slip rendered to image or PDF and shared with the Web Share API; browser print as a fallback |
 | Notifications | Web Push (VAPID) sent by an Edge Function when an approval request is created |
@@ -373,12 +373,37 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | Hosting | Cloudflare Pages (static SPA), headers in `apps/web/public/_headers` |
 | Testing | Vitest, pgTAP (`supabase test db`), Playwright for the checkout flow |
 
-### 7.2 Repository layout (monorepo)
+**Free plan.** The system runs on the Supabase Free plan permanently, so every design is checked against its quotas (as listed on supabase.com/pricing in October 2026): database 500 MB, file storage 1 GB, egress 5 GB plus cached egress 5 GB a month, Realtime 200 concurrent connections and 2 million messages a month, Edge Functions 500,000 invocations a month, no server-side image transformations, and a pause after a week without activity (the heartbeat workflow prevents it). Product photos are resized in the browser and cached for a year at paths that never change, which keeps their egress to a few hundred MB a month.
+
+**Must fix before checkout (build step 9) goes live:** `useLiveRows` loads a whole list again on every change. For the product list (about 100 KB for 500 products) that is fine while only stock-ins and edits change products, but once every sale changes `stock_qty`, 500 sales a day on 20 phones would be about 1 GB of egress a day, and the Realtime messages would approach the monthly quota. Build step 7 changes it to apply only the changed row from the Realtime message, and the Realtime message count is checked again then.
+
+### 7.2 UI design
+
+The UI reference is the Claude Design project **POS** (in the developer's Claude Design account; the link is not published here because the repository is public), built on its design system **organic**. New screens follow it, and existing screens are brought in line with it step by step. Its screen files and the build step each belongs to:
+
+| Screen file | Build step |
+| --- | --- |
+| `Sign-in.dc.html`, `Nav.dc.html`, `Settings.dc.html` | Foundation and 1 (built) |
+| `Inventory.dc.html` | 2, 4 and 5 (built: products, stock) |
+| `Approvals.dc.html` | 3 (built) |
+| `Stock-in.dc.html` | 4 (built) |
+| `Cash Drawer.dc.html` | 8 |
+| `POS Index.dc.html`, `POS Checkout.dc.html`, `POS Payment.dc.html` | 9 |
+| `Sales History.dc.html` | 9 and 10 |
+| `Clock-in.dc.html`, `Attendance.dc.html` | 11 |
+| `Customers.dc.html` | 12 |
+| `Dashboard.dc.html`, `Reports.dc.html` | 13 (the home page until then) |
+| `Payroll.dc.html` | 14 |
+
+Where a design shows something this SRS leaves out or has dropped (for example barcode scanning or CSV import before step 15), the SRS wins and the screen is built without it.
+
+### 7.3 Repository layout (monorepo)
 
 ```
 POS/
   apps/web/              React PWA
-    src/features/        auth, pos, inventory, customers, attendance, payroll, reports, settings
+    src/features/        auth, users, audit, settings, store, backups, catalog, approvals, stock, home
+                         (pos, drawer, customers, attendance, payroll, reports come with their steps)
     src/lib/supabase.ts
     src/lib/outbox.ts
   supabase/
@@ -391,7 +416,7 @@ POS/
   .github/workflows/     ci.yml, deploy.yml, heartbeat.yml
 ```
 
-### 7.3 Environments and deployment
+### 7.4 Environments and deployment
 
 | Environment | Supabase | Frontend | Deployed from |
 | --- | --- | --- | --- |
@@ -404,7 +429,7 @@ POS/
 - Deploy: GitHub Actions applies migrations with `supabase db push` and deploys Edge Functions with `supabase functions deploy`, using secrets in a GitHub environment that requires manual approval for production. Cloudflare Pages deploys the frontend from the same branches.
 - Config: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` per environment. The service role key never reaches the frontend.
 
-### 7.4 Migration from the Firebase build
+### 7.5 Migration from the Firebase build
 
 Phase 0 was first built on Firebase. The UI, design tokens, routing and app shell carry over unchanged; the backend layer is replaced, and all Firebase code, config and dependencies are removed.
 
@@ -429,21 +454,21 @@ Phase 0 was first built on Firebase. The UI, design tokens, routing and app shel
 The store can start selling after Phase 2; each later phase ships on its own.
 
 1. **Phase 0 – Foundation.** Repo, CI/CD, staging and production Supabase projects, local Supabase, Supabase migrations, auth with roles in profiles, user management, device tags, settings.
-2. **Phase 1 – Catalog, inventory and approvals.** Products with manual SKUs, categories, suppliers, CSV import, stock-in, movement history, low-stock list, approval requests with push notifications to the Owner.
+2. **Phase 1 – Catalog, inventory and approvals.** Products with manual SKUs, categories, suppliers, photos, CSV export, stock-in, movement history, low-stock list, approval requests with push notifications to the Owner.
 3. **Phase 2 – POS and attendance (go-live gate).** Checkout by name search, category or SKU; cash, GCash and Maya; digital slips; daily cash drawer with closing count; offline mode; voids and returns through approval; audit log. Attendance with location check, late deductions and correction requests, and the Owner's attendance board. Gate: one week of parallel run against the store's current method with zero stock, cash or attendance discrepancies traced to the system.
 4. **Phase 3 – Credit.** Customers, credit sales, utang payments, ledger, aging report.
 5. **Phase 4 – Reports.** Dashboard, report views, sales and profit reports, attendance summaries, payroll runs with payslips and cash advances, CSV export, backups verified.
-6. **Phase 5 – Polish.** Held sales, physical count, Bluetooth thermal printing if the owner wants paper slips.
+6. **Phase 5 – Polish.** Held sales, physical count, CSV import of products, Bluetooth thermal printing if the owner wants paper slips.
 
 ### Build order
 
 The phases above are built in this order, one step (one or a few pull requests) at a time:
 
 1. Store settings: details, location for clock-in, attendance rules (**done**)
-2. Product catalog: categories, suppliers, products with manual SKU, price log
-3. Owner approval requests
-4. Stock-in, stock movements, low stock, cost
-5. Product photos and CSV import/export
+2. Product catalog: categories, suppliers, products with manual SKU, price log (**done**)
+3. Owner approval requests (**done**)
+4. Stock-in, stock movements, low stock, cost; adjustments and stock-in corrections (**done**)
+5. Product photos and CSV export
 6. Push notifications to the Owner
 7. Installable app, offline product list and offline queue
 8. Cash drawer
@@ -453,7 +478,7 @@ The phases above are built in this order, one step (one or a few pull requests) 
 12. Customer credit (utang)
 13. Owner dashboard and reports
 14. Payroll
-15. Polish: held sales, physical count, printing
+15. Polish: held sales, physical count, CSV import of products, printing
 
 ### Open questions
 
@@ -467,6 +492,6 @@ The phases above are built in this order, one step (one or a few pull requests) 
 - [x] Do this store's shift start times and late deduction match pos-erag? *Not known yet: defaults 6:00 AM / 1:00 PM / 15-minute grace, editable; late deduction none by default, with "minutes late" or a flat amount (₱0 by default) as Owner choices (ATT-06).*
 - [x] Does a day that starts with the afternoon shift count as a full day or a half day of pay? *Half day by default, editable by the Owner.*
 - [x] Does the Owner clock in too, or only staff? *Staff only by default; the Owner can turn on "Owner clocks in too".*
-- [ ] Is there an existing product list (spreadsheet) to import, and roughly how many items? *To find out at handover; products are entered by hand until CSV import (build step 5).*
+- [ ] Is there an existing product list (spreadsheet) to import, and roughly how many items? *To find out at handover; products are entered by hand until CSV import (build step 15).*
 - [ ] Does the store sell anything by weight or length (kg, g, L, m)? That needs decimal quantities in stock-in, checkout and the offline queue, so it must be decided before checkout (build step 9).
 - [ ] Does the store sell the same item in two units (for example per stick and per pack)? For now that is two products, each with its own SKU, price and stock.
