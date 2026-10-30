@@ -56,7 +56,7 @@ Three roles cover the store's 20 users: the Owner, a few Special Sales who also 
 
 - Supabase has no built-in offline writes. Offline selling and clock-in need a local outbox (IndexedDB) with client-generated ids so a resent record is never saved twice. All other actions require internet.
 - The Supabase URL and anon key are public by design; security depends entirely on Row Level Security and database functions.
-- The Supabase Free plan pauses a project after a period without activity, and has no backups the store can restore from and no point-in-time recovery. A daily heartbeat keeps both projects active, and the database is backed up by the app's own encrypted backups (SYS-04). Features that need a paid plan are not used.
+- The Supabase Free plan pauses a project after a period without activity, and has no backups the store can restore from and no point-in-time recovery. A heartbeat keeps both projects active: every 6 hours it runs a real, read-only query (`public.heartbeat()`, callable by anon, reading no table), and only a 2xx answer counts, because a request the database refuses does not count as activity. The database is backed up by the app's own encrypted backups (SYS-04). Features that need a paid plan are not used.
 - Must comply with the Data Privacy Act of 2012 for customer names and phone numbers kept for utang.
 
 ## 3. Functional requirements
@@ -374,7 +374,7 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | Hosting | Cloudflare Pages (static SPA), headers in `apps/web/public/_headers` |
 | Testing | Vitest, pgTAP (`supabase test db`), Playwright for the checkout flow |
 
-**Free plan.** The system runs on the Supabase Free plan permanently, so every design is checked against its quotas (as listed on supabase.com/pricing in October 2026): database 500 MB, file storage 1 GB, egress 5 GB plus cached egress 5 GB a month, Realtime 200 concurrent connections and 2 million messages a month, Edge Functions 500,000 invocations a month, no server-side image transformations, and a pause after a week without activity (the heartbeat workflow prevents it). Product photos are resized in the browser and cached for a year at paths that never change, which keeps their egress to a few hundred MB a month.
+**Free plan.** The system runs on the Supabase Free plan permanently, so every design is checked against its quotas (as listed on supabase.com/pricing in October 2026): database 500 MB, file storage 1 GB, egress 5 GB plus cached egress 5 GB a month, Realtime 200 concurrent connections and 2 million messages a month, Edge Functions 500,000 invocations a month, no server-side image transformations, and a pause after a week without user database activity (the heartbeat workflow prevents it with a query every 6 hours; GitHub Actions minutes are free in a public repository). Product photos are resized in the browser and cached for a year at paths that never change, which keeps their egress to a few hundred MB a month.
 
 **Must fix before checkout (build step 9) goes live:** `useLiveRows` loads a whole list again on every change. For the product list (about 100 KB for 500 products) that is fine while only stock-ins and edits change products, but once every sale changes `stock_qty`, 500 sales a day on 20 phones would be about 1 GB of egress a day, and the Realtime messages would approach the monthly quota. Build step 7 changes it to apply only the changed row from the Realtime message, and the Realtime message count is checked again then.
 

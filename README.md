@@ -262,9 +262,12 @@ the variables and secrets listed at the top of
 (SEC-10).
 
 **Free plan.** While the projects are on the Supabase Free plan,
-[.github/workflows/heartbeat.yml](.github/workflows/heartbeat.yml) sends each one a request a
-day so it is not paused for inactivity. It needs no secrets, only the four public repository
-variables listed at its top, and it runs only once it is on the default branch.
+[.github/workflows/heartbeat.yml](.github/workflows/heartbeat.yml) runs a tiny database query
+on each one every 6 hours (`public.heartbeat()`, which returns the database clock) so it is
+not paused for inactivity. Only a 2xx answer counts; anything else fails the run and GitHub
+emails the developer. It needs no secrets, only the four public repository variables listed at
+its top (the `*_ANON_KEY` ones hold the publishable keys), and it runs only from the default
+branch.
 
 ## Backups
 

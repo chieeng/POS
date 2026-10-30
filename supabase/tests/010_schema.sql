@@ -57,14 +57,14 @@ select is(
 
 select is(
   (
-    select count(*)
+    select coalesce(string_agg(n.nspname || '.' || p.proname, ' '), '')
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname in ('public', 'private')
       and (has_function_privilege('anon', p.oid, 'execute'))
   ),
-  0::bigint,
-  'anon can execute no function in public or private'
+  'public.heartbeat',
+  'anon can execute no function in public or private but heartbeat()'
 );
 
 -- ---- What a signed-in user is granted -----------------------------------------------------
