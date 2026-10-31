@@ -154,7 +154,7 @@ export function ProductsPage() {
 
       {products.savedAt && (
         <Alert variant="offline">
-          Offline. Showing the product list saved on this phone, last updated{' '}
+          Offline. Showing the product list saved on this device, last updated{' '}
           {formatWhen(products.savedAt)}.
         </Alert>
       )}

@@ -166,7 +166,7 @@ describe('Products list', () => {
     state.savedAt = new Date('2026-10-31T14:05:00+08:00');
     renderAt('/products');
     expect(screen.getByRole('alert')).toHaveTextContent(
-      /Offline\. Showing the product list saved on this phone, last updated Oct 31, 2026/,
+      /Offline\. Showing the product list saved on this device, last updated Oct 31, 2026/,
     );
     expect(screen.getByText('Chips Classic')).toBeInTheDocument();
   });
