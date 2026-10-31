@@ -17,6 +17,21 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 };
 
+// jsdom has no matchMedia either. Default to a phone (nothing matches); tests that need a
+// wider screen replace it.
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }),
+  });
+}
+
 afterEach(() => {
   cleanup();
 });

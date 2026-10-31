@@ -61,7 +61,7 @@ export function IdleLock({ user, minutes }: IdleLockProps) {
       <form
         onSubmit={onSubmit}
         noValidate
-        className="flex w-full flex-col items-center gap-[14px] px-[28px] pt-[56px] pb-[28px] md:w-[440px] md:items-start md:rounded-[40px] md:bg-bg md:p-[36px] md:shadow-lg"
+        className="flex w-full flex-col items-center gap-[14px] px-[28px] pt-[56px] pb-[28px] md:w-[440px] md:items-start md:rounded-[40px] md:bg-bg md:p-[36px] md:shadow-[var(--shadow-lg)]"
       >
         <div
           aria-hidden

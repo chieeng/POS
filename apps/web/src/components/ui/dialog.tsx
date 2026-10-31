@@ -6,9 +6,12 @@ const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogClose = DialogPrimitive.Close;
 
-/** The scrim behind dialogs and sheets: black at 55% in both themes, as every screen shows. */
+/**
+ * The scrim behind dialogs and sheets: black at 55% in both themes, as every screen shows.
+ * Tokens only: the theme removes Tailwind's own colors, so its black would draw nothing.
+ */
 function DialogOverlay() {
-  return <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-black/55" />;
+  return <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-scrim" />;
 }
 
 // Overlays sit on the page color so the surface-colored inputs and cards inside stay visible.
@@ -21,7 +24,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-32px)] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col gap-[14px] overflow-y-auto rounded-card bg-bg p-[22px] shadow-lg',
+        'fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-32px)] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col gap-[14px] overflow-y-auto rounded-card border border-overlay-edge bg-bg p-[22px] shadow-[var(--shadow-lg)]',
         className,
       )}
       {...props}

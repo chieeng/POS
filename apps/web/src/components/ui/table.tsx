@@ -1,7 +1,11 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-/** The design system's data table. Put it inside a `Card size="panel"`. */
+/**
+ * The design system's data table. Put it inside a `Card size="panel"`. Headings and numbers
+ * don't wrap, so on a phone the table scrolls sideways instead of breaking "Unit cost" or
+ * "2 pack" over two lines; give text columns a min width.
+ */
 export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
   return (
     <div className="w-full overflow-x-auto">
@@ -50,7 +54,7 @@ export function TableHead({
     <th
       scope="col"
       className={cn(
-        'border-b border-divider p-2 text-left align-middle text-[11px] font-normal tracking-[0.08em] text-text/60 uppercase',
+        'border-b border-divider p-2 text-left align-middle text-[11px] font-normal tracking-[0.08em] whitespace-nowrap text-text/60 uppercase',
         numeric && 'text-right',
         className,
       )}
@@ -68,7 +72,7 @@ export function TableCell({
     <td
       className={cn(
         'border-b border-text/8 p-2 align-middle',
-        numeric && 'text-right tabular-nums',
+        numeric && 'text-right whitespace-nowrap tabular-nums',
         className,
       )}
       {...props}

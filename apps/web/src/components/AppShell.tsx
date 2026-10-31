@@ -34,6 +34,58 @@ function Badge({ count, className }: { count?: number; className?: string }) {
   );
 }
 
+/** Who is signed in, at the top of the phone's Account and More sheets. */
+function AccountHeader({ name, roleLabel }: { name: string; roleLabel: string }) {
+  return (
+    <div className="flex items-center gap-[10px] px-[4px]">
+      <Avatar name={name} className="size-[40px] text-[14px]" />
+      <div className="flex min-w-0 flex-col leading-[1.25]">
+        <span className="truncate text-[15px] font-semibold">{name}</span>
+        <span className="text-[12.5px] text-neutral-700">{roleLabel}</span>
+      </div>
+    </div>
+  );
+}
+
+function SignOutButton() {
+  return (
+    <button
+      type="button"
+      onClick={() => signOutUser()}
+      className="flex min-h-[56px] items-center gap-[12px] rounded-[24px] bg-surface px-[16px] text-[15px] hover:bg-text/7"
+    >
+      <LogOut size={18} strokeWidth={ICON_STROKE} className="text-accent-700" aria-hidden />
+      Sign out
+    </button>
+  );
+}
+
+/**
+ * The phone's Account sheet, from the avatar in the top bar: who is signed in, and Sign out
+ * on every page (staff hand phones over at shift change).
+ */
+function AccountSheet({
+  name,
+  roleLabel,
+  open,
+  onOpenChange,
+}: {
+  name: string;
+  roleLabel: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent aria-describedby={undefined}>
+        <SheetTitle className="sr-only">Account</SheetTitle>
+        <AccountHeader name={name} roleLabel={roleLabel} />
+        <SignOutButton />
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 /** The phone's More sheet: the items that don't fit the bar, then Sign out. */
 function MoreSheet({
   items,
@@ -52,13 +104,7 @@ function MoreSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent aria-describedby={undefined}>
         <SheetTitle className="sr-only">More</SheetTitle>
-        <div className="flex items-center gap-[10px] px-[4px]">
-          <Avatar name={name} className="size-[40px] text-[14px]" />
-          <div className="flex min-w-0 flex-col leading-[1.25]">
-            <span className="truncate text-[15px] font-semibold">{name}</span>
-            <span className="text-[12.5px] text-neutral-700">{roleLabel}</span>
-          </div>
-        </div>
+        <AccountHeader name={name} roleLabel={roleLabel} />
         <nav aria-label="More" className="flex flex-col rounded-[24px] bg-surface py-[4px]">
           {items.map(({ to, label, icon: Icon, badge }) => (
             <NavLink
@@ -79,14 +125,7 @@ function MoreSheet({
             </NavLink>
           ))}
         </nav>
-        <button
-          type="button"
-          onClick={() => signOutUser()}
-          className="flex min-h-[56px] items-center gap-[12px] rounded-[24px] bg-surface px-[16px] text-[15px] hover:bg-text/7"
-        >
-          <LogOut size={18} strokeWidth={ICON_STROKE} className="text-accent-700" aria-hidden />
-          Sign out
-        </button>
+        <SignOutButton />
       </SheetContent>
     </Sheet>
   );
@@ -103,6 +142,7 @@ export function AppShell() {
   const user = useSession((s) => s.user);
   const { pathname } = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   // SRS 3.9: the Owner's pending approvals, or the requester's own pending requests, live.
   // Row Level Security decides which requests each user can see.
   const requests = useApprovalRequests(1);
@@ -119,8 +159,22 @@ export function AppShell() {
       <header className="flex h-[56px] flex-none items-center gap-[10px] px-[16px] md:hidden">
         <div className="mr-auto font-heading text-[24px] leading-none">POS</div>
         <ConnectionPill variant="topbar" />
-        <Avatar name={user.displayName} />
+        <button
+          type="button"
+          aria-label="Account"
+          aria-haspopup="dialog"
+          onClick={() => setAccountOpen(true)}
+          className="-m-[4px] grid size-[44px] place-items-center rounded-full hover:bg-text/7"
+        >
+          <Avatar name={user.displayName} />
+        </button>
       </header>
+      <AccountSheet
+        name={user.displayName}
+        roleLabel={ROLE_LABELS[user.role]}
+        open={accountOpen}
+        onOpenChange={setAccountOpen}
+      />
 
       {/* Tablet: rail. Laptop: sidebar. */}
       <nav
