@@ -96,7 +96,7 @@ select is(
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')
   ),
-  'adjust_stock correct_stock_in create_category create_product create_supplier decide_approval product_stock_history record_account_event record_product_export record_sign_in record_stock_in request_product_change request_stock_adjustment request_stock_in_correction set_product_photo update_branch_settings update_category update_product update_supplier withdraw_request',
+  'adjust_stock correct_stock_in create_category create_product create_supplier decide_approval product_stock_history record_account_event record_product_export record_sign_in record_stock_in report_unsent request_product_change request_stock_adjustment request_stock_in_correction set_product_photo update_branch_settings update_category update_product update_supplier withdraw_request',
   'only the API functions in public are callable by a signed-in user'
 );
 

@@ -54,7 +54,7 @@ export function UsersPage() {
             Active · {activeCount}
           </span>
         )}
-        <Button asChild className="min-h-[44px]">
+        <Button needsInternet asChild className="min-h-[44px]">
           <Link to="new">
             <UserPlus size={16} strokeWidth={ICON_STROKE} aria-hidden />
             Add user

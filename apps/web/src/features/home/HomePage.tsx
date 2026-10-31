@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { signOutUser } from '@/features/auth/authService';
 import { ROLE_LABELS, type Role } from '@/features/auth/roles';
 import { BackupReminder } from '@/features/backups/BackupReminder';
+import { requestSignOut } from '@/features/outbox/signOut';
 import { LowStockCard } from '@/features/stock/LowStockCard';
 import { useSession } from '@/stores/session';
 
@@ -38,7 +38,7 @@ export function HomePage({ role }: { role: Role }) {
       <Button
         variant="secondary"
         className="mt-[12px] min-h-11 px-6 md:hidden"
-        onClick={() => signOutUser()}
+        onClick={() => void requestSignOut()}
       >
         Sign out
       </Button>

@@ -107,6 +107,7 @@ export function MyRequestsPage() {
                 )}
                 {request.status === 'pending' && (
                   <Button
+                    needsInternet
                     variant="secondary"
                     className="min-h-[44px] self-start px-[18px]"
                     disabled={busyId === request.id}

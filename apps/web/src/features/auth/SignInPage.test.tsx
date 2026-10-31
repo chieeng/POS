@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { env } from '@/lib/supabase';
 import { useSession } from '@/stores/session';
 import { cancelSecondStep, signIn, verifyTotp } from './authService';
 import { SignInPage } from './SignInPage';
@@ -44,6 +45,14 @@ describe('SignInPage', () => {
     expect(screen.getAllByText('Test Store').length).toBeGreaterThan(0);
     expect(screen.queryByText(/sign up|create (an )?account|register/i)).toBeNull();
     expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  test('does not repeat "POS" under the POS wordmark', () => {
+    env.storeName = 'POS';
+    renderPage();
+    // The wordmark only: once on the phone layout, once on the tablet panel.
+    expect(screen.getAllByText('POS')).toHaveLength(2);
+    env.storeName = 'Test Store';
   });
 
   test('validates before calling Supabase', async () => {

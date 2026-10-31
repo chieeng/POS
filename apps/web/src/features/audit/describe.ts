@@ -1,4 +1,5 @@
 import {
+  CircleAlert,
   ClipboardCheck,
   FileDown,
   KeyRound,
@@ -56,6 +57,7 @@ export const ACTION_LABELS: Record<string, string> = {
   'approval.withdraw': 'Requests withdrawn',
   'approval.approve': 'Requests approved',
   'approval.reject': 'Requests rejected',
+  'outbox.rejected': 'Offline entries not saved',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -384,6 +386,16 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
         ].join(' · '),
       };
     }
+    case 'outbox.rejected':
+      // NFR-02: made offline, refused when it was sent; kept on the device that made it.
+      return {
+        icon: CircleAlert,
+        what:
+          after.kind === 'clock_in'
+            ? 'made a clock-in offline that could not be saved'
+            : 'made a sale offline that could not be saved',
+        change: `${text(entry.reason)} Kept on device ${text(entry.deviceTag ?? '—')}.`,
+      };
     case 'products.export':
       return {
         icon: FileDown,

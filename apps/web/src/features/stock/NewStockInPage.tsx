@@ -214,6 +214,7 @@ export function NewStockInPage() {
             />
           </div>
           <Button
+            needsInternet
             variant="secondary"
             className="min-h-[46px] px-[16px]"
             onClick={() => {
@@ -328,7 +329,12 @@ export function NewStockInPage() {
 
       {error && <Alert variant="danger">{error}</Alert>}
       <div className="flex flex-wrap items-center gap-[14px]">
-        <Button className="min-h-[48px] px-[24px]" disabled={saving} onClick={() => void save()}>
+        <Button
+          needsInternet
+          className="min-h-[48px] px-[24px]"
+          disabled={saving}
+          onClick={() => void save()}
+        >
           {saving ? 'Saving…' : 'Save stock-in'}
         </Button>
         <span className="text-[15px]">

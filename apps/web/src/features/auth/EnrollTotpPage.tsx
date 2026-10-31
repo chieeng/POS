@@ -142,7 +142,7 @@ export function EnrollTotpPage() {
         )}
 
         <div className="flex-1 md:hidden" />
-        <Button type="submit" size="lg" disabled={!enrollment || isSubmitting}>
+        <Button needsInternet type="submit" size="lg" disabled={!enrollment || isSubmitting}>
           {isSubmitting ? 'Checking…' : 'Turn on'}
         </Button>
         <Button variant="quiet" size="touch" className="self-center" onClick={() => signOutUser()}>

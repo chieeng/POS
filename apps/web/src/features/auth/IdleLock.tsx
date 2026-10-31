@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { SessionUser } from '@/stores/session';
 import { describeAuthError, type AuthErrorMessage } from './authErrors';
+import { requestSignOut } from '@/features/outbox/signOut';
 import { confirmPassword, signOutUser } from './authService';
 import { initialsOf, ROLE_LABELS } from './roles';
 import { unlockSchema, type UnlockValues } from './schemas';
@@ -107,6 +108,7 @@ export function IdleLock({ user, minutes }: IdleLockProps) {
         <div ref={containerRef} className="empty:hidden" />
 
         <Button
+          needsInternet
           type="submit"
           size="lg"
           className="min-h-[54px] justify-between px-[22px] text-[18px]"
@@ -118,7 +120,7 @@ export function IdleLock({ user, minutes }: IdleLockProps) {
           </kbd>
         </Button>
         <div className="flex-1 md:hidden" />
-        <Button variant="quiet" size="touch" onClick={() => signOutUser()}>
+        <Button variant="quiet" size="touch" onClick={() => void requestSignOut()}>
           Sign in as someone else
         </Button>
       </form>

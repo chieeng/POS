@@ -150,6 +150,7 @@ export function ApprovalsPage() {
                     </p>
                     <div className="flex flex-wrap gap-[10px]">
                       <Button
+                        needsInternet
                         className="min-h-[44px] px-[20px]"
                         disabled={outdated}
                         onClick={() => open(request, true)}
@@ -158,6 +159,7 @@ export function ApprovalsPage() {
                         Approve
                       </Button>
                       <Button
+                        needsInternet
                         variant="secondary"
                         className="min-h-[44px] px-[18px]"
                         onClick={() => open(request, false)}
@@ -238,6 +240,7 @@ export function ApprovalsPage() {
                 </Button>
               </DialogClose>
               <Button
+                needsInternet
                 className="min-h-[46px] px-[22px]"
                 disabled={busy}
                 onClick={() => void confirm()}

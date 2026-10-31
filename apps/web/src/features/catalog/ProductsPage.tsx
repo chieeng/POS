@@ -96,7 +96,7 @@ export function ProductsPage() {
           />
         </div>
         {canAdd && (
-          <Button asChild className="min-h-[46px] px-[18px]">
+          <Button needsInternet asChild className="min-h-[46px] px-[18px]">
             <Link to="new">
               <Plus size={17} strokeWidth={ICON_STROKE} aria-hidden />
               Add product

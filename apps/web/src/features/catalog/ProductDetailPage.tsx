@@ -191,6 +191,7 @@ function ProductDetail({ product }: { product: Product }) {
       {isOwner && !editing && (
         <div className="flex flex-wrap gap-[10px]">
           <Button
+            needsInternet
             className="min-h-[46px] px-[20px]"
             onClick={() => {
               setNotice(null);
@@ -200,6 +201,7 @@ function ProductDetail({ product }: { product: Product }) {
             Edit product
           </Button>
           <Button
+            needsInternet
             variant="secondary"
             className="min-h-[46px] px-[18px]"
             onClick={() => {
@@ -251,6 +253,7 @@ function ProductDetail({ product }: { product: Product }) {
               </Button>
             </DialogClose>
             <Button
+              needsInternet
               className="min-h-[46px] px-[22px]"
               disabled={busy}
               onClick={() => void toggleActive()}

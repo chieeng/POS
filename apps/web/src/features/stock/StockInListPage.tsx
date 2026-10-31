@@ -34,7 +34,7 @@ export function StockInListPage() {
     <div className="flex w-full max-w-[760px] flex-col gap-[14px] p-[14px] md:px-[26px] md:py-[22px] xl:py-[28px] xl:pl-[16px]">
       <div className="flex flex-wrap items-center gap-[12px]">
         <h1 className="flex-1 text-[28px] md:text-[30px]">Stock-in</h1>
-        <Button asChild className="min-h-[46px] px-[18px]">
+        <Button needsInternet asChild className="min-h-[46px] px-[18px]">
           <Link to="new">
             <Plus size={17} strokeWidth={ICON_STROKE} aria-hidden />
             New stock-in

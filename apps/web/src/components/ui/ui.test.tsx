@@ -3,7 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { Inbox } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, Link } from 'react-router-dom';
 import { Alert, AlertAction } from './alert';
+import { Button } from './button';
 import { Card } from './card';
 import { Checkbox, CheckboxField } from './checkbox';
 import { ConnectionPill } from './connection-pill';
@@ -54,6 +56,40 @@ describe('ConnectionPill', () => {
   it('names the state for screen readers on the icon-only rail', () => {
     render(<ConnectionPill variant="rail" pending={4} />);
     expect(screen.getByRole('status')).toHaveTextContent('4 changes waiting to sync');
+  });
+});
+
+describe('Button that needs internet', () => {
+  afterEach(() => setOnline(true));
+
+  it('works online, and offline is disabled with a "Needs internet" hint', async () => {
+    const save = vi.fn();
+    render(
+      <Button needsInternet onClick={save}>
+        Save
+      </Button>,
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Save' }));
+    expect(save).toHaveBeenCalledTimes(1);
+
+    setOnline(false);
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save' })).toHaveAccessibleDescription(
+      'Needs internet',
+    );
+  });
+
+  it('turns a link styled as a button into a disabled button offline', () => {
+    setOnline(false);
+    render(
+      <MemoryRouter>
+        <Button needsInternet asChild>
+          <Link to="new">Add product</Link>
+        </Button>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Add product' })).toBeDisabled();
   });
 });
 

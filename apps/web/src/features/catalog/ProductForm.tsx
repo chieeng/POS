@@ -204,7 +204,7 @@ export function ProductForm({
         </Field>
         {children}
         <div className="flex flex-wrap gap-[10px]">
-          <Button type="submit" size="md" disabled={isSubmitting}>
+          <Button needsInternet type="submit" size="md" disabled={isSubmitting}>
             {isSubmitting ? submittingLabel : submitLabel}
           </Button>
           {onCancel && (

@@ -13,7 +13,9 @@ interface AuthLayoutProps {
  * form at the bottom; from tablet width up, a brand panel on the left and the form on the right.
  */
 export function AuthLayout({ children, phoneBrand = false }: AuthLayoutProps) {
-  const storeName = env.storeName;
+  // Signed out, the store's real name is not known yet; a build-time name that only says
+  // "POS" again is left out rather than shown under the POS wordmark.
+  const storeName = env.storeName?.trim().toUpperCase() === 'POS' ? undefined : env.storeName;
   const storeAddress = env.storeAddress;
 
   return (

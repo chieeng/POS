@@ -261,6 +261,7 @@ function StoreDetailsForm({ branch }: { branch: BranchSettings }) {
 
       <div className="flex flex-wrap items-center gap-[12px]">
         <Button
+          needsInternet
           type="submit"
           className="min-h-[46px] px-[22px]"
           disabled={isSubmitting || !isDirty}
@@ -430,6 +431,7 @@ function StoreLocationForm({ branch }: { branch: BranchSettings }) {
 
       <div className="flex flex-wrap items-center gap-[12px]">
         <Button
+          needsInternet
           type="submit"
           className="min-h-[46px] px-[22px]"
           disabled={isSubmitting || !isDirty}

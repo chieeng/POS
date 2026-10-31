@@ -1,6 +1,7 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
+import { useOnline } from '@/hooks/useOnline';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
@@ -34,10 +35,42 @@ const buttonVariants = cva(
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /**
+   * The action needs the server (NFR-02: only checkout, clock-in and product search work
+   * offline). Offline, the button is disabled and says "Needs internet" beside it.
+   */
+  needsInternet?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, type, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, needsInternet = false, type, ...props }, ref) => {
+    const online = useOnline();
+    const hintId = React.useId();
+    if (needsInternet && !online) {
+      // A link styled as a button becomes a disabled button with the same label.
+      const { children, ...rest } = props;
+      const label =
+        asChild && React.isValidElement<{ children?: React.ReactNode }>(children)
+          ? children.props.children
+          : children;
+      return (
+        <span className="contents">
+          <button
+            ref={ref}
+            {...(asChild ? {} : rest)}
+            type="button"
+            disabled
+            aria-describedby={hintId}
+            className={cn(buttonVariants({ variant, size }), className)}
+          >
+            {label}
+          </button>
+          <span id={hintId} className="text-[12.5px] text-neutral-700">
+            Needs internet
+          </span>
+        </span>
+      );
+    }
     const Comp = asChild ? Slot : 'button';
     return (
       <Comp
