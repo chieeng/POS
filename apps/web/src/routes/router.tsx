@@ -18,6 +18,7 @@ import { StoreSettingsPage } from '@/features/store/StoreSettingsPage';
 import { EnrollTotpPage } from '@/features/auth/EnrollTotpPage';
 import { ROLE_HOME } from '@/features/auth/roles';
 import { SetPasswordPage } from '@/features/auth/SetPasswordPage';
+import { DrawerPage } from '@/features/drawer/DrawerPage';
 import { HomePage } from '@/features/home/HomePage';
 import { SettingsLayout } from '@/features/settings/SettingsLayout';
 import { AddUserPage } from '@/features/users/AddUserPage';
@@ -87,6 +88,8 @@ export const routes: RouteObject[] = [
               { path: ':productId', element: <ProductDetailPage /> },
             ],
           },
+          // SRS 6.1: every role opens the day's drawer and records cash in and out.
+          { path: '/drawer', element: <DrawerPage /> },
           {
             element: <RequireRole role="special_sales" />,
             children: [
