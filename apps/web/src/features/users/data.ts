@@ -93,6 +93,8 @@ export function useDevices(branchId: string) {
     load: () =>
       supabase.from('devices').select('user_id, device_tag, label, last_seen_at').limit(300),
     map: toDevice,
+    // Every device stamps its row every few minutes; apply those instead of reloading.
+    apply: { key: (row) => `${String(row.user_id)}:${String(row.device_tag)}` },
   });
 }
 

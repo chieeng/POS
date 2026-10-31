@@ -59,6 +59,8 @@ export interface PriceChange {
 
 type Row = Record<string, unknown>;
 
+const byId = (row: Row) => String(row.id ?? '');
+
 const text = (value: unknown) => (typeof value === 'string' && value !== '' ? value : null);
 
 const toCategory = (row: Row): Category => ({
@@ -114,6 +116,7 @@ export function useCategories() {
     queryKey: 'all',
     load: () => supabase.from('categories').select('id, name, active').limit(500),
     map: toCategory,
+    apply: { key: byId },
   });
 }
 
@@ -128,6 +131,7 @@ export function useSuppliers() {
         .select('id, name, contact_person, phone, address, active')
         .limit(500),
     map: toSupplier,
+    apply: { key: byId },
   });
 }
 
@@ -155,9 +159,22 @@ async function loadProducts(): Promise<{ data: Row[] | null; error: unknown }> {
   return { data: rows, error: null };
 }
 
-/** The branch's products, live. Every active user of the branch may read them. */
+/** Name order, as `loadProducts` asks the server for it. */
+const byProductName = (a: Product, b: Product) =>
+  a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }) || a.id.localeCompare(b.id);
+
+/**
+ * The branch's products, live. Every active user of the branch may read them. Each change is
+ * applied to the list rather than loading every product again (SRS 7.1).
+ */
 export function useProducts() {
-  return useLiveRows({ table: 'products', queryKey: 'all', load: loadProducts, map: toProduct });
+  return useLiveRows({
+    table: 'products',
+    queryKey: 'all',
+    load: loadProducts,
+    map: toProduct,
+    apply: { key: byId, compare: byProductName },
+  });
 }
 
 /** One product's price history, newest first. Row Level Security: Owner and Special Sales. */
@@ -173,6 +190,7 @@ export function usePriceChanges(productId: string) {
         .order('created_at', { ascending: false })
         .limit(100),
     map: toPriceChange,
+    filter: `product_id=eq.${productId}`,
   });
 }
 

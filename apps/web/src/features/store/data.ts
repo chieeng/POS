@@ -88,6 +88,7 @@ export function useBranchQuery(branchId: string | undefined): QueryState<BranchS
         ? supabase.from('branches').select(COLUMNS).eq('id', branchId).limit(1)
         : Promise.resolve({ data: [], error: null }),
     map: toBranch,
+    filter: branchId ? `id=eq.${branchId}` : undefined,
   });
 }
 
