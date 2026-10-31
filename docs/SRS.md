@@ -47,7 +47,7 @@ Three roles cover the store's 20 users: the Owner, a few Special Sales who also 
 
 - Clients: each user's own Android/iOS phone or laptop, in Chrome, Edge or Safari (latest two versions); installable as a PWA.
 - Peripherals: none required. No barcode scanner or dedicated terminal. A printer is optional for slips.
-- Notifications: standard Web Push to the Owner's devices for approval requests, sent by a Supabase Edge Function.
+- Notifications: none outside the app. The Owner sees new approval requests in the live Approvals list and the count badge on its menu item (no push notifications, by the owner's decision of Oct 31, 2026).
 - Backend: Supabase (Postgres, Auth, Storage, Edge Functions, Realtime) on the Free plan, region Southeast Asia (Singapore). Both projects stay on the Free plan permanently.
 - Frontend hosting: Cloudflare Pages (static single-page app).
 - Source: GitHub repository https://github.com/chieeng/POS with Actions for CI and database migrations.
@@ -161,11 +161,11 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | --- | --- | --- |
 | APPR-01 | These actions by non-Owners create an approval request instead of applying: product edit or deactivation, stock adjustment, correcting or deleting a stock-in, physical count differences, sale correction, void, return/refund, discount over limit, credit sale over limit. | M |
 | APPR-02 | A request stores what changes (the requested fields as they were then, and as requested), the reason (required), the requester and the time. Nothing changes until the Owner approves. A requester has at most one pending request per item, and may withdraw it while it is pending (status "withdrawn", audit-logged). Requests do not expire. | M |
-| APPR-03 | The Owner gets a push notification and a pending list, and approves or rejects with an optional note. | M |
+| APPR-03 | The Owner sees new requests in the live Approvals list, with a count badge on its menu item, and approves or rejects with an optional note. There are no push notifications. | M |
 | APPR-04 | On approval, the database applies the change exactly as requested in one transaction, with the same checks as the Owner's own edit, writes the stock movement if any, and logs it. If the item changed after the request was made (any requested field differs from the value then), the request is **outdated**: it shows the current, original and requested values, cannot be approved, only rejected, and the requester makes a new one. The Owner approves as requested or rejects; there is no "approve with changes". | M |
 | APPR-05 | The requester sees the status of their requests (pending, approved, rejected, withdrawn, outdated) and the Owner's note, live, under My requests. | M |
 
-Build step 3 delivers the requests and the product edit type. Stock adjustments and stock-in corrections followed in step 4. The other types in APPR-01 arrive with the features they change: physical counts (step 15), discounts, voids, returns and sale corrections (steps 9 and 10), credit over the limit (step 12). Push notifications come in step 6; until then the Owner sees a live count in the app.
+Build step 3 delivers the requests and the product edit type. Stock adjustments and stock-in corrections followed in step 4. The other types in APPR-01 arrive with the features they change: physical counts (step 15), discounts, voids, returns and sale corrections (steps 9 and 10), credit over the limit (step 12). Push notifications (step 6) were dropped by the owner's decision (Oct 31, 2026); the live list and its count badge are how the Owner learns of new requests.
 
 ### 3.10 Attendance (ATT)
 
@@ -239,7 +239,7 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 | --- | --- | --- |
 | `branches` | name, address, contact, tin, receipt\_footer, sales\_discount\_limit, idle\_lock\_minutes, store\_lat, store\_lng, radius\_m, morning\_clock\_in, afternoon\_clock\_in, grace\_minutes, late\_deduction, late\_penalty, paid\_minutes\_per\_day, afternoon\_day\_credit, owner\_clocks\_in | Read by the branch's active users; written by the Owner through `update_branch_settings` |
 | `profiles` | id (= auth user id), display\_name, role (owner, special\_sales, sales), user\_code, branch\_id, active, clock\_in\_override, created\_at | Owner-only Edge Function / function |
-| `devices` | user\_id, device\_tag, label, push\_subscription, last\_seen\_at | The user (own rows) |
+| `devices` | user\_id, device\_tag, label, push\_subscription (unused: push was dropped), last\_seen\_at | The user (own rows) |
 | `pay_rates` | user\_id, daily\_rate, effective\_from, updated\_by | Owner only (read and write) |
 | `categories` | branch\_id, name (unique per branch, case-insensitive), active | Read by the branch; created by Special Sales and the Owner, changed by the Owner, through functions |
 | `suppliers` | branch\_id, name (unique per branch, case-insensitive), contact\_person, phone, address, active | Owner and Special Sales read; created by both, changed by the Owner, through functions |
@@ -318,7 +318,7 @@ Role and active flag live in `profiles`. RLS policies check them through small h
 ### 6.2 Row Level Security principles
 
 - Default deny: RLS is enabled on every table; a table with no policy for a role gives that role nothing. The `anon` role gets no access to any table.
-- Clients write through database functions only, including creating categories, suppliers and approval requests. The exceptions are managing their own `devices` rows (build step 6) and uploading or deleting product photos in Storage (SEC-09); each of these policies checks role, active flag, own `user_id` and `branch_id`.
+- Clients write through database functions only, including creating categories, suppliers and approval requests. The exceptions are managing their own `devices` rows and uploading or deleting product photos in Storage (SEC-09); each of these policies checks role, active flag, own `user_id` and `branch_id`.
 - `sales`, `sale_items`, `sale_payments`, `stock_movements`, `credit_ledger`, `drawer_entries` and `audit_logs` have no UPDATE or DELETE grants for API roles. Corrections are new rows.
 - On `products`, UPDATE on `stock_qty` and `sell_price` is revoked from the `authenticated` role (column privileges); only functions change them.
 - `product_costs`, `pay_rates`, `payroll_runs`, `cash_advances` and cost/profit views are readable by the Owner only. Staff read only their own finalized `payslips`. Non-Owners read sale lines through a view without `unit_cost`.
@@ -353,7 +353,7 @@ Residual risks: a staff member's unlocked phone acts with that person's role unt
 
 ## 7. Architecture, repository and deployment
 
-A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anything that moves money, stock or pay calls a Postgres function. Edge Functions handle only what needs the service role or an outside service: user administration and push notifications. Sales and clock-ins made offline wait in a local outbox.
+A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anything that moves money, stock or pay calls a Postgres function. Edge Functions handle only what needs the service role or an outside service: user administration. Sales and clock-ins made offline wait in a local outbox.
 
 ### 7.1 Stack
 
@@ -367,9 +367,8 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | Product search | Client-side filtering of the cached product list (a plain text match on name and SKU; a fuzzy matcher only if the store needs one) |
 | Location | Browser Geolocation API (`enableHighAccuracy`, 10 s timeout); distance computed again in `clock_in` |
 | Receipts | On-screen slip rendered to image or PDF and shared with the Web Share API; browser print as a fallback |
-| Notifications | Web Push (VAPID) sent by an Edge Function when an approval request is created |
 | Database | Supabase Postgres (Singapore): SQL migrations, RLS, security-definer functions, pg\_cron for scheduled jobs |
-| Edge Functions | Deno + TypeScript: `admin-users` (create, role, deactivate, reactivate, sign out everywhere, password reset link), `notify` (push) |
+| Edge Functions | Deno + TypeScript: `admin-users` (create, role, deactivate, reactivate, sign out everywhere, password reset link) |
 | Auth | Supabase Auth: email and password, TOTP two-factor, Turnstile CAPTCHA |
 | Hosting | Cloudflare Pages (static SPA), headers in `apps/web/public/_headers` |
 | Testing | Vitest, pgTAP (`supabase test db`), Playwright for the checkout flow |
@@ -438,7 +437,7 @@ POS/
     src/lib/outbox.ts
   supabase/
     migrations/          schema, RLS policies, functions (SQL)
-    functions/           Edge Functions (admin-users, notify)
+    functions/           Edge Functions (admin-users)
     tests/               pgTAP tests
     seed.sql             local development data only
     config.toml
@@ -484,7 +483,7 @@ Phase 0 was first built on Firebase. The UI, design tokens, routing and app shel
 The store can start selling after Phase 2; each later phase ships on its own.
 
 1. **Phase 0 – Foundation.** Repo, CI/CD, staging and production Supabase projects, local Supabase, Supabase migrations, auth with roles in profiles, user management, device tags, settings.
-2. **Phase 1 – Catalog, inventory and approvals.** Products with manual SKUs, categories, suppliers, photos, CSV export, stock-in, movement history, low-stock list, approval requests with push notifications to the Owner.
+2. **Phase 1 – Catalog, inventory and approvals.** Products with manual SKUs, categories, suppliers, photos, CSV export, stock-in, movement history, low-stock list, approval requests with a live list and count badge for the Owner.
 3. **Phase 2 – POS and attendance (go-live gate).** Checkout by name search, category or SKU; cash, GCash and Maya; digital slips; daily cash drawer with closing count; offline mode; voids and returns through approval; audit log. Attendance with location check, late deductions and correction requests, and the Owner's attendance board. Gate: one week of parallel run against the store's current method with zero stock, cash or attendance discrepancies traced to the system.
 4. **Phase 3 – Credit.** Customers, credit sales, utang payments, ledger, aging report.
 5. **Phase 4 – Reports.** Dashboard, report views, sales and profit reports, attendance summaries, payroll runs with payslips and cash advances, CSV export, backups verified.
@@ -499,7 +498,7 @@ The phases above are built in this order, one step (one or a few pull requests) 
 3. Owner approval requests (**done**)
 4. Stock-in, stock movements, low stock, cost; adjustments and stock-in corrections (**done**)
 5. Product photos and CSV export
-6. Push notifications to the Owner
+6. ~~Push notifications to the Owner~~ (**dropped by the owner's decision (Oct 31, 2026)**)
 7. Installable app, offline product list and offline queue
 8. Cash drawer
 9. Checkout: search, cart, payments, receipts, digital slip
