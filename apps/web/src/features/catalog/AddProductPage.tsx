@@ -6,6 +6,7 @@ import { PageHeader } from '@/features/settings/PageHeader';
 import { createProduct, describeCatalogError, useCategories } from './data';
 import { toFields } from './helpers';
 import { replaceProductPhoto } from './photos';
+import { PhotoPicker } from './PhotoPicker';
 import { ProductForm } from './ProductForm';
 
 /**
@@ -65,13 +66,7 @@ export function AddProductPage() {
             <Label htmlFor="product-photo" className="text-[13px]">
               Photo (optional)
             </Label>
-            <input
-              id="product-photo"
-              type="file"
-              accept="image/*"
-              onChange={(event) => setPhoto(event.target.files?.[0] ?? null)}
-              className="block text-[14px]"
-            />
+            <PhotoPicker id="product-photo" file={photo} onChange={setPhoto} />
           </div>
         </ProductForm>
       )}

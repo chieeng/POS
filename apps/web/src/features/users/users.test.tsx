@@ -237,11 +237,11 @@ describe('UserDetailPage', () => {
     expect(dialog.getByText(/same role, user code and password/)).toBeInTheDocument();
     await user.click(dialog.getByRole('button', { name: 'Reactivate' }));
     expect(mocked.reactivateUser).toHaveBeenCalledWith({ uid: 's2' });
-    expect(
-      await screen.findByText(
-        'Ricky Flores can sign in again with their old password. If they forgot it, use Password reset link below.',
-      ),
-    ).toBeInTheDocument();
+    // Good news reads as a plain status line, not a warning.
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Ricky Flores can sign in again with their old password. If they forgot it, use Password reset link below.',
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByRole('button', { name: 'Password reset link' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Reactivate/ })).toBeNull();
   });

@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import type { Category, Product } from '@/features/catalog/data';
 import { toFields } from '@/features/catalog/helpers';
 import { deletePhotoFiles, describePhotoError, uploadPhoto } from '@/features/catalog/photos';
+import { PhotoPicker } from '@/features/catalog/PhotoPicker';
 import { ProductForm } from '@/features/catalog/ProductForm';
 import {
   cleanUpRequestPhoto,
@@ -24,13 +25,17 @@ const REASON_MAX = 200;
 /**
  * PROD-04: on a product's page, Special Sales asks the Owner for a change instead of making it.
  * With a pending request of theirs for this product, the page shows it and Withdraw instead.
+ * `onStart` runs when they open a request or withdraw one, so the page can clear its own notice
+ * (such as "Photo added.").
  */
 export function RequestChangePanel({
   product,
   categories,
+  onStart,
 }: {
   product: Product;
   categories: Category[];
+  onStart?: () => void;
 }) {
   const requests = useApprovalRequests(20);
   const pending = requests.data.find(
@@ -59,6 +64,7 @@ export function RequestChangePanel({
 
   const withdraw = async () => {
     if (!pending) return;
+    onStart?.();
     setBusy(true);
     setError(null);
     try {
@@ -130,6 +136,7 @@ export function RequestChangePanel({
           <Button
             className="min-h-[46px] px-[20px]"
             onClick={() => {
+              onStart?.();
               setNotice(null);
               setError(null);
               setReason('');
@@ -249,13 +256,7 @@ export function RequestChangePanel({
               </label>
             ))}
             {photo === 'replace' && (
-              <input
-                type="file"
-                accept="image/*"
-                aria-label="New photo"
-                onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)}
-                className="text-[14px]"
-              />
+              <PhotoPicker label="New photo" file={photoFile} onChange={setPhotoFile} />
             )}
           </fieldset>
         )}
