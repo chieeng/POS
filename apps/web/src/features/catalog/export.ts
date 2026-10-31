@@ -8,7 +8,7 @@ import type { Category, Product } from './data';
  * numbers. Text that Excel would read as a formula (=, +, -, @) gets a leading apostrophe.
  */
 // The byte order mark that tells Excel the file is UTF-8.
-const BOM = String.fromCharCode(0xfeff);
+export const BOM = String.fromCharCode(0xfeff);
 
 export const CSV_HEADERS = [
   'SKU',
@@ -88,7 +88,7 @@ async function loadCosts(): Promise<Map<string, number>> {
 export const exportFileName = (now = new Date()) =>
   `products-${now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })}.csv`;
 
-function download(name: string, text: string): void {
+export function download(name: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;

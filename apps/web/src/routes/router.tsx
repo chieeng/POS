@@ -20,6 +20,7 @@ import { ROLE_HOME } from '@/features/auth/roles';
 import { SetPasswordPage } from '@/features/auth/SetPasswordPage';
 import { CountDrawerPage } from '@/features/drawer/CountDrawerPage';
 import { DrawerPage } from '@/features/drawer/DrawerPage';
+import { DrawerReportPage } from '@/features/drawer/DrawerReportPage';
 import { HomePage } from '@/features/home/HomePage';
 import { SettingsLayout } from '@/features/settings/SettingsLayout';
 import { AddUserPage } from '@/features/users/AddUserPage';
@@ -46,6 +47,8 @@ export const routes: RouteObject[] = [
             children: [
               { path: ROLE_HOME.owner, element: <HomePage role="owner" /> },
               { path: '/approvals', element: <ApprovalsPage /> },
+              // SHIFT-04: the Owner's daily drawer report.
+              { path: '/drawer/report', element: <DrawerReportPage /> },
               {
                 path: '/settings',
                 element: <SettingsLayout />,
