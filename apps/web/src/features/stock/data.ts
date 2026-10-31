@@ -150,6 +150,8 @@ export function useStockHistory(productId: string, filter: HistoryFilter) {
       return { data: (data as Row[] | null) ?? null, error };
     },
     map: toMovement,
+    // A movement always changes the product's stock, so a change to this product reloads it.
+    filter: `id=eq.${productId}`,
   });
 }
 
@@ -161,6 +163,7 @@ export function useProductCost(productId: string) {
     load: () =>
       supabase.from('product_costs').select('cost_price').eq('product_id', productId).limit(1),
     map: (row: Row) => Number(row.cost_price ?? 0),
+    filter: `product_id=eq.${productId}`,
   });
 }
 
