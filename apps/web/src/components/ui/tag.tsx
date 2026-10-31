@@ -3,7 +3,7 @@ import type { HTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
 
 const tagVariants = cva(
-  'inline-flex items-center gap-[5px] rounded-full px-[10px] py-[3px] text-[12px] font-bold tracking-[0.02em]',
+  'inline-flex items-center gap-[5px] rounded-full px-[10px] py-[3px] text-[11px] font-bold tracking-[0.02em]',
   {
     variants: {
       variant: {

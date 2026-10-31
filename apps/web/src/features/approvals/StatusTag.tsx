@@ -1,4 +1,5 @@
-import { Tag } from '@/components/ui/tag';
+import { TriangleAlert, Undo2, X } from 'lucide-react';
+import { StatusBadge, type StatusTone } from '@/components/ui/status-badge';
 import type { RequestStatus } from './data';
 
 const LABELS: Record<RequestStatus, string> = {
@@ -8,12 +9,15 @@ const LABELS: Record<RequestStatus, string> = {
   withdrawn: 'Withdrawn',
 };
 
-const VARIANTS: Record<RequestStatus, 'accent' | 'accent-2' | 'neutral' | 'muted'> = {
-  pending: 'accent',
-  approved: 'accent-2',
-  rejected: 'neutral',
-  withdrawn: 'muted',
+const TONES: Record<RequestStatus, StatusTone> = {
+  pending: 'pending',
+  approved: 'ok',
+  rejected: 'danger',
+  withdrawn: 'pending',
 };
+
+// Approvals.dc.html: Pending (clock), Approved (check), Rejected (x).
+const ICONS = { rejected: X, withdrawn: Undo2 };
 
 export function StatusTag({
   status,
@@ -22,9 +26,16 @@ export function StatusTag({
   status: RequestStatus;
   outdated?: boolean;
 }) {
+  if (outdated) {
+    return (
+      <StatusBadge tone="warn" icon={TriangleAlert}>
+        Outdated
+      </StatusBadge>
+    );
+  }
   return (
-    <Tag variant={outdated ? 'neutral' : VARIANTS[status]}>
-      {outdated ? 'Outdated' : LABELS[status]}
-    </Tag>
+    <StatusBadge tone={TONES[status]} icon={ICONS[status as keyof typeof ICONS]}>
+      {LABELS[status]}
+    </StatusBadge>
   );
 }

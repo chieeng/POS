@@ -6,6 +6,7 @@ import { useParams } from 'react-router-dom';
 import { Avatar } from '@/components/Avatar';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogActions,
@@ -173,7 +174,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
           {!isSelf && (
             <Button
               variant="secondary"
-              className="min-h-[50px]"
+              size="md"
               disabled={busy}
               onClick={() => setPending({ kind: 'reactivate' })}
             >
@@ -185,7 +186,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
       ) : (
         <>
           <div>
-            <Label className="text-[13px]">Role</Label>
+            <Label>Role</Label>
             {user.role === 'owner' || isSelf ? (
               <p className="text-[14px] text-neutral-700">
                 {isSelf
@@ -206,26 +207,23 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
           <form onSubmit={saveDetails} noValidate className="flex flex-col gap-[10px]">
             <div className="grid grid-cols-[1fr_120px] gap-[10px]">
               <div>
-                <Label htmlFor="edit-name" className="text-[13px]">
-                  Full name
-                </Label>
+                <Label htmlFor="edit-name">Full name</Label>
                 <Input
                   id="edit-name"
                   autoComplete="off"
-                  className="min-h-[48px] text-[15px]"
+                  size="touch"
                   aria-invalid={!!errors.displayName || undefined}
                   {...register('displayName')}
                 />
               </div>
               <div>
-                <Label htmlFor="edit-code" className="text-[13px]">
-                  User code
-                </Label>
+                <Label htmlFor="edit-code">User code</Label>
                 <Input
                   id="edit-code"
                   autoComplete="off"
                   maxLength={6}
-                  className="min-h-[48px] text-[15px] font-semibold uppercase"
+                  size="touch"
+                  className="font-semibold uppercase"
                   aria-invalid={!!errors.userCode || undefined}
                   {...register('userCode')}
                 />
@@ -237,11 +235,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
               </p>
             )}
             {isDirty && (
-              <Button
-                type="submit"
-                className="min-h-[46px] self-end px-[24px]"
-                disabled={isSubmitting || busy}
-              >
+              <Button type="submit" size="md" className="self-end" disabled={isSubmitting || busy}>
                 {isSubmitting ? 'Saving…' : 'Save'}
               </Button>
             )}
@@ -259,19 +253,18 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
           {sortedDevices.map((device) => {
             const Icon = deviceIcon(device.label);
             return (
-              <li
-                key={device.deviceTag}
-                className="flex items-center gap-[12px] rounded-[22px] bg-surface px-[14px] py-[12px]"
-              >
-                <Icon size={20} strokeWidth={ICON_STROKE} aria-hidden />
-                <div className="min-w-0 flex-1 leading-[1.3]">
-                  <div className="truncate text-[14.5px] font-semibold">{device.label}</div>
-                  <div className="text-[12.5px] text-neutral-700">
-                    {describeLastSeen(device.lastSeenAt, { active: user.active })} · tag{' '}
-                    {device.deviceTag}
+              <Card asChild key={device.deviceTag} className="flex-row items-center gap-[12px]">
+                <li>
+                  <Icon size={20} strokeWidth={ICON_STROKE} aria-hidden />
+                  <div className="min-w-0 flex-1 leading-[1.3]">
+                    <div className="truncate text-[14.5px] font-semibold">{device.label}</div>
+                    <div className="text-[12.5px] text-neutral-700">
+                      {describeLastSeen(device.lastSeenAt, { active: user.active })} · tag{' '}
+                      {device.deviceTag}
+                    </div>
                   </div>
-                </div>
-              </li>
+                </li>
+              </Card>
             );
           })}
         </ul>
@@ -279,18 +272,13 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
 
       {user.active && (
         <div className="mt-[8px] flex flex-col gap-[8px]">
-          <Button
-            variant="secondary"
-            className="min-h-[50px]"
-            disabled={busy}
-            onClick={requestResetLink}
-          >
+          <Button variant="secondary" size="md" disabled={busy} onClick={requestResetLink}>
             <KeyRound size={16} strokeWidth={ICON_STROKE} aria-hidden />
             Password reset link
           </Button>
           <Button
             variant="secondary"
-            className="min-h-[50px]"
+            size="md"
             disabled={busy}
             onClick={() => setPending({ kind: 'signOut' })}
           >
@@ -300,7 +288,8 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
           {!isSelf && (
             <Button
               variant="quiet"
-              className="min-h-[48px] font-bold text-danger-fg"
+              size="md"
+              className="font-bold text-danger-fg"
               disabled={busy}
               onClick={() => {
                 setReason('');
@@ -323,12 +312,12 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
             </DialogDescription>
             <DialogActions>
               <DialogClose asChild>
-                <Button variant="secondary" className="min-h-[46px] px-[18px]" disabled={busy}>
+                <Button variant="secondary" size="md" disabled={busy}>
                   Cancel
                 </Button>
               </DialogClose>
               <Button
-                className="min-h-[46px] px-[22px]"
+                size="md"
                 disabled={busy}
                 onClick={() =>
                   run(
@@ -352,12 +341,12 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
             </DialogDescription>
             <DialogActions>
               <DialogClose asChild>
-                <Button variant="secondary" className="min-h-[46px] px-[18px]" disabled={busy}>
+                <Button variant="secondary" size="md" disabled={busy}>
                   Cancel
                 </Button>
               </DialogClose>
               <Button
-                className="min-h-[46px] px-[22px]"
+                size="md"
                 disabled={busy}
                 onClick={() =>
                   run(
@@ -380,25 +369,24 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
               history are kept. You can reactivate {firstName} later.
             </DialogDescription>
             <div>
-              <Label htmlFor="deactivate-reason" className="text-[13px]">
-                Reason (optional)
-              </Label>
+              <Label htmlFor="deactivate-reason">Reason (optional)</Label>
               <Input
                 id="deactivate-reason"
                 value={reason}
                 maxLength={200}
                 onChange={(event) => setReason(event.target.value)}
-                className="min-h-[46px] bg-bg text-[15px]"
+                size="touch"
               />
             </div>
             <DialogActions>
               <DialogClose asChild>
-                <Button variant="secondary" className="min-h-[46px] px-[18px]" disabled={busy}>
+                <Button variant="secondary" size="md" disabled={busy}>
                   Cancel
                 </Button>
               </DialogClose>
               <Button
-                className="min-h-[46px] bg-danger px-[22px] hover:bg-danger active:bg-danger"
+                size="md"
+                className="bg-danger hover:bg-danger active:bg-danger"
                 disabled={busy}
                 onClick={() =>
                   run(
@@ -426,12 +414,12 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
             </DialogDescription>
             <DialogActions>
               <DialogClose asChild>
-                <Button variant="secondary" className="min-h-[46px] px-[18px]" disabled={busy}>
+                <Button variant="secondary" size="md" disabled={busy}>
                   Cancel
                 </Button>
               </DialogClose>
               <Button
-                className="min-h-[46px] px-[22px]"
+                size="md"
                 disabled={busy}
                 onClick={() =>
                   run(
@@ -455,7 +443,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
             <ResetLinkPanel link={pending.link} name={user.displayName} />
             <DialogActions>
               <DialogClose asChild>
-                <Button className="min-h-[46px] px-[22px]">Done</Button>
+                <Button size="md">Done</Button>
               </DialogClose>
             </DialogActions>
           </DialogContent>

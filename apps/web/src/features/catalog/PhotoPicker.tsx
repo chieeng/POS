@@ -30,11 +30,7 @@ export function PhotoPicker({
         aria-label={label}
         onChange={(event) => onChange(event.target.files?.[0] ?? null)}
       />
-      <Button
-        variant="secondary"
-        className="min-h-[44px] px-[18px]"
-        onClick={() => input.current?.click()}
-      >
+      <Button variant="secondary" size="md" onClick={() => input.current?.click()}>
         {file ? 'Change photo' : 'Choose photo'}
       </Button>
       {file && (

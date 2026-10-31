@@ -306,7 +306,7 @@ describe('Correct a stock-in (INV-04)', () => {
     ];
     renderReceipt('r2');
     expect(screen.getByText('Correction')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'the stock-in as first recorded' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open the original stock-in' })).toHaveAttribute(
       'href',
       '/stock-in/r1',
     );

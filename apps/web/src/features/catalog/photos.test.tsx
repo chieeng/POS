@@ -173,7 +173,7 @@ describe('Requests with a photo', () => {
     const { requestProductChange } = await import('@/features/approvals/data');
     const user = panel();
     await user.click(screen.getByRole('button', { name: 'Request a change' }));
-    await user.click(screen.getByLabelText('Replace the photo'));
+    await user.click(screen.getByRole('radio', { name: 'Replace' }));
     await user.upload(screen.getByLabelText('New photo'), file());
     await user.type(screen.getByLabelText('Reason for the Owner'), 'Better photo');
     await user.click(screen.getByRole('button', { name: 'Send request' }));
@@ -188,7 +188,7 @@ describe('Requests with a photo', () => {
   test('asking to replace without choosing a photo is explained', async () => {
     const user = panel();
     await user.click(screen.getByRole('button', { name: 'Request a change' }));
-    await user.click(screen.getByLabelText('Replace the photo'));
+    await user.click(screen.getByRole('radio', { name: 'Replace' }));
     await user.type(screen.getByLabelText('Reason for the Owner'), 'Better photo');
     await user.click(screen.getByRole('button', { name: 'Send request' }));
     expect(screen.getByText('Choose the new photo, or keep the current one.')).toBeInTheDocument();
@@ -199,7 +199,7 @@ describe('Requests with a photo', () => {
     const { requestProductChange } = await import('@/features/approvals/data');
     const user = panel();
     await user.click(screen.getByRole('button', { name: 'Request a change' }));
-    await user.click(screen.getByLabelText('Remove the photo'));
+    await user.click(screen.getByRole('radio', { name: 'Remove' }));
     await user.type(screen.getByLabelText('Reason for the Owner'), 'Wrong product');
     await user.click(screen.getByRole('button', { name: 'Send request' }));
     expect(uploadPhoto).not.toHaveBeenCalled();

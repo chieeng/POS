@@ -78,7 +78,7 @@ export function PhotoPanel({
           <div className="flex flex-wrap gap-[10px]">
             <Button
               variant="secondary"
-              className="min-h-[44px] px-[18px]"
+              size="md"
               disabled={busy !== null}
               onClick={() => input.current?.click()}
             >
@@ -91,7 +91,7 @@ export function PhotoPanel({
             {role === 'owner' && product.photoKey && (
               <Button
                 variant="secondary"
-                className="min-h-[44px] px-[18px]"
+                size="md"
                 disabled={busy !== null}
                 onClick={() => void remove()}
               >

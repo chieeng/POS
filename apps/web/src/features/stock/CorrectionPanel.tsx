@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { CheckboxField } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -143,39 +145,40 @@ export function CorrectionPanel({
 
   if (pending) {
     return (
-      <section
-        aria-label="Your correction request"
-        className="flex flex-col gap-[8px] rounded-[30px] bg-surface px-[18px] py-[14px] md:px-[22px]"
-      >
-        <p className="text-[15px] font-semibold">
-          Your{' '}
-          {pending.after.delete === true ? 'request to delete this stock-in' : 'correction request'}{' '}
-          is waiting for the Owner.
-        </p>
-        {error && <Alert variant="danger">{error}</Alert>}
-        <div className="flex flex-wrap items-center gap-[12px]">
-          <Button
-            variant="secondary"
-            className="min-h-[44px] px-[18px]"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await withdrawRequest(pending.id);
-              } catch (caught) {
-                setError(describeApprovalError(caught));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Withdraw
-          </Button>
-          <Link to="/requests" className="text-[14px]">
-            All my requests
-          </Link>
-        </div>
-      </section>
+      <Card asChild size="panel" className="gap-[8px] py-[14px]">
+        <section aria-label="Your correction request">
+          <p className="text-[15px] font-semibold">
+            Your{' '}
+            {pending.after.delete === true
+              ? 'request to delete this stock-in'
+              : 'correction request'}{' '}
+            is waiting for the Owner.
+          </p>
+          {error && <Alert variant="danger">{error}</Alert>}
+          <div className="flex flex-wrap items-center gap-[12px]">
+            <Button
+              variant="secondary"
+              size="md"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  await withdrawRequest(pending.id);
+                } catch (caught) {
+                  setError(describeApprovalError(caught));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Withdraw
+            </Button>
+            <Link to="/requests" className="text-[14px]">
+              All my requests
+            </Link>
+          </div>
+        </section>
+      </Card>
     );
   }
 
@@ -187,7 +190,7 @@ export function CorrectionPanel({
             {notice}
           </p>
         )}
-        <Button variant="secondary" className="min-h-[46px] self-start px-[18px]" onClick={start}>
+        <Button variant="secondary" size="md" className="self-start" onClick={start}>
           {isOwner ? 'Correct this stock-in' : 'Request a correction'}
         </Button>
       </div>
@@ -195,154 +198,149 @@ export function CorrectionPanel({
   }
 
   return (
-    <form
-      onSubmit={(event) => void submit(event)}
-      noValidate
-      aria-label={isOwner ? 'Correct this stock-in' : 'Request a correction'}
-      className="flex flex-col gap-[12px] rounded-[30px] bg-surface px-[18px] py-[16px] md:px-[22px]"
-    >
-      <h2 className="text-[18px]">{isOwner ? 'Correct this stock-in' : 'Request a correction'}</h2>
-      <p className="text-[13.5px] text-neutral-700">
-        The stock-in stays as it was recorded; the correction is saved as a new, linked stock-in and
-        the stock and cost follow it.
-        {!isOwner && ' Nothing changes until the Owner approves.'}
-      </p>
-      <label className="flex items-center gap-[10px] text-[14.5px]">
-        <input
-          type="checkbox"
+    <Card asChild size="panel" className="gap-[12px] py-[16px]">
+      <form
+        onSubmit={(event) => void submit(event)}
+        noValidate
+        aria-label={isOwner ? 'Correct this stock-in' : 'Request a correction'}
+      >
+        <h2 className="text-[18px]">
+          {isOwner ? 'Correct this stock-in' : 'Request a correction'}
+        </h2>
+        <p className="text-[13.5px] text-neutral-700">
+          The stock-in stays as it was recorded; the correction is saved as a new, linked stock-in
+          and the stock and cost follow it.
+          {!isOwner && ' Nothing changes until the Owner approves.'}
+        </p>
+        <CheckboxField
+          label="Delete this stock-in (every quantity on it comes back out of stock)"
           checked={deleting}
-          onChange={(event) => setDeleting(event.target.checked)}
-          className="size-[18px] accent-accent"
+          onCheckedChange={(checked) => setDeleting(checked === true)}
         />
-        Delete this stock-in (every quantity on it comes back out of stock)
-      </label>
-      {!deleting && (
-        <>
-          <div className="grid gap-[12px] sm:grid-cols-2">
-            <div>
-              <Label htmlFor="correct-supplier" className="text-[13px]">
-                Supplier
-              </Label>
-              <select
-                id="correct-supplier"
-                className={selectClass}
-                value={supplierId}
-                onChange={(event) => setSupplierId(event.target.value)}
-              >
-                <option value="">No supplier</option>
-                {choices.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                    {supplier.active ? '' : ' (inactive)'}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="correct-reference" className="text-[13px]">
-                DR / invoice number
-              </Label>
-              <Input
-                id="correct-reference"
-                value={reference}
-                maxLength={60}
-                autoComplete="off"
-                onChange={(event) => setReference(event.target.value)}
-                className="min-h-[48px] bg-bg text-[15px]"
-              />
-            </div>
-          </div>
-          <ol className="flex flex-col gap-[8px]">
-            {lines.map((line, index) => {
-              const name = nameOf(line.productId);
-              return (
-                <li
-                  key={line.productId}
-                  className="grid grid-cols-1 gap-[8px] rounded-[20px] bg-bg px-[12px] py-[10px] sm:grid-cols-[1fr_120px_150px] sm:items-end"
+        {!deleting && (
+          <>
+            <div className="grid gap-[12px] sm:grid-cols-2">
+              <div>
+                <Label htmlFor="correct-supplier">Supplier</Label>
+                <select
+                  id="correct-supplier"
+                  className={selectClass}
+                  value={supplierId}
+                  onChange={(event) => setSupplierId(event.target.value)}
                 >
-                  <span className="text-[15px] font-semibold">{name}</span>
-                  <div>
-                    <Label htmlFor={`correct-qty-${index}`} className="text-[12.5px]">
-                      Qty
-                    </Label>
-                    <Input
-                      id={`correct-qty-${index}`}
-                      aria-label={`Quantity of ${name}`}
-                      inputMode="numeric"
-                      value={line.qty}
-                      onChange={(event) =>
-                        setLines((current) =>
-                          current.map((row, i) =>
-                            i === index ? { ...row, qty: event.target.value } : row,
-                          ),
-                        )
-                      }
-                      className="min-h-[44px] bg-surface text-[15px]"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor={`correct-cost-${index}`} className="text-[12.5px]">
-                      Unit cost ₱
-                    </Label>
-                    <Input
-                      id={`correct-cost-${index}`}
-                      aria-label={`Unit cost of ${name}`}
-                      inputMode="decimal"
-                      value={line.cost}
-                      onChange={(event) =>
-                        setLines((current) =>
-                          current.map((row, i) =>
-                            i === index ? { ...row, cost: event.target.value } : row,
-                          ),
-                        )
-                      }
-                      className="min-h-[44px] bg-surface text-[15px]"
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-          <p className="text-[12.5px] text-neutral-700">
-            A quantity of 0 takes that product off this stock-in.
-          </p>
-        </>
-      )}
-      <div>
-        <Label htmlFor="correct-reason" className="text-[13px]">
-          Reason{isOwner ? ' (optional)' : ''}
-        </Label>
-        <Input
-          id="correct-reason"
-          value={reason}
-          maxLength={200}
-          autoComplete="off"
-          placeholder="For example: typed the wrong cost"
-          onChange={(event) => setReason(event.target.value)}
-          className="min-h-[48px] bg-bg text-[15px]"
-        />
-      </div>
-      {error && <Alert variant="danger">{error}</Alert>}
-      <div className="flex flex-wrap gap-[10px]">
-        <Button type="submit" className="min-h-[46px] px-[20px]" disabled={busy}>
-          {busy
-            ? 'Saving…'
-            : isOwner
-              ? deleting
-                ? 'Delete stock-in'
-                : 'Save correction'
-              : 'Send request'}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          className="min-h-[46px] px-[18px]"
-          disabled={busy}
-          onClick={() => setOpen(false)}
-        >
-          Cancel
-        </Button>
-      </div>
-    </form>
+                  <option value="">No supplier</option>
+                  {choices.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                      {supplier.active ? '' : ' (inactive)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="correct-reference">DR / invoice number</Label>
+                <Input
+                  id="correct-reference"
+                  value={reference}
+                  maxLength={60}
+                  autoComplete="off"
+                  onChange={(event) => setReference(event.target.value)}
+                  size="touch"
+                  className="bg-bg"
+                />
+              </div>
+            </div>
+            <ol className="flex flex-col gap-[8px]">
+              {lines.map((line, index) => {
+                const name = nameOf(line.productId);
+                return (
+                  <Card
+                    asChild
+                    tone="inset"
+                    key={line.productId}
+                    className="grid grid-cols-1 sm:grid-cols-[1fr_120px_150px] sm:items-end"
+                  >
+                    <li>
+                      <span className="text-[15px] font-semibold">{name}</span>
+                      <div>
+                        <Label htmlFor={`correct-qty-${index}`}>Qty</Label>
+                        <Input
+                          id={`correct-qty-${index}`}
+                          aria-label={`Quantity of ${name}`}
+                          inputMode="numeric"
+                          value={line.qty}
+                          onChange={(event) =>
+                            setLines((current) =>
+                              current.map((row, i) =>
+                                i === index ? { ...row, qty: event.target.value } : row,
+                              ),
+                            )
+                          }
+                          size="touch"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`correct-cost-${index}`}>Unit cost ₱</Label>
+                        <Input
+                          id={`correct-cost-${index}`}
+                          aria-label={`Unit cost of ${name}`}
+                          inputMode="decimal"
+                          value={line.cost}
+                          onChange={(event) =>
+                            setLines((current) =>
+                              current.map((row, i) =>
+                                i === index ? { ...row, cost: event.target.value } : row,
+                              ),
+                            )
+                          }
+                          size="touch"
+                        />
+                      </div>
+                    </li>
+                  </Card>
+                );
+              })}
+            </ol>
+            <p className="text-[12.5px] text-neutral-700">
+              A quantity of 0 takes that product off this stock-in.
+            </p>
+          </>
+        )}
+        <div>
+          <Label htmlFor="correct-reason">Reason{isOwner ? ' (optional)' : ''}</Label>
+          <Input
+            id="correct-reason"
+            value={reason}
+            maxLength={200}
+            autoComplete="off"
+            placeholder="For example: typed the wrong cost"
+            onChange={(event) => setReason(event.target.value)}
+            size="touch"
+            className="bg-bg"
+          />
+        </div>
+        {error && <Alert variant="danger">{error}</Alert>}
+        <div className="flex flex-wrap gap-[10px]">
+          <Button type="submit" size="md" disabled={busy}>
+            {busy
+              ? 'Saving…'
+              : isOwner
+                ? deleting
+                  ? 'Delete stock-in'
+                  : 'Save correction'
+                : 'Send request'}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            disabled={busy}
+            onClick={() => setOpen(false)}
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }
