@@ -363,7 +363,7 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | UI | React + Tailwind v4 + shadcn/ui-style Radix components, themed to the Organic design system (lucide-react, strokeWidth 2.75); responsive layouts for phone, tablet and laptop |
 | Data | `supabase-js` through a small live-list hook (`useLiveRows`: load the rows, then load them again when Supabase Realtime reports a change) for live stock and approvals; Zustand for cart and session |
 | Forms | React Hook Form + Zod |
-| Offline / install | `vite-plugin-pwa`; IndexedDB (Dexie) for the cached product list and the outbox of sales and clock-ins |
+| Offline / install | `vite-plugin-pwa`; IndexedDB (Dexie) for the cached product list and the outbox of sales and clock-ins. The cached product and category lists belong to the signed-in user and are cleared on sign-out, deactivation and "sign out everywhere" (never cost prices) |
 | Product search | Client-side filtering of the cached product list (a plain text match on name and SKU; a fuzzy matcher only if the store needs one) |
 | Location | Browser Geolocation API (`enableHighAccuracy`, 10 s timeout); distance computed again in `clock_in` |
 | Receipts | On-screen slip rendered to image or PDF and shared with the Web Share API; browser print as a fallback |

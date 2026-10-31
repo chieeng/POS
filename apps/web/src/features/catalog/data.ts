@@ -1,6 +1,8 @@
 import { useLiveRows } from '@/hooks/useLiveRows';
 import { getDeviceTag } from '@/lib/device';
+import { listCache, type CachedList } from '@/lib/offlineCache';
 import { supabase } from '@/lib/supabase';
+import { useSession } from '@/stores/session';
 
 /** SRS 3.2: a product category. Never deleted; an inactive one stays on old products. */
 export interface Category {
@@ -110,13 +112,30 @@ export function sortByActiveThenName<T extends { name: string; active: boolean }
 }
 
 /** The branch's categories, live. Every active user of the branch may read them. */
+/**
+ * The signed-in user's saved copy of a list (NFR-02), so the product list and its categories
+ * show offline. The query key changes with the user, so one user never sees another's copy.
+ */
+function useSavedCopy<T extends { id: string }>(list: CachedList) {
+  const user = useSession((s) => s.user);
+  const who = user ? { uid: user.uid, branchId: user.branchId } : null;
+  return {
+    queryKey: who ? `${who.uid}:${who.branchId}` : 'signed-out',
+    cache: who ? listCache<T>(list, who) : undefined,
+  };
+}
+
+const itemId = (item: { id: string }) => item.id;
+
 export function useCategories() {
+  const saved = useSavedCopy<Category>('categories');
   return useLiveRows({
     table: 'categories',
-    queryKey: 'all',
+    queryKey: saved.queryKey,
     load: () => supabase.from('categories').select('id, name, active').limit(500),
     map: toCategory,
-    apply: { key: byId },
+    apply: { key: byId, itemKey: itemId },
+    cache: saved.cache,
   });
 }
 
@@ -165,15 +184,18 @@ const byProductName = (a: Product, b: Product) =>
 
 /**
  * The branch's products, live. Every active user of the branch may read them. Each change is
- * applied to the list rather than loading every product again (SRS 7.1).
+ * applied to the list rather than loading every product again (SRS 7.1), and the list is
+ * saved on the device so it shows, and can be searched, offline (NFR-01, NFR-02).
  */
 export function useProducts() {
+  const saved = useSavedCopy<Product>('products');
   return useLiveRows({
     table: 'products',
-    queryKey: 'all',
+    queryKey: saved.queryKey,
     load: loadProducts,
     map: toProduct,
-    apply: { key: byId, compare: byProductName },
+    apply: { key: byId, itemKey: itemId, compare: byProductName },
+    cache: saved.cache,
   });
 }
 

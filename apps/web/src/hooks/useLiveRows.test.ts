@@ -153,3 +153,52 @@ describe('one Realtime channel per table on a device', () => {
     expect(open()).toHaveLength(0);
   });
 });
+
+describe('useLiveRows with a saved copy (NFR-02)', () => {
+  function withCache(load: () => Promise<{ data: Row[] | null; error: unknown }>) {
+    const cache = {
+      read: vi.fn(() =>
+        Promise.resolve({
+          items: [{ id: 'a', name: 'Apple (saved)' }],
+          savedAt: new Date('2026-10-31T08:00:00Z'),
+        }),
+      ),
+      replace: vi.fn(() => Promise.resolve()),
+      put: vi.fn(() => Promise.resolve()),
+      remove: vi.fn(() => Promise.resolve()),
+    };
+    const hook = renderHook(() =>
+      useLiveRows({
+        table: 'products',
+        queryKey: 'u1',
+        load,
+        map: toItem,
+        apply: { key: (row) => String(row.id), itemKey: (item) => item.id, compare: byName },
+        cache,
+      }),
+    );
+    return { cache, hook };
+  }
+
+  it('offline, shows the saved copy with its date instead of an error', async () => {
+    const { hook } = withCache(() => Promise.reject(new TypeError('Failed to fetch')));
+    await waitFor(() => expect(hook.result.current.data).toHaveLength(1));
+    expect(hook.result.current.error).toBe(false);
+    expect(hook.result.current.data[0]?.name).toBe('Apple (saved)');
+    expect(hook.result.current.savedAt).toEqual(new Date('2026-10-31T08:00:00Z'));
+  });
+
+  it("online, replaces the saved copy with the server's list and keeps it current", async () => {
+    const { cache, hook } = withCache(() =>
+      Promise.resolve({ data: [{ id: 'b', name: 'Bread' }], error: null }),
+    );
+    await waitFor(() => expect(cache.replace).toHaveBeenCalledWith([{ id: 'b', name: 'Bread' }]));
+    expect(hook.result.current.data.map((item) => item.name)).toEqual(['Bread']);
+    expect(hook.result.current.savedAt).toBeNull();
+
+    act(() => feed().onChange({ eventType: 'UPDATE', new: { id: 'b', name: 'Bun' }, old: {} }));
+    expect(cache.put).toHaveBeenCalledWith({ id: 'b', name: 'Bun' });
+    act(() => feed().onChange({ eventType: 'DELETE', new: {}, old: { id: 'b' } }));
+    expect(cache.remove).toHaveBeenCalledWith('b');
+  });
+});

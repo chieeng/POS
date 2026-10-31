@@ -1,5 +1,6 @@
 import type { AuthChangeEvent, RealtimeChannel, Session } from '@supabase/supabase-js';
 import { getDeviceTag } from '@/lib/device';
+import { clearOfflineCache } from '@/lib/offlineCache';
 import {
   AUTH_STORAGE_KEY,
   createThrowawayClient,
@@ -117,6 +118,7 @@ export async function signOutUser(notice: SignInNotice = null): Promise<void> {
   useSession.getState().setNotice(notice);
   clearIdleState();
   clearCachedSession();
+  void clearOfflineCache();
   stopWatchingProfile();
   const result = await supabase.auth
     .signOut({ scope: 'local' })
@@ -420,6 +422,8 @@ async function handleAuthChange(event: AuthChangeEvent, session: Session | null)
     }
     stopWatchingProfile();
     clearIdleState();
+    // Signed out here, or the session was ended on the server ("sign out everywhere").
+    void clearOfflineCache();
     store.setSignedOut();
     return;
   }

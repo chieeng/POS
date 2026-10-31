@@ -1,5 +1,6 @@
 import { act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { clearOfflineCache } from '@/lib/offlineCache';
 import { useSession } from '@/stores/session';
 
 type AuthCallback = (event: string, session: unknown) => void;
@@ -13,6 +14,8 @@ const mock = vi.hoisted(() => ({
   getUserError: null as { status: number; message: string } | null,
   getUserCalls: 0,
 }));
+
+vi.mock('@/lib/offlineCache', () => ({ clearOfflineCache: vi.fn(() => Promise.resolve()) }));
 
 vi.mock('@/lib/supabase', () => {
   const channel = {
@@ -104,6 +107,8 @@ describe('live sign-out (SEC-04, SEC-13)', () => {
     await settle();
     expect(useSession.getState().status).toBe('signedOut');
     expect(useSession.getState().notice).toBe('no-access');
+    // Q2 (Oct 31, 2026): a deactivated user's phone keeps no product list.
+    expect(clearOfflineCache).toHaveBeenCalled();
   });
 
   test('without Realtime, the minute check finds the deactivation', async () => {
@@ -121,6 +126,16 @@ describe('live sign-out (SEC-04, SEC-13)', () => {
       await vi.advanceTimersByTimeAsync(ACCESS_CHECK_MS);
     });
     expect(useSession.getState().status).toBe('signedOut');
+    expect(clearOfflineCache).toHaveBeenCalled();
+  });
+
+  test('a server error from Auth keeps the saved product list', async () => {
+    vi.mocked(clearOfflineCache).mockClear();
+    mock.getUserError = { status: 500, message: 'Internal error' };
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(ACCESS_CHECK_MS);
+    });
+    expect(clearOfflineCache).not.toHaveBeenCalled();
   });
 
   test('a server error from Auth does not sign the user out', async () => {
