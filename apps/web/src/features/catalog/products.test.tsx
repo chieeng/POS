@@ -162,7 +162,7 @@ describe('Products list', () => {
     expect(screen.getByText('Old candy')).toBeInTheDocument();
   });
 
-  test('offline, it says the list is the copy saved on this phone, and when it was updated', () => {
+  test('offline, it says the list is the copy saved on this device, and when it was updated', () => {
     state.savedAt = new Date('2026-10-31T14:05:00+08:00');
     renderAt('/products');
     expect(screen.getByRole('alert')).toHaveTextContent(
