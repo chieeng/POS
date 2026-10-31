@@ -9,23 +9,31 @@ import { ProductPhoto } from './ProductPhoto';
 /**
  * The product page's photo (PROD-07). The Owner adds, replaces and removes it. Special Sales
  * adds one to a product without a photo; replacing or removing it is a "Request a change".
- * Sales see it only.
+ * Sales see it only. "Photo added." and the like go to the page's notice line (`onNotice`), so
+ * the page clears it with its other notices.
  */
-export function PhotoPanel({ product, role }: { product: Product; role: Role | undefined }) {
+export function PhotoPanel({
+  product,
+  role,
+  onNotice,
+}: {
+  product: Product;
+  role: Role | undefined;
+  onNotice: (notice: string | null) => void;
+}) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<'saving' | 'removing' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const canChoose = role === 'owner' || (role === 'special_sales' && !product.photoKey);
 
   const choose = async (file: File | undefined) => {
     if (!file) return;
     setBusy('saving');
     setError(null);
-    setNotice(null);
+    onNotice(null);
     try {
       await replaceProductPhoto(product.id, file, product.photoKey);
-      setNotice(product.photoKey ? 'Photo replaced.' : 'Photo added.');
+      onNotice(product.photoKey ? 'Photo replaced.' : 'Photo added.');
     } catch (caught) {
       setError(describePhotoError(caught));
     } finally {
@@ -37,10 +45,10 @@ export function PhotoPanel({ product, role }: { product: Product; role: Role | u
   const remove = async () => {
     setBusy('removing');
     setError(null);
-    setNotice(null);
+    onNotice(null);
     try {
       await removeProductPhoto(product.id, product.photoKey);
-      setNotice('Photo removed.');
+      onNotice('Photo removed.');
     } catch (caught) {
       setError(describePhotoError(caught));
     } finally {
@@ -92,11 +100,6 @@ export function PhotoPanel({ product, role }: { product: Product; role: Role | u
             )}
           </div>
         </div>
-      )}
-      {notice && (
-        <p role="status" className="w-full px-[4px] text-[14px] text-neutral-800">
-          {notice}
-        </p>
       )}
       {error && (
         <Alert variant="danger" className="w-full">

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -82,6 +82,7 @@ function ProductDetail({ product }: { product: Product }) {
   const role = useSession((s) => s.user?.role);
   const isOwner = role === 'owner';
   const location = useLocation();
+  const navigate = useNavigate();
   // Back to the list as the user left it: the list passes its filters (?q=&category=…) along.
   // Opened any other way (a link, the Approvals page), back goes to the plain list.
   const listSearch = (location.state as { listSearch?: string } | null)?.listSearch;
@@ -144,7 +145,7 @@ function ProductDetail({ product }: { product: Product }) {
         </p>
       )}
       {error && <Alert variant="danger">{error}</Alert>}
-      {!editing && <PhotoPanel product={product} role={role} />}
+      {!editing && <PhotoPanel product={product} role={role} onNotice={setNotice} />}
 
       {editing ? (
         <ProductForm
@@ -211,7 +212,18 @@ function ProductDetail({ product }: { product: Product }) {
         </div>
       )}
       {role === 'special_sales' && (
-        <RequestChangePanel product={product} categories={categories.data} />
+        <RequestChangePanel
+          product={product}
+          categories={categories.data}
+          onStart={() => {
+            setNotice(null);
+            // "Product added." came in the router state: drop it there too, or a reload brings
+            // it back next to the request.
+            if ((location.state as { added?: boolean } | null)?.added) {
+              navigate(location.pathname, { replace: true, state: null });
+            }
+          }}
+        />
       )}
       {(isOwner || role === 'special_sales') && !editing && (
         <AdjustStockPanel product={product} isOwner={isOwner} />

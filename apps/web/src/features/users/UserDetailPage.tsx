@@ -159,7 +159,11 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
-      {notice && <Alert variant="warn">{notice}</Alert>}
+      {notice && (
+        <p role="status" className="px-[4px] text-[14px] text-neutral-800">
+          {notice}
+        </p>
+      )}
 
       {!user.active ? (
         <>

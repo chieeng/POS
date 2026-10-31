@@ -111,8 +111,9 @@ describe('ProductPhoto', () => {
 });
 
 describe('Photo on the product page (PROD-07)', () => {
+  const onNotice = vi.fn();
   const panel = (product: Product, role: SessionUser['role']) => {
-    render(<PhotoPanel product={product} role={role} />);
+    render(<PhotoPanel product={product} role={role} onNotice={onNotice} />);
     return userEvent.setup();
   };
 
@@ -120,7 +121,7 @@ describe('Photo on the product page (PROD-07)', () => {
     const user = panel(CHIPS, 'owner');
     await user.upload(screen.getByLabelText('Add photo'), file());
     expect(replaceProductPhoto).toHaveBeenCalledWith('p1', expect.any(File), null);
-    expect(await screen.findByText('Photo added.')).toBeInTheDocument();
+    expect(onNotice).toHaveBeenLastCalledWith('Photo added.');
   });
 
   test('the Owner replaces and removes a photo', async () => {
@@ -249,6 +250,23 @@ describe('Add product with a photo', () => {
     await user.click(screen.getByRole('button', { name: 'Add product' }));
     expect(await screen.findByText('Product page')).toBeInTheDocument();
     expect(replaceProductPhoto).toHaveBeenCalledWith('p9', expect.any(File), null);
+  });
+
+  test('the photo is chosen with a button, not the browser’s file field, and can be removed', async () => {
+    render(
+      <MemoryRouter>
+        <AddProductPage />
+      </MemoryRouter>,
+    );
+    const user = userEvent.setup();
+    expect(screen.getByLabelText('Photo (optional)')).toHaveClass('sr-only');
+    expect(screen.getByRole('button', { name: 'Choose photo' })).toBeInTheDocument();
+    await user.upload(screen.getByLabelText('Photo (optional)'), file());
+    expect(screen.getByText('chips.jpg')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change photo' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(screen.queryByText('chips.jpg')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Choose photo' })).toBeInTheDocument();
   });
 });
 
