@@ -185,3 +185,36 @@ export function describeDrawerError(error: unknown): string {
       return 'That didn’t go through. Check your connection and try again.';
   }
 }
+
+/** SHIFT-03: the bills and coins counted at closing, largest first. No 25-centavo coins. */
+export const DENOMINATIONS = [1000, 500, 200, 100, 50, 20, 10, 5, 1] as const;
+
+export type Counts = Record<(typeof DENOMINATIONS)[number], number>;
+
+export const emptyCounts = (): Counts =>
+  Object.fromEntries(DENOMINATIONS.map((bill) => [bill, 0])) as Counts;
+
+export const countedTotal = (counts: Counts) =>
+  DENOMINATIONS.reduce((sum, bill) => sum + bill * counts[bill], 0);
+
+export interface CloseResult {
+  expected: number;
+  counted: number;
+  overShort: number;
+}
+
+/**
+ * SHIFT-03: the Owner or Special Sales closes today's drawer with the count. Expected cash
+ * and the over/short come back only now: the count is blind.
+ */
+export async function closeDrawer(counts: Counts, note: string | null): Promise<CloseResult> {
+  const result = await call<Json>('close_drawer', {
+    p_counts: Object.fromEntries(DENOMINATIONS.map((bill) => [String(bill), counts[bill]])),
+    p_note: note,
+  });
+  return {
+    expected: Number(result.expected),
+    counted: Number(result.counted),
+    overShort: Number(result.overShort),
+  };
+}
