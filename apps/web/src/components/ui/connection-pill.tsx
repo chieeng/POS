@@ -15,7 +15,7 @@ function connectionLabels(state: State, pending: number) {
     const changes = pending === 1 ? 'change' : 'changes';
     return { short: `${pending} to sync`, long: `${pending} ${changes} waiting to sync` };
   }
-  // "Offline · working locally" only becomes true with the offline outbox (build step 7).
+  // "Offline · working locally" becomes true once checkout queues sales offline (build step 9).
   return state === 'online'
     ? { short: 'Online', long: 'Online' }
     : { short: 'Offline', long: 'Offline' };
@@ -23,7 +23,7 @@ function connectionLabels(state: State, pending: number) {
 
 interface ConnectionPillProps {
   variant: 'topbar' | 'sidebar' | 'rail';
-  /** Changes waiting in the device outbox (SRS NFR-02); wired up with the outbox in step 7. */
+  /** The signed-in user's changes waiting in the device outbox (SRS NFR-02). */
   pending?: number;
   className?: string;
 }

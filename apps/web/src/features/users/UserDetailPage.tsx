@@ -173,6 +173,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
           </p>
           {!isSelf && (
             <Button
+              needsInternet
               variant="secondary"
               size="md"
               disabled={busy}
@@ -235,7 +236,13 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
               </p>
             )}
             {isDirty && (
-              <Button type="submit" size="md" className="self-end" disabled={isSubmitting || busy}>
+              <Button
+                needsInternet
+                type="submit"
+                size="md"
+                className="self-end"
+                disabled={isSubmitting || busy}
+              >
                 {isSubmitting ? 'Saving…' : 'Save'}
               </Button>
             )}
@@ -272,11 +279,18 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
 
       {user.active && (
         <div className="mt-[8px] flex flex-col gap-[8px]">
-          <Button variant="secondary" size="md" disabled={busy} onClick={requestResetLink}>
+          <Button
+            needsInternet
+            variant="secondary"
+            size="md"
+            disabled={busy}
+            onClick={requestResetLink}
+          >
             <KeyRound size={16} strokeWidth={ICON_STROKE} aria-hidden />
             Password reset link
           </Button>
           <Button
+            needsInternet
             variant="secondary"
             size="md"
             disabled={busy}
@@ -287,6 +301,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
           </Button>
           {!isSelf && (
             <Button
+              needsInternet
               variant="quiet"
               size="md"
               className="font-bold text-danger-fg"
@@ -317,6 +332,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
                 </Button>
               </DialogClose>
               <Button
+                needsInternet
                 size="md"
                 disabled={busy}
                 onClick={() =>
@@ -346,6 +362,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
                 </Button>
               </DialogClose>
               <Button
+                needsInternet
                 size="md"
                 disabled={busy}
                 onClick={() =>
@@ -385,6 +402,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
                 </Button>
               </DialogClose>
               <Button
+                needsInternet
                 size="md"
                 className="bg-danger hover:bg-danger active:bg-danger"
                 disabled={busy}
@@ -419,6 +437,7 @@ function UserDetail({ user, isSelf, devices }: UserDetailProps) {
                 </Button>
               </DialogClose>
               <Button
+                needsInternet
                 size="md"
                 disabled={busy}
                 onClick={() =>

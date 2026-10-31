@@ -107,6 +107,7 @@ export function AdjustStockPanel({ product, isOwner }: { product: Product; isOwn
         {error && <Alert variant="danger">{error}</Alert>}
         <div className="flex flex-wrap items-center gap-[12px]">
           <Button
+            needsInternet
             variant="secondary"
             className="min-h-[44px] px-[18px]"
             disabled={busy}
@@ -140,6 +141,7 @@ export function AdjustStockPanel({ product, isOwner }: { product: Product; isOwn
           </p>
         )}
         <Button
+          needsInternet
           variant="secondary"
           className="min-h-[46px] self-start px-[18px]"
           onClick={() => {
@@ -227,7 +229,7 @@ export function AdjustStockPanel({ product, isOwner }: { product: Product; isOwn
       </div>
       {error && <Alert variant="danger">{error}</Alert>}
       <div className="flex flex-wrap gap-[10px]">
-        <Button type="submit" className="min-h-[46px] px-[20px]" disabled={busy}>
+        <Button needsInternet type="submit" className="min-h-[46px] px-[20px]" disabled={busy}>
           {busy ? 'Saving…' : isOwner ? 'Save adjustment' : 'Send request'}
         </Button>
         <Button

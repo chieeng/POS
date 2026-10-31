@@ -155,7 +155,13 @@ export function SignInPage() {
         {/* SEC-06: Turnstile. Empty unless Cloudflare asks this visitor to solve a challenge. */}
         <div ref={containerRef} className="empty:hidden" />
 
-        <Button type="submit" size="lg" className="mt-[6px] md:mt-0" disabled={isSubmitting}>
+        <Button
+          needsInternet
+          type="submit"
+          size="lg"
+          className="mt-[6px] md:mt-0"
+          disabled={isSubmitting}
+        >
           {isSubmitting ? 'Signing in…' : 'Sign in'}
         </Button>
 

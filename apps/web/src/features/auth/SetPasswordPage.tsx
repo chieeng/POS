@@ -123,7 +123,7 @@ export function SetPasswordPage() {
             once, so continue when you are ready to choose it.
           </p>
           <div className="flex-1 md:hidden" />
-          <Button size="lg" onClick={continueWithLink} disabled={link === 'using'}>
+          <Button needsInternet size="lg" onClick={continueWithLink} disabled={link === 'using'}>
             {link === 'using' ? 'Checking the link…' : 'Continue'}
           </Button>
         </div>
@@ -227,7 +227,7 @@ export function SetPasswordPage() {
         </div>
 
         <div className="flex-1 md:hidden" />
-        <Button type="submit" size="lg" disabled={isSubmitting}>
+        <Button needsInternet type="submit" size="lg" disabled={isSubmitting}>
           {isSubmitting ? 'Saving…' : 'Save password'}
         </Button>
         <Button variant="quiet" size="touch" className="self-center" onClick={() => signOutUser()}>

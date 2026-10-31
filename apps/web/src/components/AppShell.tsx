@@ -1,15 +1,17 @@
 import { ChevronRight, LogOut, Menu } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { signOutUser } from '@/features/auth/authService';
 import { useApprovalRequests } from '@/features/approvals/data';
 import { ROLE_LABELS } from '@/features/auth/roles';
+import { requestSignOut } from '@/features/outbox/signOut';
+import { useOutboxCounts } from '@/features/outbox/useOutboxCounts';
 import { useBranch } from '@/features/store/data';
 import { env } from '@/lib/supabase';
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 import { Avatar } from './Avatar';
 import { isAtItem, navItems, phoneNav, type NavItem } from './nav';
+import { Alert } from './ui/alert';
 import { ConnectionPill } from './ui/connection-pill';
 import { Sheet, SheetContent, SheetTitle } from './ui/sheet';
 
@@ -51,7 +53,7 @@ function SignOutButton() {
   return (
     <button
       type="button"
-      onClick={() => signOutUser()}
+      onClick={() => void requestSignOut()}
       className="flex min-h-[56px] items-center gap-[12px] rounded-[24px] bg-surface px-[16px] text-[15px] hover:bg-text/7"
     >
       <LogOut size={18} strokeWidth={ICON_STROKE} className="text-accent-700" aria-hidden />
@@ -147,6 +149,8 @@ export function AppShell() {
   // Row Level Security decides which requests each user can see.
   const requests = useApprovalRequests(1);
   const pending = requests.data.filter((request) => request.status === 'pending').length;
+  // NFR-02: what this user made offline and has not reached the server yet.
+  const outbox = useOutboxCounts();
   if (!user) return null;
   const items = navItems(user.role, pending);
   const phone = phoneNav(user.role, items);
@@ -158,7 +162,7 @@ export function AppShell() {
       {/* Phone: top bar */}
       <header className="flex h-[56px] flex-none items-center gap-[10px] px-[16px] md:hidden">
         <div className="mr-auto font-heading text-[24px] leading-none">POS</div>
-        <ConnectionPill variant="topbar" />
+        <ConnectionPill variant="topbar" pending={outbox.waiting} />
         <button
           type="button"
           aria-label="Account"
@@ -229,8 +233,8 @@ export function AppShell() {
           ))}
         </div>
         <div className="flex flex-col gap-[9px] md:items-center xl:items-stretch">
-          <ConnectionPill variant="rail" className="xl:hidden" />
-          <ConnectionPill variant="sidebar" className="hidden xl:flex" />
+          <ConnectionPill variant="rail" pending={outbox.waiting} className="xl:hidden" />
+          <ConnectionPill variant="sidebar" pending={outbox.waiting} className="hidden xl:flex" />
           <div className="flex items-center gap-[10px] xl:p-[6px]">
             <Avatar name={user.displayName} className="size-[40px] text-[14px] xl:size-[38px]" />
             <div className="hidden min-w-0 flex-1 flex-col leading-[1.25] xl:flex">
@@ -240,7 +244,7 @@ export function AppShell() {
           </div>
           <button
             type="button"
-            onClick={() => signOutUser()}
+            onClick={() => void requestSignOut()}
             title="Sign out"
             className="flex min-h-[44px] items-center gap-[12px] rounded-full text-[14px] hover:bg-text/7 md:w-[48px] md:justify-center xl:w-auto xl:justify-start xl:px-[14px]"
           >
@@ -251,6 +255,13 @@ export function AppShell() {
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {outbox.needsAttention > 0 && (
+          <Alert variant="warn" className="mx-[16px] mt-[12px] md:mx-[24px]">
+            {outbox.needsAttention === 1
+              ? "1 sale on this device couldn't be saved. It's kept here, and the Owner sees it in the audit log."
+              : `${outbox.needsAttention} sales on this device couldn't be saved. They're kept here, and the Owner sees them in the audit log.`}
+          </Alert>
+        )}
         <Outlet />
       </div>
 

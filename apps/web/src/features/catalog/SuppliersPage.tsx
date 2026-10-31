@@ -159,7 +159,12 @@ export function SuppliersPage() {
           <SupplierFieldset idPrefix="new-supplier" values={draft} onChange={setDraft} />
           {addError && <Alert variant="danger">{addError}</Alert>}
           <div className="flex flex-wrap gap-[10px]">
-            <Button type="submit" className="min-h-[46px] px-[20px]" disabled={saving}>
+            <Button
+              needsInternet
+              type="submit"
+              className="min-h-[46px] px-[20px]"
+              disabled={saving}
+            >
               {saving ? 'Adding…' : 'Add supplier'}
             </Button>
             <Button
@@ -179,6 +184,7 @@ export function SuppliersPage() {
         </form>
       ) : (
         <Button
+          needsInternet
           className="min-h-[46px] self-start px-[20px]"
           onClick={() => {
             setNotice(null);
@@ -228,6 +234,7 @@ export function SuppliersPage() {
               {!supplier.active && <Tag variant="muted">Inactive</Tag>}
               {isOwner && (
                 <Button
+                  needsInternet
                   variant="secondary"
                   className="min-h-[40px] px-[14px] text-[13.5px]"
                   onClick={() => openEdit(supplier)}
@@ -253,6 +260,7 @@ export function SuppliersPage() {
               {editError && <Alert variant="danger">{editError}</Alert>}
               <DialogActions className="justify-between">
                 <Button
+                  needsInternet
                   type="button"
                   variant="secondary"
                   className="min-h-[46px] px-[16px]"
@@ -277,7 +285,12 @@ export function SuppliersPage() {
                       Cancel
                     </Button>
                   </DialogClose>
-                  <Button type="submit" className="min-h-[46px] px-[22px]" disabled={busy}>
+                  <Button
+                    needsInternet
+                    type="submit"
+                    className="min-h-[46px] px-[22px]"
+                    disabled={busy}
+                  >
                     {busy ? 'Saving…' : 'Save'}
                   </Button>
                 </span>

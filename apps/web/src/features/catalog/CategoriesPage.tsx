@@ -123,7 +123,7 @@ export function CategoriesPage() {
             aria-invalid={!!addError || undefined}
             aria-describedby={addError ? 'new-category-error' : undefined}
           />
-          <Button type="submit" className="min-h-[46px] px-[20px]" disabled={adding}>
+          <Button needsInternet type="submit" className="min-h-[46px] px-[20px]" disabled={adding}>
             {adding ? 'Adding…' : 'Add category'}
           </Button>
         </div>
@@ -175,6 +175,7 @@ export function CategoriesPage() {
               {isOwner && (
                 <span className="flex gap-[6px]">
                   <Button
+                    needsInternet
                     variant="secondary"
                     className="min-h-[40px] px-[14px] text-[13.5px]"
                     onClick={() => open({ kind: 'rename', category })}
@@ -183,6 +184,7 @@ export function CategoriesPage() {
                     Rename
                   </Button>
                   <Button
+                    needsInternet
                     variant="secondary"
                     className="min-h-[40px] px-[14px] text-[13.5px]"
                     onClick={() => open({ kind: 'active', category })}
@@ -238,7 +240,12 @@ export function CategoriesPage() {
                       Cancel
                     </Button>
                   </DialogClose>
-                  <Button type="submit" className="min-h-[46px] px-[22px]" disabled={busy}>
+                  <Button
+                    needsInternet
+                    type="submit"
+                    className="min-h-[46px] px-[22px]"
+                    disabled={busy}
+                  >
                     {busy ? 'Saving…' : 'Rename'}
                   </Button>
                 </DialogActions>
@@ -261,6 +268,7 @@ export function CategoriesPage() {
                     </Button>
                   </DialogClose>
                   <Button
+                    needsInternet
                     className="min-h-[46px] px-[22px]"
                     disabled={busy}
                     onClick={() => void confirm()}

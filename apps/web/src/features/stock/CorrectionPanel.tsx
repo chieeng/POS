@@ -157,6 +157,7 @@ export function CorrectionPanel({
           {error && <Alert variant="danger">{error}</Alert>}
           <div className="flex flex-wrap items-center gap-[12px]">
             <Button
+              needsInternet
               variant="secondary"
               size="md"
               disabled={busy}
@@ -190,7 +191,7 @@ export function CorrectionPanel({
             {notice}
           </p>
         )}
-        <Button variant="secondary" size="md" className="self-start" onClick={start}>
+        <Button needsInternet variant="secondary" size="md" className="self-start" onClick={start}>
           {isOwner ? 'Correct this stock-in' : 'Request a correction'}
         </Button>
       </div>
@@ -324,7 +325,7 @@ export function CorrectionPanel({
         </div>
         {error && <Alert variant="danger">{error}</Alert>}
         <div className="flex flex-wrap gap-[10px]">
-          <Button type="submit" size="md" disabled={busy}>
+          <Button needsInternet type="submit" size="md" disabled={busy}>
             {busy
               ? 'Saving…'
               : isOwner

@@ -9,7 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { NavLink, Outlet, useMatch } from 'react-router-dom';
-import { signOutUser } from '@/features/auth/authService';
+import { requestSignOut } from '@/features/outbox/signOut';
 import { cn, ICON_STROKE } from '@/lib/utils';
 
 interface Section {
@@ -72,7 +72,7 @@ export function SettingsLayout() {
           </div>
           <button
             type="button"
-            onClick={() => signOutUser()}
+            onClick={() => void requestSignOut()}
             className="flex min-h-[56px] items-center gap-[12px] rounded-[24px] bg-surface px-[16px] text-left text-[15px]"
           >
             <LogOut size={18} strokeWidth={ICON_STROKE} className="text-accent-700" aria-hidden />

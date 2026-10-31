@@ -113,7 +113,13 @@ export function RequestChangePanel({
           </p>
           {error && <Alert variant="danger">{error}</Alert>}
           <div className="flex flex-wrap items-center gap-[12px]">
-            <Button variant="secondary" size="md" disabled={busy} onClick={() => void withdraw()}>
+            <Button
+              needsInternet
+              variant="secondary"
+              size="md"
+              disabled={busy}
+              onClick={() => void withdraw()}
+            >
               {busy ? 'Withdrawing…' : 'Withdraw'}
             </Button>
             <Link to="/requests" className="text-[14px]">
@@ -137,6 +143,7 @@ export function RequestChangePanel({
         )}
         <div className="flex flex-wrap items-center gap-[12px]">
           <Button
+            needsInternet
             size="md"
             onClick={() => {
               onStart?.();

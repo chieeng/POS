@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { IdleLock } from '@/features/auth/IdleLock';
 import { IDLE_LOCK_MINUTES_DEFAULT } from '@/features/auth/idleStorage';
 import { useIdleLock } from '@/features/auth/useIdleLock';
+import { SignOutBlockedDialog } from '@/features/outbox/SignOutBlockedDialog';
 import { BranchContext, useBranchQuery } from '@/features/store/data';
 import { useDeviceHeartbeat } from '@/hooks/useDeviceHeartbeat';
 import { useSession } from '@/stores/session';
@@ -52,6 +53,7 @@ export function ProtectedLayout() {
         <Outlet />
       </div>
       {locked && <IdleLock user={user} minutes={idleMinutes} />}
+      <SignOutBlockedDialog />
     </BranchContext.Provider>
   );
 }

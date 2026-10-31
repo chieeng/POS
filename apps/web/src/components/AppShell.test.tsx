@@ -4,6 +4,8 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { signOutUser } from '@/features/auth/authService';
 import { useSession, type SessionUser } from '@/stores/session';
+import { useBlocked } from '@/features/outbox/signOut';
+import { SignOutBlockedDialog } from '@/features/outbox/SignOutBlockedDialog';
 import { AppShell } from './AppShell';
 
 vi.mock('@/lib/supabase', () => ({ env: { storeName: 'Test store' }, supabase: {} }));
@@ -13,6 +15,14 @@ vi.mock('@/features/approvals/data', () => ({
 }));
 vi.mock('@/features/store/data', () => ({
   useBranch: () => ({ branch: null, loading: false, error: false }),
+}));
+const outbox = vi.hoisted(() => ({ waiting: 0, needsAttention: 0 }));
+vi.mock('@/lib/outbox', () => ({
+  countWaiting: () => Promise.resolve(outbox.waiting),
+  watchOutbox: (_uid: string, onChange: (counts: typeof outbox) => void) => {
+    onChange({ ...outbox });
+    return () => undefined;
+  },
 }));
 
 function signInAs(role: SessionUser['role']) {
@@ -31,7 +41,17 @@ function signInAs(role: SessionUser['role']) {
 
 function renderAt(path: string) {
   const router = createMemoryRouter(
-    [{ element: <AppShell />, children: [{ path: '*', element: <p>Page</p> }] }],
+    [
+      {
+        element: (
+          <>
+            <AppShell />
+            <SignOutBlockedDialog />
+          </>
+        ),
+        children: [{ path: '*', element: <p>Page</p> }],
+      },
+    ],
     { initialEntries: [path] },
   );
   render(<RouterProvider router={router} />);
@@ -40,6 +60,9 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  outbox.waiting = 0;
+  outbox.needsAttention = 0;
+  useBlocked.setState({ count: 0 });
   // A phone: the bottom sheet, not the centered dialog.
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false,
@@ -70,5 +93,31 @@ describe('phone account menu', () => {
     expect(
       within(screen.getByRole('dialog', { name: 'Account' })).getByText('Special Sales'),
     ).toBeInTheDocument();
+  });
+});
+
+describe('the outbox on every screen (NFR-02)', () => {
+  it('blocks Sign out while sales have not been sent', async () => {
+    outbox.waiting = 2;
+    signInAs('sales');
+    const user = renderAt('/products');
+    expect(screen.getByText('2 to sync')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Account' }));
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Account' })).getByRole('button', {
+        name: 'Sign out',
+      }),
+    );
+    expect(
+      await screen.findByText("2 sales haven't been sent yet. Connect to the internet first."),
+    ).toBeInTheDocument();
+    expect(signOutUser).not.toHaveBeenCalled();
+  });
+
+  it('says when something made on this device could not be saved', () => {
+    outbox.needsAttention = 1;
+    signInAs('sales');
+    renderAt('/products');
+    expect(screen.getByRole('alert')).toHaveTextContent("1 sale on this device couldn't be saved");
   });
 });

@@ -77,6 +77,7 @@ export function PhotoPanel({
           />
           <div className="flex flex-wrap gap-[10px]">
             <Button
+              needsInternet
               variant="secondary"
               size="md"
               disabled={busy !== null}
@@ -90,6 +91,7 @@ export function PhotoPanel({
             </Button>
             {role === 'owner' && product.photoKey && (
               <Button
+                needsInternet
                 variant="secondary"
                 size="md"
                 disabled={busy !== null}

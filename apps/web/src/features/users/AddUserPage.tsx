@@ -150,7 +150,12 @@ export function AddUserPage() {
             <Button asChild variant="secondary" className="min-h-[48px] px-[20px]">
               <Link to="/settings/users">Cancel</Link>
             </Button>
-            <Button type="submit" className="min-h-[48px] px-[28px]" disabled={isSubmitting}>
+            <Button
+              needsInternet
+              type="submit"
+              className="min-h-[48px] px-[28px]"
+              disabled={isSubmitting}
+            >
               {isSubmitting ? 'Adding…' : 'Add user'}
             </Button>
           </div>

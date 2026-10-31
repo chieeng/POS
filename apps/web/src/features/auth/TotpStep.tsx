@@ -83,7 +83,7 @@ export function TotpStep({ challenge, onBack }: TotpStepProps) {
         )}
 
         <div className="flex-1 md:hidden" />
-        <Button type="submit" size="lg" disabled={isSubmitting}>
+        <Button needsInternet type="submit" size="lg" disabled={isSubmitting}>
           {isSubmitting ? 'Checking…' : 'Verify'}
         </Button>
       </form>
