@@ -13,10 +13,11 @@ export function RoleRedirect() {
 }
 
 /** Keeps a user out of another role's screens. UX only; see ProtectedLayout. */
-export function RequireRole({ role }: { role: Role }) {
+export function RequireRole({ role }: { role: Role | Role[] }) {
   const user = useSession((s) => s.user);
   if (!user) return <Navigate to="/sign-in" replace />;
-  if (user.role !== role) return <Navigate to={ROLE_HOME[user.role]} replace />;
+  const allowed = Array.isArray(role) ? role : [role];
+  if (!allowed.includes(user.role)) return <Navigate to={ROLE_HOME[user.role]} replace />;
   return <Outlet />;
 }
 
@@ -28,5 +29,5 @@ export function SignInRoute() {
 /** /settings itself: phones show the section list; wider screens open the first section. */
 export function SettingsIndex() {
   const wide = useMediaQuery('(min-width: 768px)');
-  return wide ? <Navigate to="users" replace /> : null;
+  return wide ? <Navigate to="store" replace /> : null;
 }

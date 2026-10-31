@@ -1,15 +1,21 @@
 import {
+  ClipboardCheck,
   CloudCheck,
   CloudOff,
   LayoutDashboard,
   LogOut,
+  Package,
+  PackagePlus,
   Settings,
   ShoppingCart,
+  Inbox,
   type LucideIcon,
 } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { signOutUser } from '@/features/auth/authService';
+import { useApprovalRequests } from '@/features/approvals/data';
 import { ROLE_HOME, ROLE_LABELS, type Role } from '@/features/auth/roles';
+import { useBranch } from '@/features/store/data';
 import { useOnline } from '@/hooks/useOnline';
 import { env } from '@/lib/supabase';
 import { cn, ICON_STROKE } from '@/lib/utils';
@@ -21,17 +27,55 @@ interface NavItem {
   label: string;
   short: string;
   icon: LucideIcon;
+  /** A count shown on the item, for example pending approvals. */
+  badge?: number;
 }
 
 /** Only screens that exist are listed; more arrive with each phase. */
-function navItems(role: Role): NavItem[] {
+function navItems(role: Role, pending: number): NavItem[] {
   if (role === 'owner') {
     return [
       { to: ROLE_HOME.owner, label: 'Dashboard', short: 'Home', icon: LayoutDashboard },
+      {
+        to: '/approvals',
+        label: 'Approvals',
+        short: 'Approvals',
+        icon: ClipboardCheck,
+        badge: pending,
+      },
+      { to: '/products', label: 'Products', short: 'Products', icon: Package },
+      { to: '/stock-in', label: 'Stock-in', short: 'Stock-in', icon: PackagePlus },
       { to: '/settings', label: 'Settings', short: 'Settings', icon: Settings },
     ];
   }
-  return [{ to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart }];
+  if (role === 'special_sales') {
+    return [
+      { to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart },
+      { to: '/products', label: 'Products', short: 'Products', icon: Package },
+      { to: '/stock-in', label: 'Stock-in', short: 'Stock-in', icon: PackagePlus },
+      { to: '/requests', label: 'My requests', short: 'Requests', icon: Inbox, badge: pending },
+    ];
+  }
+  return [
+    { to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart },
+    { to: '/products', label: 'Products', short: 'Products', icon: Package },
+  ];
+}
+
+/** A small count on a menu item; read out as "N pending" by screen readers. */
+function Badge({ count, className }: { count?: number; className?: string }) {
+  if (!count) return null;
+  return (
+    <span
+      className={cn(
+        'absolute grid h-[18px] min-w-[18px] place-items-center rounded-full bg-danger px-[5px] text-[11px] leading-none font-bold text-bg',
+        className,
+      )}
+    >
+      {count > 99 ? '99+' : count}
+      <span className="sr-only"> pending</span>
+    </span>
+  );
 }
 
 function SyncPill({ compact = false }: { compact?: boolean }) {
@@ -59,9 +103,15 @@ function SyncPill({ compact = false }: { compact?: boolean }) {
  * by Row Level Security and server functions.
  */
 export function AppShell() {
+  // SYS-01: the name the Owner set; the build's name until the branch has loaded.
+  const storeName = useBranch().branch?.name ?? env.storeName;
   const user = useSession((s) => s.user);
+  // SRS 3.9: the Owner's pending approvals, or the requester's own pending requests, live.
+  // Row Level Security decides which requests each user can see.
+  const requests = useApprovalRequests(1);
+  const pending = requests.data.filter((request) => request.status === 'pending').length;
   if (!user) return null;
-  const items = navItems(user.role);
+  const items = navItems(user.role, pending);
 
   return (
     <div className="flex min-h-dvh flex-col md:flex-row">
@@ -79,12 +129,12 @@ export function AppShell() {
       >
         <div className="flex flex-col gap-[2px] xl:px-[9px]">
           <div className="font-heading text-[17px] leading-none xl:text-[28px]">POS</div>
-          {env.storeName && (
-            <div className="hidden text-[12px] text-neutral-700 xl:block">{env.storeName}</div>
+          {storeName && (
+            <div className="hidden text-[12px] text-neutral-700 xl:block">{storeName}</div>
           )}
         </div>
         <div className="flex flex-1 flex-col gap-[4px] overflow-auto md:items-center xl:items-stretch xl:gap-[2px]">
-          {items.map(({ to, label, icon: Icon }) => (
+          {items.map(({ to, label, icon: Icon, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -96,7 +146,10 @@ export function AppShell() {
                 )
               }
             >
-              <Icon size={19} strokeWidth={ICON_STROKE} aria-hidden />
+              <span className="relative">
+                <Icon size={19} strokeWidth={ICON_STROKE} aria-hidden />
+                <Badge count={badge} className="-top-[9px] -right-[12px]" />
+              </span>
               <span className="hidden xl:inline">{label}</span>
             </NavLink>
           ))}
@@ -132,7 +185,7 @@ export function AppShell() {
           aria-label="Main"
           className="sticky bottom-0 flex h-[76px] flex-none items-stretch justify-around bg-surface px-[6px] pt-[6px] pb-[14px] md:hidden"
         >
-          {items.map(({ to, short, icon: Icon }) => (
+          {items.map(({ to, short, icon: Icon, badge }) => (
             <NavLink
               key={to}
               to={to}
@@ -147,11 +200,12 @@ export function AppShell() {
                 <>
                   <span
                     className={cn(
-                      'grid h-[30px] w-[56px] place-items-center rounded-full',
+                      'relative grid h-[30px] w-[56px] place-items-center rounded-full',
                       isActive && 'bg-accent-200',
                     )}
                   >
                     <Icon size={19} strokeWidth={ICON_STROKE} aria-hidden />
+                    <Badge count={badge} className="-top-[4px] right-[6px]" />
                   </span>
                   {short}
                 </>

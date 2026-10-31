@@ -1,8 +1,10 @@
 import {
   ChevronRight,
+  Clock,
   DatabaseBackup,
   LogOut,
   ScrollText,
+  Store,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -17,8 +19,10 @@ interface Section {
   icon: LucideIcon;
 }
 
-// Store & receipt, limits, appearance and notifications join this list as they are built.
+// Appearance and notifications join this list as they are built.
 const SECTIONS: Section[] = [
+  { to: 'store', label: 'Store', sub: 'Details, receipts and location', icon: Store },
+  { to: 'attendance', label: 'Attendance', sub: 'Shift times and late rules', icon: Clock },
   { to: 'users', label: 'Users', sub: 'Accounts, roles and devices', icon: Users },
   { to: 'audit-log', label: 'Audit log', sub: 'Every change, who and when', icon: ScrollText },
   { to: 'backups', label: 'Backups', sub: 'Last backup and how to make one', icon: DatabaseBackup },

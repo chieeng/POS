@@ -36,6 +36,10 @@ updates:
       # at 6). Remove this once typescript-eslint supports TypeScript 7.
       - dependency-name: 'typescript'
         update-types: ['version-update:semver-major']
+      # @types/node must describe the Node version we run: 22, from .nvmrc (CI, deploy, backup)
+      # and NODE_VERSION in Cloudflare Pages. Raise all three together, never the types alone.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /

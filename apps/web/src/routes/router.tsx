@@ -1,7 +1,20 @@
 import { createBrowserRouter, Navigate, type RouteObject } from 'react-router-dom';
 import { AppShell } from '@/components/AppShell';
+import { ApprovalsPage } from '@/features/approvals/ApprovalsPage';
+import { MyRequestsPage } from '@/features/approvals/MyRequestsPage';
 import { AuditLogPage } from '@/features/audit/AuditLogPage';
+import { AddProductPage } from '@/features/catalog/AddProductPage';
+import { CatalogLayout } from '@/features/catalog/CatalogLayout';
+import { CategoriesPage } from '@/features/catalog/CategoriesPage';
+import { ProductDetailPage } from '@/features/catalog/ProductDetailPage';
+import { ProductsPage } from '@/features/catalog/ProductsPage';
+import { SuppliersPage } from '@/features/catalog/SuppliersPage';
 import { BackupsPage } from '@/features/backups/BackupsPage';
+import { AttendanceSettingsPage } from '@/features/store/AttendanceSettingsPage';
+import { NewStockInPage } from '@/features/stock/NewStockInPage';
+import { StockInListPage } from '@/features/stock/StockInListPage';
+import { StockReceiptPage } from '@/features/stock/StockReceiptPage';
+import { StoreSettingsPage } from '@/features/store/StoreSettingsPage';
 import { EnrollTotpPage } from '@/features/auth/EnrollTotpPage';
 import { ROLE_HOME } from '@/features/auth/roles';
 import { SetPasswordPage } from '@/features/auth/SetPasswordPage';
@@ -30,11 +43,14 @@ export const routes: RouteObject[] = [
             element: <RequireRole role="owner" />,
             children: [
               { path: ROLE_HOME.owner, element: <HomePage role="owner" /> },
+              { path: '/approvals', element: <ApprovalsPage /> },
               {
                 path: '/settings',
                 element: <SettingsLayout />,
                 children: [
                   { index: true, element: <SettingsIndex /> },
+                  { path: 'store', element: <StoreSettingsPage /> },
+                  { path: 'attendance', element: <AttendanceSettingsPage /> },
                   { path: 'users', element: <UsersPage /> },
                   { path: 'users/new', element: <AddUserPage /> },
                   { path: 'users/:uid', element: <UserDetailPage /> },
@@ -45,9 +61,37 @@ export const routes: RouteObject[] = [
             ],
           },
           {
+            // INV-02: stock-in by the Owner and Special Sales.
+            element: <RequireRole role={['owner', 'special_sales']} />,
+            children: [
+              { path: '/stock-in', element: <StockInListPage /> },
+              { path: '/stock-in/new', element: <NewStockInPage /> },
+              { path: '/stock-in/:receiptId', element: <StockReceiptPage /> },
+            ],
+          },
+          {
+            // SRS 6.1: everyone sees products; the Owner and Special Sales add products and
+            // manage categories and suppliers. The database enforces the same rules.
+            path: '/products',
+            element: <CatalogLayout />,
+            children: [
+              { index: true, element: <ProductsPage /> },
+              {
+                element: <RequireRole role={['owner', 'special_sales']} />,
+                children: [
+                  { path: 'new', element: <AddProductPage /> },
+                  { path: 'categories', element: <CategoriesPage /> },
+                  { path: 'suppliers', element: <SuppliersPage /> },
+                ],
+              },
+              { path: ':productId', element: <ProductDetailPage /> },
+            ],
+          },
+          {
             element: <RequireRole role="special_sales" />,
             children: [
               { path: ROLE_HOME.special_sales, element: <HomePage role="special_sales" /> },
+              { path: '/requests', element: <MyRequestsPage /> },
             ],
           },
           {

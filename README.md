@@ -4,9 +4,13 @@ POS, inventory, attendance and lightweight payroll for a single retail store.
 Requirements live in [docs/SRS.md](docs/SRS.md); IDs such as `AUTH-01` or `SEC-04` in code
 comments and commit messages refer to it.
 
-**Status: Phase 0 (foundation).** Sign-in, user management, device tags and the audit log
-are built on Supabase. Store settings, selling, inventory and the other screens are not built
-yet.
+**Status: Phase 0 (foundation).** Sign-in, user management, device tags, the audit log,
+backups, store settings (details and the store's location for clock-in) and attendance
+rules (shift times, grace, late deduction), the product catalog (categories, suppliers,
+products with price history and photos, CSV export), Owner approval requests (product changes by Special Sales),
+and stock (stock-in, adjustments and stock-in corrections, with weighted-average cost, stock
+history and low stock) are built on Supabase. Clock-in, selling and the other screens are not
+built yet.
 
 ## What is in the repository
 
@@ -15,6 +19,11 @@ apps/web/                 React 18 + TypeScript + Vite PWA
   src/features/auth/      sign-in, Owner two-step, set password, idle lock
   src/features/users/     Owner user management and device list
   src/features/audit/     audit log viewer
+  src/features/approvals/ Owner approvals, change requests, My requests
+  src/features/stock/     stock-in, adjustments, corrections, history, low stock, cost
+  src/features/catalog/   products, photos, CSV export, categories, suppliers, price history
+  src/features/store/     store settings (details, idle lock, location) and attendance rules
+  src/features/backups/   last backup date and overdue note for the Owner
   src/lib/supabase.ts     Supabase client and validated config
   src/styles/             design tokens (CSS variables + Tailwind theme), light and dark
 supabase/
@@ -107,7 +116,7 @@ The Supabase URL and anon key are public, so the app itself is never trusted (SR
   rows, column by column (SYS-02). `audit_logs` is append-only for every API role. New tables
   and functions start with no API access.
 - **Edge Function `admin-users`.** Actions `create`, `update`, `setRole`, `deactivate`,
-  `signOutEverywhere`, `passwordResetLink`. Each checks the token, the live profile (Owner,
+  `reactivate`, `signOutEverywhere`, `passwordResetLink`. Each checks the token, the live profile (Owner,
   active) and `aal2`, validates input with strict Zod schemas and writes `audit_logs` with
   the device tag (SEC-08). The Owner cannot demote or turn off their own account. This is the
   only place the service role key is used.
@@ -121,7 +130,6 @@ Known limits, to be aware of:
 - The idle lock (AUTH-05) asks for the password. A staff PIN is not used.
 - The device tag in audit logs is reported by the client, so it is a label, not proof.
   Devices cannot be signed out one at a time.
-- A deactivated account cannot be turned back on from the app yet.
 - The idle time is fixed at 15 minutes until the settings screen (SYS-01) exists.
 - There is no self-service "forgot password": the Owner makes a reset link.
 - A device that is offline learns about a deactivation when it is back online; the server
@@ -219,6 +227,10 @@ by design and end up in the browser bundle anyway, SRS 6.3):
 | `VITE_STORE_ADDRESS`      | the store address                | the store address                   |
 | `NODE_VERSION`            | `22`                             | `22`                                |
 
+`VITE_STORE_NAME` and `VITE_STORE_ADDRESS` are shown only on the sign-in screen, before
+anyone is signed in. Inside the app, the store's name and details come from Settings > Store,
+which the Owner edits.
+
 Never add the service role key, the database password or a Turnstile secret key to
 Cloudflare Pages. Variables apply to the next build: after changing one, retry the latest
 deployment.
@@ -249,9 +261,12 @@ the variables and secrets listed at the top of
 (SEC-10).
 
 **Free plan.** While the projects are on the Supabase Free plan,
-[.github/workflows/heartbeat.yml](.github/workflows/heartbeat.yml) sends each one a request a
-day so it is not paused for inactivity. It needs no secrets, only the four public repository
-variables listed at its top, and it runs only once it is on the default branch.
+[.github/workflows/heartbeat.yml](.github/workflows/heartbeat.yml) runs a tiny database query
+on each one every 6 hours (`public.heartbeat()`, which returns the database clock) so it is
+not paused for inactivity. Only a 2xx answer counts; anything else fails the run and GitHub
+emails the developer. It needs no secrets, only the four public repository variables listed at
+its top (the `*_ANON_KEY` ones hold the publishable keys), and it runs only from the default
+branch.
 
 ## Backups
 
@@ -333,5 +348,5 @@ by Row Level Security and database functions on the server (SRS 6.3). It does me
 
 ## Branching
 
-Feature branches > pull request into `dev` > release pull request into `main` (SRS 7.3).
+Feature branches > pull request into `dev` > release pull request into `main` (SRS 7.4).
 Commits follow Conventional Commits.

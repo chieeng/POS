@@ -69,6 +69,7 @@ const ACTIONS: [string, () => Record<string, unknown>][] = [
   ['update', () => ({ uid: target.id, displayName: 'New Name' })],
   ['setRole', () => ({ uid: target.id, role: 'special_sales' })],
   ['deactivate', () => ({ uid: target.id })],
+  ['reactivate', () => ({ uid: target.id })],
   ['signOutEverywhere', () => ({ uid: target.id })],
   ['passwordResetLink', () => ({ uid: target.id })],
 ];
@@ -155,6 +156,7 @@ Deno.test('none of the refused calls changed anything', options, async () => {
     'user.update',
     'user.setRole',
     'user.deactivate',
+    'user.reactivate',
     'user.signOutEverywhere',
   ]) {
     assertEquals((await auditOf(action, target.id)).length, 0);
@@ -382,6 +384,50 @@ Deno.test('deactivate: refuses turning off your own account', options, async () 
 Deno.test('deactivate: cannot reach a user of another branch', options, async () => {
   assertEquals((await asOwner('deactivate', { uid: outsider.id })).code, 'not-found');
   assertEquals((await profileOf(outsider.id))?.active, true);
+});
+
+// ---- reactivate (AUTH-02, SEC-04) -----------------------------------------------------------
+Deno.test(
+  'reactivate: turns the account back on with the same role, code and password',
+  options,
+  async () => {
+    const user = await seedUser('returner', 'special_sales', branch);
+    await asOwner('deactivate', { uid: user.id });
+    assertEquals(await signIn(user), null);
+
+    const result = await asOwner('reactivate', { uid: user.id, deviceTag: 'A1B2' });
+    assertEquals(result.body, { uid: user.id, active: true });
+
+    const profile = await profileOf(user.id);
+    assertEquals([profile?.active, profile?.role], [true, 'special_sales']);
+    // The ban is lifted: the old password signs in again, and the session can read data.
+    const session = await signIn(user);
+    assert(session && (await sessionWorks(session)));
+
+    const [entry] = await auditOf('user.reactivate', user.id);
+    assertEquals(entry?.before, { active: false, role: 'special_sales' });
+    assertEquals(entry?.after, { active: true });
+    assertEquals(entry?.device_tag, 'A1B2');
+
+    // A forgotten password: the Owner can make a reset link again.
+    assertEquals((await asOwner('passwordResetLink', { uid: user.id })).status, 200);
+  },
+);
+
+Deno.test('reactivate: can be repeated on an account that is already on', options, async () => {
+  const user = await seedUser('still-here', 'sales', branch);
+  assertEquals((await asOwner('reactivate', { uid: user.id })).body, {
+    uid: user.id,
+    active: true,
+  });
+  assert(await signIn(user));
+});
+
+Deno.test('reactivate: cannot reach a user of another branch', options, async () => {
+  const leaver = await seedUser('other-leaver', 'sales', otherBranch);
+  await admin.from('profiles').update({ active: false }).eq('id', leaver.id);
+  assertEquals((await asOwner('reactivate', { uid: leaver.id })).code, 'not-found');
+  assertEquals((await profileOf(leaver.id))?.active, false);
 });
 
 // ---- signOutEverywhere (AUTH-04, SEC-13) --------------------------------------------------

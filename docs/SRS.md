@@ -56,7 +56,7 @@ Three roles cover the store's 20 users: the Owner, a few Special Sales who also 
 
 - Supabase has no built-in offline writes. Offline selling and clock-in need a local outbox (IndexedDB) with client-generated ids so a resent record is never saved twice. All other actions require internet.
 - The Supabase URL and anon key are public by design; security depends entirely on Row Level Security and database functions.
-- The Supabase Free plan pauses a project after a period without activity, and has no backups the store can restore from and no point-in-time recovery. A daily heartbeat keeps both projects active, and the database is backed up by the app's own encrypted backups (SYS-04). Features that need a paid plan are not used.
+- The Supabase Free plan pauses a project after a period without activity, and has no backups the store can restore from and no point-in-time recovery. A heartbeat keeps both projects active: every 6 hours it runs a real, read-only query (`public.heartbeat()`, callable by anon, reading no table), and only a 2xx answer counts, because a request the database refuses does not count as activity. The database is backed up by the app's own encrypted backups (SYS-04). Features that need a paid plan are not used.
 - Must comply with the Data Privacy Act of 2012 for customer names and phone numbers kept for utang.
 
 ## 3. Functional requirements
@@ -68,7 +68,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | AUTH-01 | Users sign in with email and password through Supabase Auth on their own phone or laptop. | M |
-| AUTH-02 | The Owner creates, edits, deactivates users and assigns one role each: Owner, Special Sales or Sales. A new user gets a one-time link to set their own password; the Owner never sets or sees a password. User codes are 2 to 6 letters or digits, unique per branch. The Owner cannot demote or deactivate their own account. Users are never hard-deleted. | M |
+| AUTH-02 | The Owner creates, edits, deactivates and reactivates users and assigns one role each: Owner, Special Sales or Sales. A new user gets a one-time link to set their own password; the Owner never sets or sees a password. User codes are 2 to 6 letters or digits, unique per branch. The Owner cannot demote or deactivate their own account. A reactivated user keeps their role, user code, history and password; if they forgot the password, the Owner makes a one-time reset link from the user's page, as for any active user. Users are never hard-deleted. | M |
 | AUTH-03 | Role and active flag are stored in the profiles table and can be changed only through an Owner-only Edge Function or database function, never by direct table writes. | M |
 | AUTH-04 | A user may be signed in on more than one of their own devices. The Owner can sign a user out of all devices (lost phone, staff leaving). | M |
 | AUTH-05 | The app locks after 15 minutes idle (configurable) and asks for the user's password to resume. A staff PIN is not used. | S |
@@ -77,12 +77,13 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| PROD-01 | Products have: name, SKU, category, selling price per piece, reorder level, active flag, photo. | M |
-| PROD-02 | Special Sales types the SKU manually when adding a product. SKUs are unique per branch; duplicates are rejected. | M |
-| PROD-03 | Special Sales and the Owner add products, categories and suppliers directly. | M |
-| PROD-04 | Edits and deactivation by Special Sales (name, SKU, price, category, unit) go through an Owner approval request; the Owner edits directly. | M |
-| PROD-05 | Every price change is logged with old price, new price, user and time. | M |
-| PROD-06 | Bulk import and export products by CSV (Owner only). | S |
+| PROD-01 | Products have: name, SKU, category, unit, selling price per unit, reorder level, active flag, photo. The unit is one of pc (default), pack, box, bottle, can, sachet, set, pair, roll; the price and every quantity (stock-in, sale, count) are per that unit, in whole numbers. An item sold in two units (for example per stick and per pack) is two products, each with its own SKU, price and stock. | M |
+| PROD-02 | Special Sales types the SKU manually when adding a product: 1 to 20 letters, digits or dashes, saved in capitals. SKUs are unique per branch whatever their case; duplicates are rejected. No barcodes. | M |
+| PROD-03 | Special Sales and the Owner add products, categories and suppliers directly. Category and supplier names are trimmed and unique per branch whatever their case. Nothing is deleted: a deactivated category or supplier stays on existing products and history but cannot be chosen for new ones, and a category that still has active products cannot be deactivated ("Move or deactivate its N products first"). | M |
+| PROD-04 | Edits and deactivation by Special Sales (name, SKU, category, unit, price, reorder level, deactivate or reactivate) go through an Owner approval request (SRS 3.9); the Owner edits directly. Categories and suppliers are changed by the Owner only, with no requests: Special Sales asks the Owner in person. | M |
+| PROD-05 | Every price is logged in `price_changes` with old price, new price, who (and their name at the time), device and time, including the first price when a product is added. The product page shows its price history, newest first, to the Owner and Special Sales. | M |
+| PROD-06 | Export the product list as CSV (Owner only): SKU, name, category, unit, price, reorder level, active, stock on hand, average cost. The file opens correctly in Excel: UTF-8 with a BOM (₱ and ñ intact), plain numbers without ₱ or thousands separators. Each export is in the audit log. SKUs of only digits and dashes are written so Excel keeps them as text, and text Excel would read as a formula starts with an apostrophe. Bulk import by CSV comes later (build step 15). | S |
+| PROD-07 | A product has at most one photo. It is resized in the browser into a 200 px square for lists and an 800 px version for the product page (JPEG), stored at a path that never changes and cached by the browser for a year; a product without a photo shows a plain icon. The Owner adds, replaces and removes photos. Special Sales adds a photo when creating a product or to a product without one; replacing or removing it goes through "Request a change" (PROD-04). Sales see photos only. Files nothing uses any more are deleted. | S |
 
 ### 3.3 Point of sale (POS)
 
@@ -115,14 +116,14 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| INV-01 | Every quantity change writes a stock movement: sale, void, return, stock-in, adjustment, count correction. | M |
-| INV-02 | Stock-in (Special Sales, Owner): search the product by name or SKU, type the quantity and unit cost, with optional supplier and DR/invoice number. Applied immediately. | M |
+| INV-01 | Every quantity change writes a stock movement (append-only): sale, void, return, stock-in, stock-in reversal, adjustment, count correction. Stock-ins, adjustments and corrections never take stock below zero ("Only N in stock; this would leave −M"); only a sale may (POS-09). | M |
+| INV-02 | Stock-in (Special Sales, Owner): search the product by name or SKU, type the quantity (whole units) and unit cost (at least ₱0.01), with optional supplier and DR/invoice number. Each product once per stock-in ("Chips Classic is already on line 3"); active products and suppliers only; up to 100 lines. Applied immediately. The stock on the shelves at go-live is entered the same way, as a stock-in with the reference "Opening stock", no supplier, and an estimated unit cost (never ₱0). | M |
 | INV-03 | A new product can be created during stock-in, with its SKU typed manually. | M |
-| INV-04 | Adjustments (damage, loss, expiry, found items) and corrections or deletions of past stock-ins: Special Sales submits an Owner approval request with a reason; the Owner applies them directly. | M |
-| INV-05 | Low-stock list of products at or below reorder level, shown on the dashboard. | M |
-| INV-06 | Stock movement history per product, filterable by date and type. | M |
+| INV-04 | Adjustments (damage, loss, expiry, found, store use, other) and corrections or deletions of past stock-ins (quantity, unit cost, supplier, reference): Special Sales submits an Owner approval request with a reason, for their own stock-ins only; the Owner applies them directly. The original stock-in is never edited or deleted: a correction posts reversing and new movements and recomputes the cost. | M |
+| INV-05 | Low-stock list of active products with a reorder level and stock at or below it: a card on the Owner's home and a "Low stock only" filter on Products. | M |
+| INV-06 | Stock movement history per product, filterable by date and type, for the Owner and Special Sales; the cost per unit is shown to the Owner only. Sales see stock levels only. | M |
 | INV-07 | Physical count: enter counted quantities; the differences are submitted together as one approval request. | S |
-| INV-08 | Cost price updates on stock-in use weighted average cost. | S |
+| INV-08 | Cost price updates on stock-in use weighted average cost: (stock on hand × average + quantity × unit cost) ÷ new stock, or the delivery's unit cost when nothing is on hand. A correction revalues only the units of that delivery still on hand (at most its quantity) from the old to the corrected cost; units already sold keep the cost recorded with the sale, so past profit never changes. Costs are visible to the Owner only, except that whoever recorded a stock-in sees the unit costs they typed on it. | S |
 
 ### 3.6 Customers and credit (CRED)
 
@@ -149,7 +150,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| SYS-01 | Store settings: name, address, contact, TIN, receipt footer, sales discount limit, idle lock time. | M |
+| SYS-01 | Store settings (Owner only): name, address, contact, TIN, receipt footer, sales discount limit, idle lock time, and the store's location and clock-in radius (ATT-02). The Owner sets the location with "Use my current location" (browser geolocation, while standing in the store) or by typing the coordinates, for example copied from Google Maps; the radius defaults to 100 m. Until a location is set, Store settings shows a reminder. Every change is audit-logged with old and new values. | M |
 | SYS-02 | Each browser creates a 4-character device tag on first sign-in, stored locally and registered in the devices table, used in receipt numbers and the audit log. The Owner can see each user's active devices. | M |
 | SYS-03 | Audit log of sensitive actions: sign-in, user and role changes, price changes, approval requests and decisions, voids, refunds, stock adjustments, slip re-shares. Read-only. | M |
 | SYS-04 | Encrypted backups of the whole database (including user accounts) made by a GitHub Actions workflow, never in the browser. The **developer who maintains the system** makes and keeps them; the store's Owner has no GitHub access. **Manual:** at least every 7 days the developer runs it, downloads the file (kept on GitHub for 1 day) and saves it to their PC and Google Drive. **Nightly:** production only, kept on GitHub for 7 days as a safety net. Files are encrypted to a key the developer keeps offline. The developer is emailed when the last manual production backup is more than 7 days old (after go-live) or a nightly run fails. The app shows the Owner the last backup date, read-only, and a calm note on their home screen when a backup is overdue ("Your system administrator has been notified"), with no steps to follow. | M |
@@ -159,27 +160,29 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | APPR-01 | These actions by non-Owners create an approval request instead of applying: product edit or deactivation, stock adjustment, correcting or deleting a stock-in, physical count differences, sale correction, void, return/refund, discount over limit, credit sale over limit. | M |
-| APPR-02 | A request stores what changes (before and after), the reason, the requester and the time. Nothing changes until the Owner approves. | M |
+| APPR-02 | A request stores what changes (the requested fields as they were then, and as requested), the reason (required), the requester and the time. Nothing changes until the Owner approves. A requester has at most one pending request per item, and may withdraw it while it is pending (status "withdrawn", audit-logged). Requests do not expire. | M |
 | APPR-03 | The Owner gets a push notification and a pending list, and approves or rejects with an optional note. | M |
-| APPR-04 | On approval, the decide\_approval database function applies the change in one transaction, writes the stock movement if any, and logs it. | M |
-| APPR-05 | The requester sees the status of their requests and the Owner's note. | M |
+| APPR-04 | On approval, the database applies the change exactly as requested in one transaction, with the same checks as the Owner's own edit, writes the stock movement if any, and logs it. If the item changed after the request was made (any requested field differs from the value then), the request is **outdated**: it shows the current, original and requested values, cannot be approved, only rejected, and the requester makes a new one. The Owner approves as requested or rejects; there is no "approve with changes". | M |
+| APPR-05 | The requester sees the status of their requests (pending, approved, rejected, withdrawn, outdated) and the Owner's note, live, under My requests. | M |
+
+Build step 3 delivers the requests and the product edit type. Stock adjustments and stock-in corrections followed in step 4. The other types in APPR-01 arrive with the features they change: physical counts (step 15), discounts, voids, returns and sale corrections (steps 9 and 10), credit over the limit (step 12). Push notifications come in step 6; until then the Owner sees a live count in the app.
 
 ### 3.10 Attendance (ATT)
 
-Staff clock in once a day on their own device, with no clock-out, and the store's location decides whether it counts. The rules follow the attendance policy already used for pos-erag; every value is a setting the Owner can change.
+Staff clock in once a day on their own device, with no clock-out, and the store's location decides whether it counts. The defaults follow the attendance policy already used for pos-erag; every value is a setting the Owner can change, because the store's own times and rules are confirmed only at handover.
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| ATT-01 | Each user clocks in once per day with one tap from their own device. There is no clock-out. A second clock-in on the same day is refused. | M |
-| ATT-02 | At clock-in the app reads the device location (browser Geolocation API, high accuracy) and checks its distance from the store's set coordinates against a radius set by the Owner. | M |
+| ATT-01 | Each staff member (Special Sales and Sales) clocks in once per day with one tap from their own device. There is no clock-out. A second clock-in on the same day is refused. The Owner does not clock in, unless the Owner turns on "Owner clocks in too" in attendance settings (off by default). | M |
+| ATT-02 | At clock-in the app reads the device location (browser Geolocation API, high accuracy) and checks its distance from the store's set coordinates against the radius set by the Owner (default 100 m). Until the Owner sets the store's location (SYS-01), the location check is off: clock-ins are allowed and recorded as "store location not set". | M |
 | ATT-03 | Inside the radius: allowed. Location found with good accuracy but outside the radius: blocked, showing how far away the user is. | M |
 | ATT-04 | Location not detected (permission denied, GPS off, timeout, or accuracy worse than the radius): allowed with a warning; the record is flagged "location not verified" for the Owner to review. | M |
 | ATT-05 | Location is captured only at the moment of clock-in (latitude, longitude, accuracy, distance). It is never tracked in the background. | M |
-| ATT-06 | Late rule: clocking in after the set clock-in time plus the grace period records the late penalty. Defaults from pos-erag: morning 6:00 AM, afternoon 1:00 PM, 15-minute grace, ₱50 penalty. The shift is matched by the clock-in time. | M |
-| ATT-07 | Attendance settings screen (Owner only): set the clock-in time for each shift, the grace period in minutes, and the late penalty amount in pesos. | M |
+| ATT-06 | Late rule: a clock-in after the shift's clock-in time plus the grace period is late, and the minutes late are counted from the clock-in time. Lateness is always recorded (late count, minutes late). What it costs is the Owner's choice of **late deduction**: **None** (default); **Pay for the minutes late only**: daily rate ÷ paid minutes per day (default 480) × minutes late; or **Flat amount** per late day (default ₱0). The shift is matched by the clock-in time. Defaults: morning 6:00 AM, afternoon 1:00 PM, 15-minute grace. *Note:* under Philippine labor rules, deductions from wages are restricted (Labor Code Art. 113), and a flat fine larger than the pay for the time actually missed may not be allowed, while not paying for the minutes not worked generally is. The store owner decides which rule to use, ideally after checking with their accountant or DOLE; the app does not give legal advice. | M |
+| ATT-07 | Attendance settings screen (Owner only): the clock-in time for each shift, the grace period in minutes, the late deduction (none, minutes late, or flat amount) with its amount or paid minutes per day, whether a day that starts with the afternoon shift counts as a full or half day (default half), and whether the Owner clocks in too (default off). | M |
 | ATT-08 | The Owner can give a staff member their own clock-in time, which replaces the shift time for that person only. | S |
-| ATT-09 | A settings change applies from the next clock-in onward. Each record stores the clock-in time, grace and penalty used, so past records and pay never change. Every change is audit-logged with old and new values. | M |
-| ATT-10 | Pay for a day = daily rate (a day starting with the afternoon shift counts as a full or half day, per Owner setting) minus any late penalty. No hours or overtime are computed. Daily rates are visible to the Owner only. | M |
+| ATT-09 | A settings change applies from the next clock-in onward. Each record stores the clock-in time, grace, late rule and amounts used, so past records and pay never change. Every change is audit-logged with old and new values. | M |
+| ATT-10 | Pay for a day = daily rate × day credit (1 for a day starting with the morning shift; 0.5 by default for a day starting with the afternoon shift, or 1 if the Owner sets it to a full day) minus the late deduction (ATT-06). No hours or overtime are computed. Daily rates are visible to the Owner only. | M |
 | ATT-11 | Forgot to clock in, or wrongly flagged: the staff member submits a correction request with a reason, or the Owner adds or edits the record directly with a reason. | M |
 | ATT-12 | Clock-in works offline: device time and location are saved locally and synced later. The server time is recorded on sync, and a gap of more than 5 minutes is flagged. | M |
 | ATT-13 | The clock\_in database function computes distance, lateness, penalty and day credit on the server for every record, so a tampered client cannot change them. | M |
@@ -234,14 +237,15 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 
 | Table | Key columns | Written by |
 | --- | --- | --- |
-| `branches` | name, address, contact, tin, receipt\_footer, sales\_discount\_limit, idle\_lock\_minutes, store\_lat, store\_lng, radius\_m, morning\_clock\_in, afternoon\_clock\_in, grace\_minutes, late\_penalty, afternoon\_day\_credit | Owner |
+| `branches` | name, address, contact, tin, receipt\_footer, sales\_discount\_limit, idle\_lock\_minutes, store\_lat, store\_lng, radius\_m, morning\_clock\_in, afternoon\_clock\_in, grace\_minutes, late\_deduction, late\_penalty, paid\_minutes\_per\_day, afternoon\_day\_credit, owner\_clocks\_in | Read by the branch's active users; written by the Owner through `update_branch_settings` |
 | `profiles` | id (= auth user id), display\_name, role (owner, special\_sales, sales), user\_code, branch\_id, active, clock\_in\_override, created\_at | Owner-only Edge Function / function |
 | `devices` | user\_id, device\_tag, label, push\_subscription, last\_seen\_at | The user (own rows) |
 | `pay_rates` | user\_id, daily\_rate, effective\_from, updated\_by | Owner only (read and write) |
-| `categories` | branch\_id, name, active | Special Sales (create), Owner |
-| `suppliers` | branch\_id, name, contact\_person, phone, address, active | Special Sales (create), Owner |
-| `products` | branch\_id, sku (unique per branch), name, category\_id, sell\_price, stock\_qty, reorder\_level, image\_path, active, updated\_at | Special Sales (create), Owner (edit); `stock_qty` only via functions |
-| `product_costs` | product\_id, cost\_price (weighted average), updated\_at | Functions only; Owner-only read |
+| `categories` | branch\_id, name (unique per branch, case-insensitive), active | Read by the branch; created by Special Sales and the Owner, changed by the Owner, through functions |
+| `suppliers` | branch\_id, name (unique per branch, case-insensitive), contact\_person, phone, address, active | Owner and Special Sales read; created by both, changed by the Owner, through functions |
+| `products` | branch\_id, sku (unique per branch), name, category\_id, unit, sell\_price, stock\_qty, reorder\_level, photo\_key (the current photo, PROD-07), active, updated\_at | create\_product, update\_product, set\_product\_photo and approved requests; `stock_qty` only via stock functions |
+| `price_changes` | product\_id, old\_price, new\_price, source (created, owner\_edit, approval, import), changed\_by, changed\_by\_name, device\_tag, created\_at | Functions only; append-only; Owner and Special Sales read |
+| `product_costs` | product\_id, cost\_price (weighted average, 4 decimals), updated\_at | Functions only; Owner-only read |
 | `customers` | branch\_id, name, phone, address, credit\_limit, balance, active | Sales (create), Owner (edit); `balance` only via functions |
 | `drawer_sessions` | branch\_id, business\_date (unique per branch), opened\_by, opening\_cash, prefill\_difference, closed\_by, counted\_cash, expected\_cash, over\_short, status | open\_drawer / close\_drawer functions |
 | `drawer_entries` | session\_id, type (cash\_in, cash\_out), amount, reason, user\_id, created\_at | Function; append-only |
@@ -249,11 +253,12 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 | `sale_items` | sale\_id, product\_id, name, sku, qty, unit\_price, unit\_cost, discount, line\_total | complete\_sale only |
 | `sale_payments` | sale\_id, method (cash, gcash, maya, credit), amount, reference | complete\_sale only; duplicate GCash/Maya references checked |
 | `returns` | sale\_id, items (jsonb), refund\_amount, refund\_method, reason, approval\_id, created\_at | Approval function |
-| `stock_receipts`, `stock_receipt_items` | supplier\_id, reference, received\_by, created\_at; product\_id, qty, unit\_cost | record\_stock\_in function |
-| `stock_movements` | product\_id, type (sale, void, return, stock\_in, adjustment, count), qty\_change, unit\_cost, ref\_type, ref\_id, user\_id, device\_tag, created\_at | Functions only; append-only |
+| `stock_receipts`, `stock_receipt_items` | supplier\_id, reference, received\_by, received\_by\_name, device\_tag, created\_at, corrects\_receipt\_id (a correction replaces one earlier stock-in, at most once), is\_deletion, corrected\_by, corrected\_by\_name; line\_no, product\_id (once per receipt), qty, unit\_cost | record\_stock\_in and correction functions; never edited or deleted; the Owner reads all, the receiver reads their own (with costs), including corrections of them |
+| `stock_movements` | product\_id, type (stock\_in, stock\_in\_reversal, adjustment, sale, void, return, count), qty\_change, stock\_after, unit\_cost, ref\_type, ref\_id, user\_id, user\_name, device\_tag, created\_at | Functions only; append-only; Owner reads directly, Special Sales through product\_stock\_history (no cost) |
+| `stock_adjustments` | product\_id, type (damage, loss, expiry, found, store\_use, other), qty\_change, reason, unit\_cost (average at the time), created\_by, created\_by\_name, approval\_id, device\_tag, created\_at | adjust\_stock (Owner) or an approved request; append-only; Owner-only read |
 | `credit_ledger` | customer\_id, type (charge, payment), amount, sale\_id, method, reference, user\_id, created\_at | Functions only; append-only |
-| `approval_requests` | type, target\_type, target\_id, before (jsonb), after (jsonb), reason, requested\_by, status (pending, approved, rejected), decided\_by, decided\_at, owner\_note, created\_at | Requester creates pending; decide\_approval (Owner only) |
-| `attendance` | user\_id, work\_date (unique per user), shift\_slot, device\_at, server\_at, lat, lng, accuracy\_m, distance\_m, location\_status, scheduled\_clock\_in, grace\_minutes, late\_minutes, late\_penalty, day\_credit, flags, edited\_by, edit\_reason | clock\_in function; Owner edits with reason |
+| `approval_requests` | type (product\_edit, stock\_adjustment, stock\_in\_correction; later steps add theirs), target\_type (product, stock\_receipt), target\_id, before (jsonb), after (jsonb), reason, requested\_by, status (pending, approved, rejected, withdrawn), decided\_by, decided\_at, owner\_note, created\_at | Created by request functions (one pending per type, item and requester); withdraw\_request (requester); decide\_approval (Owner only) |
+| `attendance` | user\_id, work\_date (unique per user), shift\_slot, device\_at, server\_at, lat, lng, accuracy\_m, distance\_m, location\_status, scheduled\_clock\_in, grace\_minutes, late\_minutes, late\_deduction, day\_credit, flags, edited\_by, edit\_reason | clock\_in function; Owner edits with reason |
 | `payroll_runs` | period\_start, period\_end, status (draft, finalized), totals, finalized\_by, finalized\_at; finalized ranges may not overlap | Owner only |
 | `payslips` | run\_id, user\_id, full\_days, half\_days, daily\_rate, gross\_pay, late\_penalties, additions (jsonb), deductions (jsonb), net\_pay, paid\_at, paid\_method, paid\_reference | Drafted by function; Owner edits until finalized; staff read own finalized |
 | `cash_advances` | user\_id, amount, advance\_date, note, remaining, status (open, deducted) | Owner only |
@@ -289,7 +294,7 @@ Role and active flag live in `profiles`. RLS policies check them through small h
 
 | Action | Owner | Special Sales | Sales |
 | --- | --- | --- | --- |
-| Clock in (own, at the store) | Optional | Yes | Yes |
+| Clock in (own, at the store) | Only if "Owner clocks in too" is on (off by default) | Yes | Yes |
 | Request an attendance correction | No | Yes | Yes |
 | View own attendance, penalties and finalized payslips | Yes | Yes | Yes |
 | View and edit everyone's attendance; set store location, schedule and daily rates; approve corrections; run payroll, record cash advances, mark payslips paid | Yes | No | No |
@@ -313,7 +318,7 @@ Role and active flag live in `profiles`. RLS policies check them through small h
 ### 6.2 Row Level Security principles
 
 - Default deny: RLS is enabled on every table; a table with no policy for a role gives that role nothing. The `anon` role gets no access to any table.
-- Clients write through database functions only, except: creating categories, suppliers and customers, creating their own pending approval requests, and managing their own `devices` rows. Each of these policies checks role, active flag, own `user_id` and `branch_id`.
+- Clients write through database functions only, including creating categories, suppliers and approval requests. The exceptions are managing their own `devices` rows (build step 6) and uploading or deleting product photos in Storage (SEC-09); each of these policies checks role, active flag, own `user_id` and `branch_id`.
 - `sales`, `sale_items`, `sale_payments`, `stock_movements`, `credit_ledger`, `drawer_entries` and `audit_logs` have no UPDATE or DELETE grants for API roles. Corrections are new rows.
 - On `products`, UPDATE on `stock_qty` and `sell_price` is revoked from the `authenticated` role (column privileges); only functions change them.
 - `product_costs`, `pay_rates`, `payroll_runs`, `cash_advances` and cost/profit views are readable by the Owner only. Staff read only their own finalized `payslips`. Non-Owners read sale lines through a view without `unit_cost`.
@@ -330,12 +335,12 @@ The Supabase project URL and anon key are public by design, so anyone can call t
 | SEC-01 | Sign-up | "Allow new users to sign up" is off in Supabase Auth. Accounts are created only by an Owner-only Edge Function using the service role on the server. Supabase's default lets anyone with the public anon key sign up, so this closes the biggest backdoor. |
 | SEC-02 | Accounts | Policies require an active `profiles` row with a valid role. A user with no profile, or an inactive one, can read and write nothing. |
 | SEC-03 | First Owner | The first Owner is created once by a local script run with the service role key from the developer's machine (never committed), which refuses to run if an Owner exists and is deleted after use. No default credentials, hard-coded admins or hidden setup pages. |
-| SEC-04 | Deactivation | Deactivating sets `active = false`, bans the Auth user and signs out all sessions in one Edge Function call. Because RLS reads `active` live, access ends immediately. |
+| SEC-04 | Deactivation | Deactivating sets `active = false`, bans the Auth user and signs out all sessions in one Edge Function call. Because RLS reads `active` live, access ends immediately. Reactivating sets `active = true` and lifts the ban in one Edge Function call, by an active Owner of the same branch with the second step (SEC-05), and is written to the audit log. |
 | SEC-05 | Owner login | The Owner account requires TOTP two-factor; Owner-only data requires an `aal2` session. Staff passwords: minimum 10 characters. Supabase's leaked-password protection needs a paid plan, so the app checks a new password against Have I Been Pwned's Pwned Passwords range API before saving it: only the first 5 characters of its SHA-1 hash leave the device, and a password found in a breach is refused. If the service cannot be reached, the password is accepted. This check runs in the browser, so it guards against careless choices, not a user who bypasses the app. |
 | SEC-06 | Bots and abuse | CAPTCHA (Cloudflare Turnstile) on sign-in and password reset; Supabase Auth rate limits tightened; Edge Functions verify the caller's JWT. |
 | SEC-07 | Policy depth | Column privileges, CHECK constraints (positive amounts, valid statuses) and input validation in every function. Only the needed schemas are exposed through the API, and GraphQL is disabled if unused. Sales see only what their screens need. |
 | SEC-08 | Functions | Every database function and Edge Function checks auth, role, active flag and input. No unauthenticated endpoints. |
-| SEC-09 | Storage | One `product-images` bucket: images under 2 MB, uploaded only by the Owner and Special Sales, via storage policies. |
+| SEC-09 | Storage | One `product-images` bucket, public to read (product photos are not sensitive, and fixed links keep egress low): JPEG only, at most 1 MB a file, at `products/<product>/<key>-200.jpg` and `-800.jpg`. Uploaded only by the Owner and Special Sales, for their branch's products; never overwritten; deleted by the Owner, or by the uploader for their own files, and never while a product or a pending request uses them. A photo shows only once `set_product_photo` or an approved request points the product at it. |
 | SEC-10 | Keys and access | The service role key and database password live only in Supabase secrets and GitHub environment secrets (production deploys need manual approval). Never in the frontend, repository or chat. Only the Owner is an owner of the Supabase organization; two-factor on Supabase, GitHub and Cloudflare accounts. |
 | SEC-11 | Repository | The repository is public: no secrets, keys, passwords, customer data or real store details in code, commit history, issues, pull requests or Actions logs; keys live only in GitHub environment secrets, Supabase and Cloudflare settings. Protected `main` (PR review and passing CI required), secret scanning and Dependabot on, `npm audit` in CI. No debug, test or seed routes in production builds; `seed.sql` is for local development only. |
 | SEC-12 | Web headers | The host sends Content-Security-Policy (own origin plus the Supabase project URL), HSTS, X-Frame-Options DENY, X-Content-Type-Options and a strict Referrer-Policy. No `dangerouslySetInnerHTML`. |
@@ -356,25 +361,50 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | --- | --- |
 | Frontend | React 18 + TypeScript, Vite, React Router |
 | UI | Tailwind CSS + shadcn/ui, responsive layouts for phone, tablet and laptop |
-| Data | `supabase-js` with TanStack Query; Supabase Realtime for live stock and approvals; Zustand for cart and session |
+| Data | `supabase-js` through a small live-list hook (`useLiveRows`: load the rows, then load them again when Supabase Realtime reports a change) for live stock and approvals; Zustand for cart and session |
 | Forms | React Hook Form + Zod |
 | Offline / install | `vite-plugin-pwa`; IndexedDB (Dexie) for the cached product list and the outbox of sales and clock-ins |
-| Product search | Client-side filtering of the cached product list (Fuse.js) |
+| Product search | Client-side filtering of the cached product list (a plain text match on name and SKU; a fuzzy matcher only if the store needs one) |
 | Location | Browser Geolocation API (`enableHighAccuracy`, 10 s timeout); distance computed again in `clock_in` |
 | Receipts | On-screen slip rendered to image or PDF and shared with the Web Share API; browser print as a fallback |
 | Notifications | Web Push (VAPID) sent by an Edge Function when an approval request is created |
 | Database | Supabase Postgres (Singapore): SQL migrations, RLS, security-definer functions, pg\_cron for scheduled jobs |
-| Edge Functions | Deno + TypeScript: `admin-users` (create, role, deactivate, sign out everywhere), `notify` (push) |
+| Edge Functions | Deno + TypeScript: `admin-users` (create, role, deactivate, reactivate, sign out everywhere, password reset link), `notify` (push) |
 | Auth | Supabase Auth: email and password, TOTP two-factor, Turnstile CAPTCHA |
 | Hosting | Cloudflare Pages (static SPA), headers in `apps/web/public/_headers` |
 | Testing | Vitest, pgTAP (`supabase test db`), Playwright for the checkout flow |
 
-### 7.2 Repository layout (monorepo)
+**Free plan.** The system runs on the Supabase Free plan permanently, so every design is checked against its quotas (as listed on supabase.com/pricing in October 2026): database 500 MB, file storage 1 GB, egress 5 GB plus cached egress 5 GB a month, Realtime 200 concurrent connections and 2 million messages a month, Edge Functions 500,000 invocations a month, no server-side image transformations, and a pause after a week without user database activity (the heartbeat workflow prevents it with a query every 6 hours; GitHub Actions minutes are free in a public repository). Product photos are resized in the browser and cached for a year at paths that never change, which keeps their egress to a few hundred MB a month.
+
+**Must fix before checkout (build step 9) goes live:** `useLiveRows` loads a whole list again on every change. For the product list (about 100 KB for 500 products) that is fine while only stock-ins and edits change products, but once every sale changes `stock_qty`, 500 sales a day on 20 phones would be about 1 GB of egress a day, and the Realtime messages would approach the monthly quota. Build step 7 changes it to apply only the changed row from the Realtime message, and the Realtime message count is checked again then.
+
+### 7.2 UI design
+
+The UI reference is the Claude Design project **POS** (in the developer's Claude Design account; the link is not published here because the repository is public), built on its design system **organic**. New screens follow it, and existing screens are brought in line with it step by step. Its screen files and the build step each belongs to:
+
+| Screen file | Build step |
+| --- | --- |
+| `Sign-in.dc.html`, `Nav.dc.html`, `Settings.dc.html` | Foundation and 1 (built) |
+| `Inventory.dc.html` | 2, 4 and 5 (built: products, stock) |
+| `Approvals.dc.html` | 3 (built) |
+| `Stock-in.dc.html` | 4 (built) |
+| `Cash Drawer.dc.html` | 8 |
+| `POS Index.dc.html`, `POS Checkout.dc.html`, `POS Payment.dc.html` | 9 |
+| `Sales History.dc.html` | 9 and 10 |
+| `Clock-in.dc.html`, `Attendance.dc.html` | 11 |
+| `Customers.dc.html` | 12 |
+| `Dashboard.dc.html`, `Reports.dc.html` | 13 (the home page until then) |
+| `Payroll.dc.html` | 14 |
+
+Where a design shows something this SRS leaves out or has dropped (for example barcode scanning or CSV import before step 15), the SRS wins and the screen is built without it.
+
+### 7.3 Repository layout (monorepo)
 
 ```
 POS/
   apps/web/              React PWA
-    src/features/        auth, pos, inventory, customers, attendance, payroll, reports, settings
+    src/features/        auth, users, audit, settings, store, backups, catalog, approvals, stock, home
+                         (pos, drawer, customers, attendance, payroll, reports come with their steps)
     src/lib/supabase.ts
     src/lib/outbox.ts
   supabase/
@@ -387,7 +417,7 @@ POS/
   .github/workflows/     ci.yml, deploy.yml, heartbeat.yml
 ```
 
-### 7.3 Environments and deployment
+### 7.4 Environments and deployment
 
 | Environment | Supabase | Frontend | Deployed from |
 | --- | --- | --- | --- |
@@ -400,7 +430,7 @@ POS/
 - Deploy: GitHub Actions applies migrations with `supabase db push` and deploys Edge Functions with `supabase functions deploy`, using secrets in a GitHub environment that requires manual approval for production. Cloudflare Pages deploys the frontend from the same branches.
 - Config: `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` per environment. The service role key never reaches the frontend.
 
-### 7.4 Migration from the Firebase build
+### 7.5 Migration from the Firebase build
 
 Phase 0 was first built on Firebase. The UI, design tokens, routing and app shell carry over unchanged; the backend layer is replaced, and all Firebase code, config and dependencies are removed.
 
@@ -410,7 +440,7 @@ Phase 0 was first built on Firebase. The UI, design tokens, routing and app shel
 | Firebase Auth email + password, TOTP second factor | Supabase Auth email + password, TOTP MFA (`aal2`) |
 | Custom claims (role, branchId, active) | `profiles` table read live by RLS helpers; no token-expiry gap after a role change or deactivation |
 | Blocking `beforeUserSignedIn` (refuse accounts without claims, log sign-ins) | Sign-in proceeds, then the app loads the profile and signs out users with no active profile; RLS denies them anyway. Sign-ins are logged by a `record_sign_in` function called after sign-in, plus Supabase Auth logs |
-| Callable functions `createUser`, `updateUser`, `setUserRole`, `deactivateUser`, `signOutEverywhere`, `createPasswordResetLink` | Edge Function `admin-users` with the same actions, same Zod schemas and the same Owner-only guard (JWT, role, active, `aal2`) |
+| Callable functions `createUser`, `updateUser`, `setUserRole`, `deactivateUser`, `signOutEverywhere`, `createPasswordResetLink` | Edge Function `admin-users` with the same actions plus `reactivate` (AUTH-02), same Zod schemas and the same Owner-only guard (JWT, role, active, `aal2`) |
 | Shared guard incl. App Check | Same guard minus App Check; Turnstile CAPTCHA on sign-in and password reset instead |
 | `users/{uid}`, `users/{uid}/devices/{tag}`, `auditLogs` | `profiles`, `devices`, `audit_logs` tables |
 | `firestore.rules`, `storage.rules` and rules tests | RLS policies and storage policies in migrations, with pgTAP tests porting the same cases |
@@ -425,11 +455,31 @@ Phase 0 was first built on Firebase. The UI, design tokens, routing and app shel
 The store can start selling after Phase 2; each later phase ships on its own.
 
 1. **Phase 0 – Foundation.** Repo, CI/CD, staging and production Supabase projects, local Supabase, Supabase migrations, auth with roles in profiles, user management, device tags, settings.
-2. **Phase 1 – Catalog, inventory and approvals.** Products with manual SKUs, categories, suppliers, CSV import, stock-in, movement history, low-stock list, approval requests with push notifications to the Owner.
+2. **Phase 1 – Catalog, inventory and approvals.** Products with manual SKUs, categories, suppliers, photos, CSV export, stock-in, movement history, low-stock list, approval requests with push notifications to the Owner.
 3. **Phase 2 – POS and attendance (go-live gate).** Checkout by name search, category or SKU; cash, GCash and Maya; digital slips; daily cash drawer with closing count; offline mode; voids and returns through approval; audit log. Attendance with location check, late deductions and correction requests, and the Owner's attendance board. Gate: one week of parallel run against the store's current method with zero stock, cash or attendance discrepancies traced to the system.
 4. **Phase 3 – Credit.** Customers, credit sales, utang payments, ledger, aging report.
 5. **Phase 4 – Reports.** Dashboard, report views, sales and profit reports, attendance summaries, payroll runs with payslips and cash advances, CSV export, backups verified.
-6. **Phase 5 – Polish.** Held sales, physical count, Bluetooth thermal printing if the owner wants paper slips.
+6. **Phase 5 – Polish.** Held sales, physical count, CSV import of products, Bluetooth thermal printing if the owner wants paper slips.
+
+### Build order
+
+The phases above are built in this order, one step (one or a few pull requests) at a time:
+
+1. Store settings: details, location for clock-in, attendance rules (**done**)
+2. Product catalog: categories, suppliers, products with manual SKU, price log (**done**)
+3. Owner approval requests (**done**)
+4. Stock-in, stock movements, low stock, cost; adjustments and stock-in corrections (**done**)
+5. Product photos and CSV export
+6. Push notifications to the Owner
+7. Installable app, offline product list and offline queue
+8. Cash drawer
+9. Checkout: search, cart, payments, receipts, digital slip
+10. Voids, returns, sale corrections
+11. Attendance with location check and late rules, then **one week running beside the store's current method before go-live** (the Phase 2 gate)
+12. Customer credit (utang)
+13. Owner dashboard and reports
+14. Payroll
+15. Polish: held sales, physical count, CSV import of products, printing
 
 ### Open questions
 
@@ -438,9 +488,11 @@ The store can start selling after Phase 2; each later phase ships on its own.
 - [ ] Is VAT applicable (VAT-registered or non-VAT)? This changes receipt fields and price display.
 - [ ] Should credit customers be shared across future branches or kept per branch?
 - [ ] Are digital slips enough, or does the store want paper slips from a printer?
-- [ ] Should SKUs follow a pattern (for example a category prefix plus a number) so the app can suggest the next free one?
-- [ ] What are this store's coordinates and allowed radius (suggested starting point: 100 m, or whatever pos-erag uses)?
-- [ ] Do this store's shift start times (6:00 AM, 1:00 PM) and ₱50 late deduction match pos-erag, or do they differ?
-- [ ] Does a day that starts with the afternoon shift count as a full day or a half day of pay?
-- [ ] Does the Owner clock in too, or only staff?
-- [ ] Is there an existing product list (spreadsheet) to import, and roughly how many items?
+- [x] Should SKUs follow a pattern so the app can suggest the next free one? *Not known yet: SKUs are free-form (PROD-02); "suggest the next number" can be added later.*
+- [x] What are this store's coordinates and allowed radius? *Set by the Owner at handover in Store settings; radius 100 m by default; location check off until set.*
+- [x] Do this store's shift start times and late deduction match pos-erag? *Not known yet: defaults 6:00 AM / 1:00 PM / 15-minute grace, editable; late deduction none by default, with "minutes late" or a flat amount (₱0 by default) as Owner choices (ATT-06).*
+- [x] Does a day that starts with the afternoon shift count as a full day or a half day of pay? *Half day by default, editable by the Owner.*
+- [x] Does the Owner clock in too, or only staff? *Staff only by default; the Owner can turn on "Owner clocks in too".*
+- [ ] Is there an existing product list (spreadsheet) to import, and roughly how many items? *To find out at handover; products are entered by hand until CSV import (build step 15).*
+- [ ] Does the store sell anything by weight or length (kg, g, L, m)? That needs decimal quantities in stock-in, checkout and the offline queue, so it must be decided before checkout (build step 9).
+- [ ] Does the store sell the same item in two units (for example per stick and per pack)? For now that is two products, each with its own SKU, price and stock.

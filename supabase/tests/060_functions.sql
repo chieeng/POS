@@ -365,6 +365,59 @@ select is(
   'a user of another branch cannot be turned off'
 );
 
+-- ---- admin_reactivate (AUTH-02, SEC-04) --------------------------------------------------
+select is(
+  tests.message(
+    'service', $$select public.admin_reactivate(tests.uid('owner'), tests.uid('special'), 'A1B2')$$
+  ),
+  'ok',
+  'the Owner turns an account back on'
+);
+select is(
+  (select active::text || ' ' || role || ' ' || user_code from public.profiles where id = tests.uid('special')),
+  'true special_sales SP',
+  'it is active again, with the same role and user code'
+);
+select is(
+  (
+    select (before ->> 'active') || ' ' || (after ->> 'active') || ' ' || device_tag
+    from public.audit_logs where action = 'user.reactivate' and target_id = tests.uid('special')::text
+  ),
+  'false true A1B2',
+  'the reactivation is logged'
+);
+select is(
+  tests.message('service', $$select public.admin_reactivate(tests.uid('owner'), tests.uid('special'))$$),
+  'ok',
+  'reactivating an account that is already on can be repeated'
+);
+select is(
+  tests.message('service', $$select public.admin_reactivate(tests.uid('owner'), tests.uid('owner'))$$),
+  'self_forbidden',
+  'the Owner cannot reactivate their own account'
+);
+select is(
+  tests.message('service', $$select public.admin_reactivate(tests.uid('owner9'), tests.uid('former'))$$),
+  'user_not_found',
+  'a user of another branch cannot be turned back on'
+);
+select is(
+  (select active from public.profiles where id = tests.uid('former')),
+  false,
+  'and stays off'
+);
+select is(
+  tests.message('service', $$select public.admin_reactivate(tests.uid('sales'), tests.uid('former'))$$),
+  'not_owner',
+  'only the Owner can reactivate'
+);
+select is(
+  tests.run(caller, $$select public.admin_reactivate(tests.uid('owner'), tests.uid('former'))$$),
+  '42501',
+  caller || ' cannot call admin_reactivate directly'
+)
+from unnest(tests.everyone()) as caller;
+
 -- ---- admin_sign_out_everywhere (AUTH-04, SEC-13) -----------------------------------------
 insert into auth.sessions (id, user_id, created_at, updated_at)
 values (gen_random_uuid(), tests.uid('sales'), now(), now()), (gen_random_uuid(), tests.uid('sales'), now(), now());

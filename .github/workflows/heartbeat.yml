@@ -1,21 +1,29 @@
 name: Heartbeat
 
-# Free Supabase projects are paused after about a week without activity. This sends one
-# small request a day to each project so that does not happen while they are on the Free plan.
+# Free Supabase projects are paused after a week without "user database activity". This runs
+# one tiny database query on each project every 6 hours so that does not happen while they are
+# on the Free plan.
 #
 # It needs NO secrets. It uses only public values (SRS 6.3), set as repository variables
 # (GitHub > Settings > Secrets and variables > Actions > Variables):
 #   STAGING_SUPABASE_URL, STAGING_SUPABASE_ANON_KEY
 #   PROD_SUPABASE_URL,    PROD_SUPABASE_ANON_KEY
-# A project whose variables are missing is skipped with a warning.
+# The *_ANON_KEY variables hold the projects' publishable keys (sb_publishable_...). A project
+# whose variables are missing is skipped with a warning.
 #
-# The request asks the REST API for one `profiles` row as an anonymous visitor. Row Level
-# Security refuses it, which is the expected answer: the point is that the request reaches
-# the database. Any answer from a running project counts as alive; a paused or unreachable
-# project fails the run, and GitHub emails the repository owner.
+# The request calls public.heartbeat() through the REST API as an anonymous visitor: a real,
+# read-only query that returns the database clock and touches no table. Only a 2xx answer with
+# a timestamp counts as alive. Anything else fails the run, and GitHub emails the repository
+# owner: 401/403 (key or grant broken), 404 (function not deployed), 5xx or 000 (paused or
+# unreachable). A refused request does not count as activity: the earlier ping read `profiles`,
+# got 401 every day, and pos-prod was paused anyway.
 #
-# It also reminds the developer to make a backup (SYS-04): the run fails, so GitHub emails
-# the repository owner, when the last successful MANUAL production backup is more than 7 days
+# Every 6 hours because GitHub starts scheduled runs late (often hours) and can skip one under
+# load; four tries a day stay well inside the 7-day window even if several are lost.
+#
+# It also reminds the developer to make a backup (SYS-04), on the first run of the day only so
+# an overdue backup sends one email a day, not four: the run fails, so GitHub emails the
+# repository owner, when the last successful MANUAL production backup is more than 7 days
 # old. It reads that from the Backup workflow's own run history, not the database, so this
 # workflow still needs no secrets: a manual run succeeds only after its last step has added
 # the row to public.backup_log. Before go-live (repository variable GO_LIVE not "true") an
@@ -26,7 +34,8 @@ name: Heartbeat
 # workflow, which restarts that countdown.
 on:
   schedule:
-    - cron: '17 3 * * *' # daily, 11:17 in Manila
+    - cron: '17 3 * * *' # 11:17 in Manila; the first run of the day also checks the backup
+    - cron: '17 9,15,21 * * *' # 17:17, 23:17 and 05:17 in Manila
   workflow_dispatch:
 
 permissions:
@@ -57,25 +66,34 @@ jobs:
               echo "::warning::$name: variables not set, skipped. See the header of heartbeat.yml."
               return
             fi
-            code=$(curl --silent --output /dev/null --max-time 30 --write-out '%{http_code}' \
-              -H "apikey: $key" -H "Authorization: Bearer $key" \
-              "$url/rest/v1/profiles?select=id&limit=1" || true)
-            # 2xx to 4xx: the project answered. 5xx (540 = paused) or 000 (no answer): not alive.
-            if [ "$code" -ge 200 ] 2>/dev/null && [ "$code" -lt 500 ]; then
-              echo "$name: alive (HTTP $code)"
+            out="$RUNNER_TEMP/heartbeat-$name"
+            rm -f "$out"
+            code=$(curl --silent --output "$out" --max-time 30 --write-out '%{http_code}' \
+              -H "apikey: $key" "$url/rest/v1/rpc/heartbeat" || true)
+            body=$(head -c 200 "$out" 2>/dev/null || true)
+            # Alive only on a 2xx carrying the database clock, e.g. "2026-10-30T03:38:17+00:00".
+            if [[ "$code" =~ ^2[0-9][0-9]$ ]] && [[ "$body" =~ ^\"[0-9]{4}-[0-9]{2}-[0-9]{2}T ]]; then
+              echo "$name: alive (HTTP $code, database time $body)"
             else
-              echo "::error::$name: no healthy answer (HTTP $code). Is the project paused?"
+              echo "::error::$name: no healthy answer (HTTP ${code:-000}): $body"
+              case "$code" in
+                000) echo "::error::$name: no answer at all. Is the project paused?" ;;
+                401|403) echo "::error::$name: the key was refused. Check the publishable key in $4." ;;
+                404) echo "::error::$name: public.heartbeat() is missing. Are the migrations deployed?" ;;
+                5*) echo "::error::$name: the project is down or paused (540 = paused)." ;;
+              esac
               failed=1
             fi
           }
-          ping staging "$STAGING_URL" "$STAGING_KEY"
-          ping production "$PROD_URL" "$PROD_KEY"
+          ping staging "$STAGING_URL" "$STAGING_KEY" STAGING_SUPABASE_ANON_KEY
+          ping production "$PROD_URL" "$PROD_KEY" PROD_SUPABASE_ANON_KEY
           exit "$failed"
 
       # SYS-04: the reminder for the developer. "Manual backup (production)" is backup.yml's
       # run-name for a manual production run; only a run from main can reach production.
+      # Scheduled, it runs on the first run of the day only; a manual run always checks.
       - name: Last manual backup is recent
-        if: always()
+        if: always() && (github.event_name != 'schedule' || github.event.schedule == '17 3 * * *')
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

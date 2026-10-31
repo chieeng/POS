@@ -3,7 +3,13 @@ import { getDeviceTag } from './device';
 import { supabase } from './supabase';
 
 type Action =
-  'create' | 'update' | 'setRole' | 'deactivate' | 'signOutEverywhere' | 'passwordResetLink';
+  | 'create'
+  | 'update'
+  | 'setRole'
+  | 'deactivate'
+  | 'reactivate'
+  | 'signOutEverywhere'
+  | 'passwordResetLink';
 
 /** An error from the `admin-users` Edge Function, with the code the server gave it. */
 export class ApiError extends Error {
@@ -57,6 +63,7 @@ export const api = {
   ),
   setUserRole: call<{ uid: string; role: Role }, { uid: string; role: Role }>('setRole'),
   deactivateUser: call<{ uid: string; reason?: string }, { uid: string }>('deactivate'),
+  reactivateUser: call<{ uid: string }, { uid: string }>('reactivate'),
   signOutEverywhere: call<{ uid: string }, { uid: string }>('signOutEverywhere'),
   createPasswordResetLink: call<{ uid: string }, { uid: string; resetLink: string }>(
     'passwordResetLink',

@@ -1,5 +1,5 @@
 -- Structure-level guarantees (SRS 6.2, SEC-01, SEC-07, SEC-09): RLS on every table, nothing
--- for anon, append-only audit log, safe functions, constraints, closed storage.
+-- for anon, append-only audit log, safe functions, constraints, storage only for product photos.
 begin;
 select * from no_plan();
 select tests.fixture();
@@ -18,8 +18,8 @@ select is(
 
 select tables_are(
   'public',
-  array['branches', 'profiles', 'devices', 'audit_logs', 'backup_log'],
-  'public holds exactly the Phase 0 tables and the backup log'
+  array['branches', 'profiles', 'devices', 'audit_logs', 'backup_log', 'categories', 'suppliers', 'products', 'price_changes', 'approval_requests', 'product_costs', 'stock_receipts', 'stock_receipt_items', 'stock_movements', 'stock_adjustments'],
+  'public holds exactly the expected tables'
 );
 
 -- ---- Nothing for anon --------------------------------------------------------------------
@@ -57,14 +57,14 @@ select is(
 
 select is(
   (
-    select count(*)
+    select coalesce(string_agg(n.nspname || '.' || p.proname, ' '), '')
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname in ('public', 'private')
       and (has_function_privilege('anon', p.oid, 'execute'))
   ),
-  0::bigint,
-  'anon can execute no function in public or private'
+  'public.heartbeat',
+  'anon can execute no function in public or private but heartbeat()'
 );
 
 -- ---- What a signed-in user is granted -----------------------------------------------------
@@ -74,8 +74,8 @@ select is(
     from information_schema.role_table_grants
     where table_schema = 'public' and grantee = 'authenticated'
   ),
-  'audit_logs:SELECT backup_log:SELECT devices:SELECT profiles:SELECT',
-  'authenticated has table-wide SELECT on four tables and nothing else'
+  'approval_requests:SELECT audit_logs:SELECT backup_log:SELECT branches:SELECT categories:SELECT devices:SELECT price_changes:SELECT product_costs:SELECT products:SELECT profiles:SELECT stock_adjustments:SELECT stock_movements:SELECT stock_receipt_items:SELECT stock_receipts:SELECT suppliers:SELECT',
+  'authenticated has table-wide SELECT on fifteen tables and nothing else'
 );
 
 select is(
@@ -96,8 +96,8 @@ select is(
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')
   ),
-  'record_account_event record_sign_in',
-  'record_account_event and record_sign_in are the only functions in public a signed-in user can call'
+  'adjust_stock correct_stock_in create_category create_product create_supplier decide_approval product_stock_history record_account_event record_product_export record_sign_in record_stock_in request_product_change request_stock_adjustment request_stock_in_correction set_product_photo update_branch_settings update_category update_product update_supplier withdraw_request',
+  'only the API functions in public are callable by a signed-in user'
 );
 
 select is(
@@ -245,13 +245,18 @@ select throws_ok(
   'a profile that devices or audit rows point to cannot be hard-deleted (AUTH-02)'
 );
 
--- ---- Storage is closed until product photos are built (SEC-09) ---------------------------
-select is((select count(*) from storage.buckets), 0::bigint, 'there is no storage bucket yet');
+-- ---- Storage: only the product photo bucket (SEC-09; 150_product_photos.sql tests it) -----
+select is(
+  (select string_agg(id, ',') from storage.buckets),
+  'product-images',
+  'the only storage bucket is product-images'
+);
 
 select is(
-  (select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects'),
-  0::bigint,
-  'storage.objects has no policy, so nobody can read or upload'
+  (select string_agg(policyname || ':' || cmd, ' ' order by policyname) from pg_policies
+   where schemaname = 'storage' and tablename = 'objects'),
+  'product_images_delete:DELETE product_images_insert:INSERT product_images_select:SELECT',
+  'storage.objects has only the product photo policies, and no update'
 );
 
 select is(
@@ -263,7 +268,7 @@ select is(
 select is(
   tests.rows(caller, 'select * from storage.objects'),
   0::bigint,
-  caller || ' reads nothing from storage'
+  caller || ' reads nothing from an empty storage'
 )
 from unnest(tests.everyone()) as caller;
 

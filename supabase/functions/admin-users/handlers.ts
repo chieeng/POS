@@ -142,6 +142,33 @@ const deactivate: Handler = async ({ admin, owner }, raw) => {
   return { uid: input.uid, active: false };
 };
 
+/**
+ * AUTH-02, SEC-04: turn an account back on. Role, user code, history and password stay as they
+ * were; a forgotten password is reset with passwordResetLink, as for any active user.
+ */
+const reactivate: Handler = async ({ admin, owner }, raw) => {
+  const input = parseInput(userIdSchema, raw);
+  // The database step comes first: it refuses other branches before the ban is lifted.
+  const { error } = await admin.rpc('admin_reactivate', {
+    p_actor: owner.uid,
+    p_user_id: input.uid,
+    p_device_tag: input.deviceTag ?? null,
+  });
+  if (error) throw fromDatabase(error, 'turn on');
+
+  const { error: banError } = await admin.auth.admin.updateUserById(input.uid, {
+    ban_duration: 'none',
+  });
+  if (banError) {
+    console.error('admin-users: unban failed after reactivation', banError.code ?? 'unknown');
+    throw new HttpError(
+      'internal',
+      'The account is turned on, but unblocking its sign-in failed. Try again.',
+    );
+  }
+  return { uid: input.uid, active: true };
+};
+
 /** AUTH-04, SEC-13: sign a user out of every device without turning the account off. */
 const signOutEverywhere: Handler = async ({ admin, owner }, raw) => {
   const input = parseInput(userIdSchema, raw);
@@ -171,6 +198,7 @@ export const HANDLERS: Record<Action, Handler> = {
   update,
   setRole,
   deactivate,
+  reactivate,
   signOutEverywhere,
   passwordResetLink,
 };
