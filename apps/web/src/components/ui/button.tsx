@@ -11,13 +11,18 @@ const buttonVariants = cva(
         primary: 'bg-accent text-bg hover:bg-accent-600 active:bg-accent-700',
         secondary: 'border-divider hover:bg-text/7 active:bg-text/14',
         ghost: 'text-accent hover:bg-accent/10 active:bg-accent/18',
+        // Secondary with red text, for Reject. Quiet buttons take `text-danger-fg` instead.
+        danger: 'border-divider text-danger-fg hover:bg-text/7 active:bg-text/14',
         // Text-style action in the body face, as used under the sign-in and lock forms.
         quiet:
           'font-body font-semibold text-accent-700 hover:bg-accent/10 active:bg-accent/18 text-[15px]',
       },
       size: {
         default: 'px-[15.84px] py-2',
+        // The 44 px touch target the screens use for toolbar and row actions.
+        md: 'min-h-11 px-4',
         lg: 'min-h-[56px] w-full px-6 text-[19px]',
+        // Quiet text actions only: a 44 px target with almost no padding.
         touch: 'min-h-11 px-1',
         icon: 'size-11 p-0',
       },

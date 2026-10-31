@@ -360,7 +360,7 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | Layer | Choice |
 | --- | --- |
 | Frontend | React 18 + TypeScript, Vite, React Router |
-| UI | Tailwind CSS + shadcn/ui, responsive layouts for phone, tablet and laptop |
+| UI | React + Tailwind v4 + shadcn/ui-style Radix components, themed to the Organic design system (lucide-react, strokeWidth 2.75); responsive layouts for phone, tablet and laptop |
 | Data | `supabase-js` through a small live-list hook (`useLiveRows`: load the rows, then load them again when Supabase Realtime reports a change) for live stock and approvals; Zustand for cart and session |
 | Forms | React Hook Form + Zod |
 | Offline / install | `vite-plugin-pwa`; IndexedDB (Dexie) for the cached product list and the outbox of sales and clock-ins |
@@ -380,7 +380,34 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 
 ### 7.2 UI design
 
-The UI reference is the Claude Design project **POS** (in the developer's Claude Design account; the link is not published here because the repository is public), built on its design system **organic**. New screens follow it, and existing screens are brought in line with it step by step. Its screen files and the build step each belongs to:
+The UI reference is the Claude Design project **POS checkout and navigation design** (in the developer's Claude Design account; the link is not published here because the repository is public), built on the design system **Organic**. UI stack: React + Tailwind v4 + shadcn/ui-style Radix components, themed to the Organic design system (lucide-react, strokeWidth 2.75). The app ports the design's tokens and rebuilds its components; it never loads the design's `_ds_bundle.js` or its CSS classes.
+
+**Rule.** This SRS and the build order decide *what* the app does; the design decides *how it looks*. Where a design shows different behavior, the app follows the SRS and styles it with the design.
+
+- **Design-only features are not built** unless the developer adds them to this SRS: email two-step codes and "trust this device", staff PIN unlock, approving from the notification, the live attendance map, photos on adjustment requests, drawer over/short tolerance, a default credit limit, signing out one device, keyboard shortcuts, the Light/Dark/Auto setting, offline stock-ins, the tablet rail's "expand menu" toggle, the Notifications settings tab and the "Date received" field on stock-in.
+- **What the app has and the design lacks is kept:** backups, add user, password reset link, the stock-in list, receipt, corrections and history, the photo panel, CSV export, product edit, withdrawing a request, and Sign out in the menu.
+- Product list rows show the product photo when there is one, otherwise the category icon. Every list loads in pages and ends with "Load more" and "Showing N of M" (the count comes with the first page; a slow list such as stock history may use an estimated count).
+- Order: the build order above. Every screen built or changed from step 6 on follows its design file; existing screens are restyled when a step touches them, and the rest in step 15.
+- Navigation: items a role can't use, or that aren't built yet, are hidden. On phones the bottom bar shows up to five items; past five it keeps the role's four most-used (Owner: Home, Sell, Approvals, Inventory; Special Sales: Sell, Inventory, Sales, Customers; Sales: Sell, Sales, Customers, Drawer) plus More, which holds the rest and Sign out. Products and Stock-in stay separate menu items until the Inventory screens are restyled, then become one Inventory item. Sales keeps Products in the menu (6.1: Sales views products and stock), although the design hides it.
+- The connection indicator shows Online, Offline, or the number of changes waiting to sync. "Working locally" wording waits for the offline outbox (build step 7).
+
+**Standard values.** Where the screens disagree, the app uses these:
+
+| Item | Standard |
+| --- | --- |
+| Dialogs and sheets | Page background (`--color-bg`), not surface; scrim black at 55% in both themes; dialog radius 32.2 px, bottom sheet top radius 32 px |
+| Field labels | 13 px |
+| Inputs on phone and tablet forms | 48 px tall, 15 px text |
+| Buttons | 44 px for row and toolbar actions, 56 px for the main action at the bottom of a phone screen |
+| Filter chips | 40 px |
+| Status badges | 12 px bold, 3 × 10 px padding, icon and words together; pending is neutral-300 / 900 |
+| Tags (role, Draft) | 11 px bold |
+| Cards | 24 px radius for list cards, 32.2 px for panels and tables |
+| Empty and error states | 110 px icon circle on a full page, 96 px inside a panel |
+| Loading placeholders | Static bars: neutral-300 and neutral-200 on cards, surface and neutral-200 on the page |
+| Dark mode | The design's shared dark palette (already in `index.css`); the different neutrals in two checkout mock-ups are ignored |
+
+Its screen files and the build step each belongs to:
 
 | Screen file | Build step |
 | --- | --- |
@@ -397,6 +424,8 @@ The UI reference is the Claude Design project **POS** (in the developer's Claude
 | `Payroll.dc.html` | 14 |
 
 Where a design shows something this SRS leaves out or has dropped (for example barcode scanning or CSV import before step 15), the SRS wins and the screen is built without it.
+
+The shared components that carry these values live in `apps/web/src/components/ui/` (Button, Input, Label, Tag, Alert, Dialog, Sheet, Card, Table, StatusBadge, Stepper, Switch, Checkbox, FilterChips, EmptyState, Skeleton, LoadMore, ConnectionPill); screens use them rather than restating the values.
 
 ### 7.3 Repository layout (monorepo)
 

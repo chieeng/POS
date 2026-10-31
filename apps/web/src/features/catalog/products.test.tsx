@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { withdrawRequest, type ApprovalRequest } from '@/features/approvals/data';
 import { describeAudit } from '@/features/audit/describe';
 import type { AuditRecord } from '@/features/users/data';
 import { useSession, type SessionUser } from '@/stores/session';
@@ -15,6 +16,7 @@ import {
   type Product,
 } from './data';
 import { matchesSearch } from './helpers';
+import { replaceProductPhoto } from './photos';
 import { ProductDetailPage } from './ProductDetailPage';
 import { ProductsPage } from './ProductsPage';
 
@@ -22,6 +24,7 @@ const state = vi.hoisted(() => ({
   categories: [] as Category[],
   products: [] as Product[],
   history: [] as PriceChange[],
+  requests: [] as ApprovalRequest[],
 }));
 
 vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
@@ -32,7 +35,12 @@ vi.mock('@/features/stock/data', async (importOriginal) => ({
 }));
 vi.mock('@/features/approvals/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/approvals/data')>()),
-  useApprovalRequests: () => ({ data: [], loading: false, error: false }),
+  useApprovalRequests: () => ({ data: state.requests, loading: false, error: false }),
+  withdrawRequest: vi.fn(),
+}));
+vi.mock('./photos', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./photos')>()),
+  replaceProductPhoto: vi.fn(),
 }));
 vi.mock('./data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./data')>()),
@@ -70,14 +78,14 @@ function signInAs(role: SessionUser['role']) {
   });
 }
 
-function renderAt(path: string) {
+function renderAt(path: string, state?: unknown) {
   const router = createMemoryRouter(
     [
       { path: '/products', element: <ProductsPage /> },
       { path: '/products/new', element: <AddProductPage /> },
       { path: '/products/:productId', element: <ProductDetailPage /> },
     ],
-    { initialEntries: [path] },
+    { initialEntries: [{ pathname: path, state }] },
   );
   render(<RouterProvider router={router} />);
   return { router, user: userEvent.setup() };
@@ -87,6 +95,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(createProduct).mockResolvedValue('p9');
   vi.mocked(updateProduct).mockResolvedValue();
+  vi.mocked(replaceProductPhoto).mockResolvedValue();
+  vi.mocked(withdrawRequest).mockResolvedValue(undefined);
+  state.requests = [];
   state.categories = [
     { id: 'c1', name: 'Snacks', active: true },
     { id: 'c2', name: 'Drinks', active: true },
@@ -337,6 +348,58 @@ describe('Product page', () => {
     expect(screen.queryByRole('button', { name: 'Edit product' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Price history' })).toBeInTheDocument();
+  });
+
+  test('“Photo added.” goes once Special Sales starts a request', async () => {
+    signInAs('special_sales');
+    const { user } = renderAt('/products/p1');
+    await user.upload(
+      screen.getByLabelText('Add photo'),
+      new File(['x'], 'a.jpg', { type: 'image/jpeg' }),
+    );
+    expect(await screen.findByText('Photo added.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Request a change' }));
+    expect(screen.queryByText('Photo added.')).toBeNull();
+  });
+
+  test('…and once they withdraw a request', async () => {
+    signInAs('special_sales');
+    state.requests = [
+      {
+        id: 'q1',
+        type: 'product_edit',
+        targetId: 'p1',
+        productId: 'p1',
+        before: { sell_price: 45 },
+        after: { sell_price: 50 },
+        reason: 'Supplier price',
+        requestedBy: 'u1',
+        status: 'pending',
+        decidedBy: null,
+        decidedAt: null,
+        ownerNote: null,
+        createdAt: new Date(),
+      },
+    ];
+    const { user } = renderAt('/products/p1');
+    await user.upload(
+      screen.getByLabelText('Add photo'),
+      new File(['x'], 'a.jpg', { type: 'image/jpeg' }),
+    );
+    expect(await screen.findByText('Photo added.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Withdraw' }));
+    expect(withdrawRequest).toHaveBeenCalledWith('q1');
+    expect(screen.queryByText('Photo added.')).toBeNull();
+  });
+
+  test('“Product added.” goes too, and does not come back on reload', async () => {
+    signInAs('special_sales');
+    const { router, user } = renderAt('/products/p1', { added: true, photoFailed: false });
+    expect(screen.getByText('Product added.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Request a change' }));
+    expect(screen.queryByText('Product added.')).toBeNull();
+    expect(router.state.location.state).toBeNull();
+    expect(router.state.location.pathname).toBe('/products/p1');
   });
 
   test('Adjust stock sits with the product actions, above the price history', () => {
