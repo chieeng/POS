@@ -32,13 +32,13 @@
     "@supabase/supabase-js": "^2.118.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.59.0",
+    "lucide-react": "^1.62.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-hook-form": "^7.90.0",
-    "react-router-dom": "^7.18.4",
+    "react-hook-form": "^7.91.0",
+    "react-router-dom": "^7.18.5",
     "tailwind-merge": "^3.7.0",
     "zod": "^4.6.7",
-    "zustand": "^5.0.15"
+    "zustand": "^5.0.16"
   }
 }
