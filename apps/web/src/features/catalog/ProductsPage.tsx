@@ -4,19 +4,25 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LoadMore } from '@/components/ui/load-more';
 import { Tag } from '@/components/ui/tag';
 import { formatPeso } from '@/lib/money';
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 import { isLowStock } from '@/features/stock/data';
+import { formatWhen } from '@/features/stock/format';
 import { useCategories, useProducts } from './data';
 import { exportProducts } from './export';
 import { matchesSearch, selectClass } from './helpers';
 import { ProductPhoto } from './ProductPhoto';
 
+// Rows drawn at a time; the search still covers every product (NFR-01: 10,000 products).
+export const PRODUCTS_PAGE = 100;
+
 /**
  * Products (SRS 3.2): everyone in the branch sees them; the Owner and Special Sales add. The
- * Owner exports the whole list as CSV (PROD-06).
+ * Owner exports the whole list as CSV (PROD-06). Offline, it shows the list saved on this
+ * device (NFR-02).
  */
 export function ProductsPage() {
   const role = useSession((s) => s.user?.role);
@@ -59,11 +65,16 @@ export function ProductsPage() {
     () => new Map(categories.data.map((category) => [category.id, category.name])),
     [categories.data],
   );
-  const shown = products.data
+  const matching = products.data
     .filter((product) => showInactive || product.active)
     .filter((product) => !categoryId || product.categoryId === categoryId)
     .filter((product) => !lowOnly || isLowStock(product))
     .filter((product) => matchesSearch(product, search));
+  // A new search or filter starts again from the first page.
+  const filterKey = `${search}|${categoryId}|${showInactive}|${lowOnly}`;
+  const [page, setPage] = useState({ key: filterKey, size: PRODUCTS_PAGE });
+  const pageSize = page.key === filterKey ? page.size : PRODUCTS_PAGE;
+  const shown = matching.slice(0, pageSize);
 
   return (
     <div className="flex flex-col gap-[12px]">
@@ -141,6 +152,12 @@ export function ProductsPage() {
         </label>
       </div>
 
+      {products.savedAt && (
+        <Alert variant="offline">
+          Offline. Showing the product list saved on this phone, last updated{' '}
+          {formatWhen(products.savedAt)}.
+        </Alert>
+      )}
       {products.error ? (
         <Alert variant="danger">
           <b>Couldn&apos;t load the products.</b> Check your connection and reload.
@@ -153,12 +170,13 @@ export function ProductsPage() {
         <p className="text-neutral-700">
           No products yet.{canAdd ? ' Add the first one with “Add product”.' : ''}
         </p>
-      ) : shown.length === 0 ? (
+      ) : matching.length === 0 ? (
         <p className="text-neutral-700">No products match.</p>
       ) : (
         <>
           <p className="px-[4px] text-[12.5px] text-neutral-700">
-            {shown.length} {shown.length === 1 ? 'product' : 'products'}
+            {matching.length.toLocaleString('en-PH')}{' '}
+            {matching.length === 1 ? 'product' : 'products'}
           </p>
           <ul className="rounded-[30px] bg-surface px-[8px] py-[6px] md:px-[14px]">
             {shown.map((product) => (
@@ -202,6 +220,11 @@ export function ProductsPage() {
               </li>
             ))}
           </ul>
+          <LoadMore
+            shown={shown.length}
+            total={matching.length}
+            onLoadMore={() => setPage({ key: filterKey, size: pageSize + PRODUCTS_PAGE })}
+          />
         </>
       )}
     </div>

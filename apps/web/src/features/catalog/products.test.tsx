@@ -25,6 +25,7 @@ const state = vi.hoisted(() => ({
   products: [] as Product[],
   history: [] as PriceChange[],
   requests: [] as ApprovalRequest[],
+  savedAt: null as Date | null,
 }));
 
 vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
@@ -45,7 +46,12 @@ vi.mock('./photos', async (importOriginal) => ({
 vi.mock('./data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./data')>()),
   useCategories: () => ({ data: state.categories, loading: false, error: false }),
-  useProducts: () => ({ data: state.products, loading: false, error: false }),
+  useProducts: () => ({
+    data: state.products,
+    loading: false,
+    error: false,
+    savedAt: state.savedAt,
+  }),
   usePriceChanges: () => ({ data: state.history, loading: false, error: false }),
   createProduct: vi.fn(),
   updateProduct: vi.fn(),
@@ -98,6 +104,7 @@ beforeEach(() => {
   vi.mocked(replaceProductPhoto).mockResolvedValue();
   vi.mocked(withdrawRequest).mockResolvedValue(undefined);
   state.requests = [];
+  state.savedAt = null;
   state.categories = [
     { id: 'c1', name: 'Snacks', active: true },
     { id: 'c2', name: 'Drinks', active: true },
@@ -153,6 +160,33 @@ describe('Products list', () => {
     expect(screen.queryByText('Old candy')).toBeNull();
     await user.click(screen.getByLabelText('Show inactive'));
     expect(screen.getByText('Old candy')).toBeInTheDocument();
+  });
+
+  test('offline, it says the list is the copy saved on this phone, and when it was updated', () => {
+    state.savedAt = new Date('2026-10-31T14:05:00+08:00');
+    renderAt('/products');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /Offline\. Showing the product list saved on this phone, last updated Oct 31, 2026/,
+    );
+    expect(screen.getByText('Chips Classic')).toBeInTheDocument();
+  });
+
+  test('draws 100 products at a time, and a new search starts from the top', async () => {
+    state.products = Array.from({ length: 250 }, (_, i) => ({
+      ...CHIPS,
+      id: `p${i}`,
+      sku: `SKU-${i}`,
+      name: `Item ${String(i).padStart(3, '0')}`,
+    }));
+    const { user } = renderAt('/products');
+    expect(screen.getByText('Showing 100 of 250')).toBeInTheDocument();
+    expect(screen.queryByText('Item 100')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+    expect(screen.getByText('Showing 200 of 250')).toBeInTheDocument();
+    expect(screen.getByText('Item 199')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Search by name or SKU'), 'item 2');
+    expect(screen.getByText('Showing 50 of 50')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
 
   test('filters by search and by category', async () => {
