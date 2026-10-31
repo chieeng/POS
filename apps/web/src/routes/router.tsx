@@ -18,6 +18,7 @@ import { StoreSettingsPage } from '@/features/store/StoreSettingsPage';
 import { EnrollTotpPage } from '@/features/auth/EnrollTotpPage';
 import { ROLE_HOME } from '@/features/auth/roles';
 import { SetPasswordPage } from '@/features/auth/SetPasswordPage';
+import { CountDrawerPage } from '@/features/drawer/CountDrawerPage';
 import { DrawerPage } from '@/features/drawer/DrawerPage';
 import { HomePage } from '@/features/home/HomePage';
 import { SettingsLayout } from '@/features/settings/SettingsLayout';
@@ -90,6 +91,11 @@ export const routes: RouteObject[] = [
           },
           // SRS 6.1: every role opens the day's drawer and records cash in and out.
           { path: '/drawer', element: <DrawerPage /> },
+          {
+            // SHIFT-03: the Owner or Special Sales counts and closes it.
+            element: <RequireRole role={['owner', 'special_sales']} />,
+            children: [{ path: '/drawer/count', element: <CountDrawerPage /> }],
+          },
           {
             element: <RequireRole role="special_sales" />,
             children: [

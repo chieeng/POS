@@ -1,20 +1,24 @@
-import { ArrowDownToLine, ArrowUpFromLine, LockOpen } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Calculator, LockOpen } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { formatPeso } from '@/lib/money';
 import { ICON_STROKE } from '@/lib/utils';
+import { useSession } from '@/stores/session';
 import { CashMoveSheet } from './CashMoveSheet';
 import { useDrawerToday, type EntryType } from './data';
 import { dayLabel, timeLabel } from './format';
 import { OpenDrawerForm } from './OpenDrawerForm';
 
 /**
- * Cash drawer (SRS 3.4): open today's drawer, record cash in and out. Every role uses it;
- * counting and closing (the Owner and Special Sales) come next.
+ * Cash drawer (SRS 3.4): open today's drawer and record cash in and out (every role); the
+ * Owner and Special Sales also count and close it (SHIFT-03).
  */
 export function DrawerPage() {
+  const role = useSession((s) => s.user?.role);
+  const canClose = role === 'owner' || role === 'special_sales';
   const drawer = useDrawerToday();
   const [sheet, setSheet] = useState<EntryType | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -93,6 +97,14 @@ export function DrawerPage() {
               Cash out
             </Button>
           </div>
+          {canClose && (
+            <Button needsInternet asChild size="lg">
+              <Link to="count">
+                <Calculator size={19} strokeWidth={ICON_STROKE} aria-hidden />
+                Count and close
+              </Link>
+            </Button>
+          )}
         </>
       ) : (
         <Card className="px-[18px] py-[16px] text-[15px] leading-[1.4]">

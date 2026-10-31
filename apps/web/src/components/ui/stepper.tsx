@@ -28,6 +28,8 @@ interface StepperProps extends VariantProps<typeof stepperVariants> {
   min?: number;
   max?: number;
   disabled?: boolean;
+  /** The number can also be typed, for counts too big to tap (the drawer count). */
+  editable?: boolean;
   className?: string;
 }
 
@@ -39,6 +41,7 @@ export function Stepper({
   min = 0,
   max = Number.MAX_SAFE_INTEGER,
   disabled = false,
+  editable = false,
   size,
   on,
   className,
@@ -73,18 +76,37 @@ export function Stepper({
       >
         <Minus size={iconSize} strokeWidth={ICON_STROKE} aria-hidden />
       </button>
-      <span
-        role="spinbutton"
-        tabIndex={disabled ? -1 : 0}
-        aria-label={label}
-        aria-valuenow={value}
-        aria-valuemin={min}
-        aria-valuemax={max === Number.MAX_SAFE_INTEGER ? undefined : max}
-        aria-disabled={disabled || undefined}
-        className="min-w-[2ch] rounded-full px-1 text-center tabular-nums"
-      >
-        {value}
-      </span>
+      {editable ? (
+        <input
+          role="spinbutton"
+          inputMode="numeric"
+          aria-label={label}
+          aria-valuenow={value}
+          aria-valuemin={min}
+          aria-valuemax={max === Number.MAX_SAFE_INTEGER ? undefined : max}
+          disabled={disabled}
+          value={String(value)}
+          onFocus={(event) => event.target.select()}
+          onChange={(event) => {
+            const digits = event.target.value.replace(/\D/g, '');
+            set(digits === '' ? min : Number(digits));
+          }}
+          className="w-full min-w-0 bg-transparent text-center tabular-nums outline-none"
+        />
+      ) : (
+        <span
+          role="spinbutton"
+          tabIndex={disabled ? -1 : 0}
+          aria-label={label}
+          aria-valuenow={value}
+          aria-valuemin={min}
+          aria-valuemax={max === Number.MAX_SAFE_INTEGER ? undefined : max}
+          aria-disabled={disabled || undefined}
+          className="min-w-[2ch] rounded-full px-1 text-center tabular-nums"
+        >
+          {value}
+        </span>
+      )}
       <button
         type="button"
         tabIndex={-1}
