@@ -36,7 +36,7 @@ export function DrawerPage() {
       <div className="flex flex-wrap items-start gap-[12px]">
         <div className="flex-1">
           <h1 className="text-[30px] leading-[1.1]">
-            {session ? 'Cash drawer' : 'Open today’s drawer'}
+            {drawer.data && !session ? 'Open today’s drawer' : 'Cash drawer'}
           </h1>
           {drawer.data && (
             <p className="mt-[4px] text-[14.5px] text-neutral-700">{dayLabel(drawer.data.today)}</p>
@@ -60,7 +60,7 @@ export function DrawerPage() {
 
       {drawer.error ? (
         <Alert variant="danger">
-          <b>Couldn&apos;t load the drawer.</b> Check your connection and try again.
+          <b>The drawer needs internet.</b> Connect and try again.
         </Alert>
       ) : drawer.loading || !drawer.data ? (
         <p className="text-neutral-700" role="status">

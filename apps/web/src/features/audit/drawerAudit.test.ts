@@ -24,7 +24,7 @@ describe('drawer entries in the audit log (SHIFT-01..03)', () => {
         'x',
       ),
     ).toMatchObject({
-      what: 'opened the drawer for 2026-11-01',
+      what: 'opened the drawer for Nov 1',
       change: '₱1,800.00 (last count ₱2,000.00, −₱200.00)',
     });
   });
@@ -53,7 +53,7 @@ describe('drawer entries in the audit log (SHIFT-01..03)', () => {
         'x',
       ),
     ).toMatchObject({
-      what: "opened today's drawer; the drawer for 2026-10-31 was never counted",
+      what: "opened today's drawer; the drawer for Oct 31 was never counted",
       change: 'Expected ₱2,000.00, not counted',
     });
     expect(
@@ -67,6 +67,38 @@ describe('drawer entries in the audit log (SHIFT-01..03)', () => {
         },
         'x',
       ).change,
-    ).toBe('It was counted at ₱2,140.00, exact');
+    ).toBe('It was counted at ₱2,140.00, exact · Reason: A late sale');
+  });
+
+  it('reads cash in and out with the amount, reason and note', () => {
+    expect(ACTION_LABELS['drawer.cashOut']).toBe('Cash taken out of the drawer');
+    expect(
+      describeAudit(
+        {
+          ...base,
+          action: 'drawer.cashOut',
+          after: {
+            businessDate: '2026-10-31',
+            amount: 350,
+            reason: 'expense',
+            note: 'Ice, 2 sacks',
+          },
+        },
+        'x',
+      ),
+    ).toMatchObject({
+      what: 'took ₱350.00 out of the drawer for Oct 31',
+      change: 'Expense · Ice, 2 sacks',
+    });
+    expect(
+      describeAudit(
+        {
+          ...base,
+          action: 'drawer.cashIn',
+          after: { businessDate: '2026-10-31', amount: 500, reason: 'change_fund', note: null },
+        },
+        'x',
+      ),
+    ).toMatchObject({ what: 'put ₱500.00 into the drawer for Oct 31', change: 'Change fund' });
   });
 });

@@ -79,6 +79,31 @@ select is(
 );
 
 select is(
+  (select jsonb_build_object('actor', pr.display_name, 'tag', a.device_tag, 'target', a.target_type)
+     || (a.after - 'entryId' - 'businessDate')
+   from public.audit_logs a join public.profiles pr on pr.id = a.actor_id
+   where a.action = 'drawer.cashOut' and a.branch_id = 'tmain'),
+  (select jsonb_build_object('actor', display_name, 'tag', 'A1B2', 'target', 'drawer',
+     'amount', 350, 'reason', 'expense', 'note', 'Ice, 2 sacks')
+   from public.profiles where id = tests.uid('sales')),
+  'a cash-out is in the audit log with the amount, reason, note and who'
+);
+select is(
+  (select a.after ->> 'reason' || ' ' || (a.after ->> 'amount') || ' ' || coalesce(a.after ->> 'note', 'no note')
+   from public.audit_logs a where a.action = 'drawer.cashIn' and a.branch_id = 'tmain'
+     and a.actor_id = tests.uid('special')),
+  'change_fund 500 no note',
+  'a cash-in is in the audit log too'
+);
+select is(
+  (select count(*) from public.audit_logs a
+   join public.drawer_entries e on e.id = (a.after ->> 'entryId')::uuid
+   where a.action in ('drawer.cashIn', 'drawer.cashOut') and a.branch_id = 'tmain'),
+  2::bigint,
+  'each audit line points at its drawer entry'
+);
+
+select is(
   tests.run('sales', format('select public.record_drawer_entry(%L, %s, %L, %L)', kind, amount, reason, note)),
   '22023',
   'record_drawer_entry refuses ' || label
