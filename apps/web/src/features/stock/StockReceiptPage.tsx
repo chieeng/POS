@@ -157,7 +157,7 @@ export function StockReceiptPage() {
                     return (
                       <TableRow key={line.lineNo}>
                         <TableCell className="text-neutral-700">{line.lineNo}</TableCell>
-                        <TableCell>
+                        <TableCell className="min-w-[160px]">
                           <Link to={`/products/${line.productId}`}>
                             {product?.name ?? 'Product'}
                           </Link>

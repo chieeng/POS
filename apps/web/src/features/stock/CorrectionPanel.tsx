@@ -261,7 +261,10 @@ export function CorrectionPanel({
                     className="grid grid-cols-1 sm:grid-cols-[1fr_120px_150px] sm:items-end"
                   >
                     <li>
-                      <span className="text-[15px] font-semibold">{name}</span>
+                      {/* As tall as the inputs, so the name lines up with them, not with their labels. */}
+                      <span className="flex min-h-[48px] items-center text-[15px] font-semibold">
+                        {name}
+                      </span>
                       <div>
                         <Label htmlFor={`correct-qty-${index}`}>Qty</Label>
                         <Input

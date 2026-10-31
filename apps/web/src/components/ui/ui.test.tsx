@@ -15,6 +15,7 @@ import { SkeletonList } from './skeleton';
 import { StatusBadge } from './status-badge';
 import { Stepper } from './stepper';
 import { Switch } from './switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table';
 
 function setOnline(online: boolean) {
   Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => online });
@@ -94,6 +95,33 @@ describe('Card', () => {
     const form = screen.getByRole('form', { name: 'Product' });
     expect(form).toHaveClass('rounded-card', 'bg-surface', 'py-[18px]');
     expect(form).not.toHaveClass('py-2');
+  });
+});
+
+describe('Table', () => {
+  it('keeps headings and numbers on one line, so a phone scrolls instead of wrapping', () => {
+    render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead numeric>Unit cost</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell numeric>2 pack</TableCell>
+            <TableCell>Chips Classic</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    expect(screen.getByRole('columnheader', { name: 'Unit cost' })).toHaveClass(
+      'whitespace-nowrap',
+    );
+    expect(screen.getByRole('cell', { name: '2 pack' })).toHaveClass('whitespace-nowrap');
+    expect(screen.getByRole('cell', { name: 'Chips Classic' })).not.toHaveClass(
+      'whitespace-nowrap',
+    );
   });
 });
 
