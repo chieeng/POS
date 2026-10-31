@@ -63,3 +63,25 @@ test('every route falls back to index.html (single-page app)', () => {
   expect(existsSync(`${publicDir}404.html`)).toBe(false);
   expect(existsSync(`${publicDir}_redirects`)).toBe(false);
 });
+
+describe('installable app with an offline shell (NFR-03)', () => {
+  test('fonts are bundled, so the page loads nothing from Google', () => {
+    const csp = headersFor('/*').get('content-security-policy') ?? '';
+    expect(csp).not.toMatch(/googleapis|gstatic/);
+    expect(
+      readFileSync(fileURLToPath(new URL('../../index.html', import.meta.url)), 'utf8'),
+    ).not.toMatch(/googleapis|gstatic/);
+  });
+
+  test('the service worker and the manifest are never served from a stale cache', () => {
+    expect(headersFor('/sw.js').get('cache-control')).toBe('no-cache');
+    expect(headersFor('/manifest.webmanifest').get('cache-control')).toBe('no-cache');
+  });
+
+  test.each(['icon.svg', 'pwa-192.png', 'pwa-512.png', 'maskable-512.png', 'apple-touch-icon.png'])(
+    'the %s icon is published',
+    (name) => {
+      expect(existsSync(`${publicDir}${name}`)).toBe(true);
+    },
+  );
+});

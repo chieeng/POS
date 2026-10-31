@@ -19,7 +19,7 @@ interface Section {
   icon: LucideIcon;
 }
 
-// Appearance and notifications join this list as they are built.
+// More sections join this list as their build steps add them.
 const SECTIONS: Section[] = [
   { to: 'store', label: 'Store', sub: 'Details, receipts and location', icon: Store },
   { to: 'attendance', label: 'Attendance', sub: 'Shift times and late rules', icon: Clock },

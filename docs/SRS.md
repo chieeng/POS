@@ -370,7 +370,7 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | Database | Supabase Postgres (Singapore): SQL migrations, RLS, security-definer functions, pg\_cron for scheduled jobs |
 | Edge Functions | Deno + TypeScript: `admin-users` (create, role, deactivate, reactivate, sign out everywhere, password reset link) |
 | Auth | Supabase Auth: email and password, TOTP two-factor, Turnstile CAPTCHA |
-| Hosting | Cloudflare Pages (static SPA), headers in `apps/web/public/_headers` |
+| Hosting | Cloudflare Pages (static SPA), headers in `apps/web/public/_headers`; fonts are bundled with the app, so nothing loads from Google |
 | Testing | Vitest, pgTAP (`supabase test db`), Playwright for the checkout flow |
 
 **Free plan.** The system runs on the Supabase Free plan permanently, so every design is checked against its quotas (as listed on supabase.com/pricing in October 2026): database 500 MB, file storage 1 GB, egress 5 GB plus cached egress 5 GB a month, Realtime 200 concurrent connections and 2 million messages a month, Edge Functions 500,000 invocations a month, no server-side image transformations, and a pause after a week without user database activity (the heartbeat workflow prevents it with a query every 6 hours; GitHub Actions minutes are free in a public repository). Product photos are resized in the browser and cached for a year at paths that never change, which keeps their egress to a few hundred MB a month.
@@ -388,7 +388,7 @@ The UI reference is the Claude Design project **POS checkout and navigation desi
 - Product list rows show the product photo when there is one, otherwise the category icon. Every list loads in pages and ends with "Load more" and "Showing N of M" (the count comes with the first page; a slow list such as stock history may use an estimated count).
 - Order: the build order above. Every screen built or changed from step 6 on follows its design file; existing screens are restyled when a step touches them, and the rest in step 15.
 - Navigation: items a role can't use, or that aren't built yet, are hidden. On phones the bottom bar shows up to five items; past five it keeps the role's four most-used (Owner: Home, Sell, Approvals, Inventory; Special Sales: Sell, Inventory, Sales, Customers; Sales: Sell, Sales, Customers, Drawer) plus More, which holds the rest and Sign out. Products and Stock-in stay separate menu items until the Inventory screens are restyled, then become one Inventory item. Sales keeps Products in the menu (6.1: Sales views products and stock), although the design hides it.
-- The connection indicator shows Online, Offline, or the number of changes waiting to sync. "Working locally" wording waits for the offline outbox (build step 7).
+- The connection indicator shows Online, Offline, or the number of changes waiting to sync. "Working locally" wording waits for the offline outbox (the first part of build step 9).
 
 **Standard values.** Where the screens disagree, the app uses these:
 
@@ -499,9 +499,9 @@ The phases above are built in this order, one step (one or a few pull requests) 
 4. Stock-in, stock movements, low stock, cost; adjustments and stock-in corrections (**done**)
 5. Product photos and CSV export
 6. ~~Push notifications to the Owner~~ (**dropped by the owner's decision (Oct 31, 2026)**)
-7. Installable app, offline product list and offline queue
+7. Installable app, offline product list (the offline queue moved to step 9)
 8. Cash drawer
-9. Checkout: search, cart, payments, receipts, digital slip
+9. Checkout: the offline queue (outbox) first, then search, cart, payments, receipts, digital slip
 10. Voids, returns, sale corrections
 11. Attendance with location check and late rules, then **one week running beside the store's current method before go-live** (the Phase 2 gate)
 12. Customer credit (utang)
