@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { UNITS, type Category } from './data';
@@ -23,9 +24,7 @@ function Field({
 }) {
   return (
     <div>
-      <Label htmlFor={id} className="text-[13px]">
-        {label}
-      </Label>
+      <Label htmlFor={id}>{label}</Label>
       {children}
       {error ? (
         <p id={`${id}-error`} className="mt-[5px] text-[13px] text-danger-fg">
@@ -83,139 +82,144 @@ export function ProductForm({
     .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
 
   return (
-    <form
-      onSubmit={(event) => {
-        onEdit?.();
-        void handleSubmit(onSubmit)(event);
-      }}
-      onChange={onEdit}
-      noValidate
-      className="flex flex-col gap-[14px] rounded-[30px] bg-surface px-[18px] py-[18px] md:px-[22px]"
-    >
-      <Field
-        id="product-name"
-        label="Product name"
-        hint="As staff will search for it, for example “Chips Classic 60 g”."
-        error={errors.name?.message}
+    <Card asChild size="panel" className="gap-[14px] py-[18px]">
+      <form
+        onSubmit={(event) => {
+          onEdit?.();
+          void handleSubmit(onSubmit)(event);
+        }}
+        onChange={onEdit}
+        noValidate
       >
-        <Input
-          id="product-name"
-          autoComplete="off"
-          className="min-h-[48px] bg-bg text-[15px]"
-          aria-invalid={!!errors.name || undefined}
-          aria-describedby={describedBy('product-name', errors.name, true)}
-          {...register('name')}
-        />
-      </Field>
-      <Field
-        id="product-sku"
-        label="SKU"
-        hint="The product code: 1 to 20 letters, digits or dashes. Saved in capitals; no two products can share one."
-        error={errors.sku?.message}
-      >
-        <Input
-          id="product-sku"
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          maxLength={20}
-          className="min-h-[48px] max-w-[260px] bg-bg text-[15px] font-semibold uppercase"
-          aria-invalid={!!errors.sku || undefined}
-          aria-describedby={describedBy('product-sku', errors.sku, true)}
-          {...register('sku')}
-        />
-      </Field>
-      <Field
-        id="product-category"
-        label="Category"
-        hint={choices.length === 0 ? 'Add a category first, under Categories.' : undefined}
-        error={errors.categoryId?.message}
-      >
-        <select
-          id="product-category"
-          className={selectClass}
-          aria-invalid={!!errors.categoryId || undefined}
-          aria-describedby={describedBy(
-            'product-category',
-            errors.categoryId,
-            choices.length === 0,
-          )}
-          {...register('categoryId')}
-        >
-          <option value="">Choose a category</option>
-          {choices.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-              {category.active ? '' : ' (inactive)'}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <div className="grid gap-[14px] sm:grid-cols-2">
         <Field
-          id="product-unit"
-          label="Unit"
-          hint="The price and every quantity are per this unit."
-          error={errors.unit?.message}
+          id="product-name"
+          label="Product name"
+          hint="As staff will search for it, for example “Chips Classic 60 g”."
+          error={errors.name?.message}
+        >
+          <Input
+            id="product-name"
+            autoComplete="off"
+            size="touch"
+            className="bg-bg"
+            aria-invalid={!!errors.name || undefined}
+            aria-describedby={describedBy('product-name', errors.name, true)}
+            {...register('name')}
+          />
+        </Field>
+        <Field
+          id="product-sku"
+          label="SKU"
+          hint="The product code: 1 to 20 letters, digits or dashes. Saved in capitals; no two products can share one."
+          error={errors.sku?.message}
+        >
+          <Input
+            id="product-sku"
+            autoComplete="off"
+            autoCapitalize="characters"
+            spellCheck={false}
+            maxLength={20}
+            size="touch"
+            className="max-w-[260px] bg-bg font-semibold uppercase"
+            aria-invalid={!!errors.sku || undefined}
+            aria-describedby={describedBy('product-sku', errors.sku, true)}
+            {...register('sku')}
+          />
+        </Field>
+        <Field
+          id="product-category"
+          label="Category"
+          hint={choices.length === 0 ? 'Add a category first, under Categories.' : undefined}
+          error={errors.categoryId?.message}
         >
           <select
-            id="product-unit"
+            id="product-category"
             className={selectClass}
-            aria-describedby={describedBy('product-unit', errors.unit, true)}
-            {...register('unit')}
+            aria-invalid={!!errors.categoryId || undefined}
+            aria-describedby={describedBy(
+              'product-category',
+              errors.categoryId,
+              choices.length === 0,
+            )}
+            {...register('categoryId')}
           >
-            {UNITS.map((unit) => (
-              <option key={unit} value={unit}>
-                {UNIT_LABELS[unit]}
+            <option value="">Choose a category</option>
+            {choices.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+                {category.active ? '' : ' (inactive)'}
               </option>
             ))}
           </select>
         </Field>
-        <Field id="product-price" label="Selling price (₱)" error={errors.sellPrice?.message}>
+        <div className="grid gap-[14px] sm:grid-cols-2">
+          <Field
+            id="product-unit"
+            label="Unit"
+            hint="The price and every quantity are per this unit."
+            error={errors.unit?.message}
+          >
+            <select
+              id="product-unit"
+              className={selectClass}
+              aria-describedby={describedBy('product-unit', errors.unit, true)}
+              {...register('unit')}
+            >
+              {UNITS.map((unit) => (
+                <option key={unit} value={unit}>
+                  {UNIT_LABELS[unit]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field id="product-price" label="Selling price (₱)" error={errors.sellPrice?.message}>
+            <Input
+              id="product-price"
+              inputMode="decimal"
+              autoComplete="off"
+              size="touch"
+              className="bg-bg"
+              aria-invalid={!!errors.sellPrice || undefined}
+              aria-describedby={describedBy('product-price', errors.sellPrice, false)}
+              {...register('sellPrice')}
+            />
+          </Field>
+        </div>
+        <Field
+          id="product-reorder"
+          label="Reorder level"
+          hint="When stock falls to this, the product shows as low stock. 0 turns it off."
+          error={errors.reorderLevel?.message}
+        >
           <Input
-            id="product-price"
-            inputMode="decimal"
+            id="product-reorder"
+            inputMode="numeric"
             autoComplete="off"
-            className="min-h-[48px] bg-bg text-[15px]"
-            aria-invalid={!!errors.sellPrice || undefined}
-            aria-describedby={describedBy('product-price', errors.sellPrice, false)}
-            {...register('sellPrice')}
+            size="touch"
+            className="max-w-[160px] bg-bg"
+            aria-invalid={!!errors.reorderLevel || undefined}
+            aria-describedby={describedBy('product-reorder', errors.reorderLevel, true)}
+            {...register('reorderLevel')}
           />
         </Field>
-      </div>
-      <Field
-        id="product-reorder"
-        label="Reorder level"
-        hint="When stock falls to this, the product shows as low stock. 0 turns it off."
-        error={errors.reorderLevel?.message}
-      >
-        <Input
-          id="product-reorder"
-          inputMode="numeric"
-          autoComplete="off"
-          className="min-h-[48px] max-w-[160px] bg-bg text-[15px]"
-          aria-invalid={!!errors.reorderLevel || undefined}
-          aria-describedby={describedBy('product-reorder', errors.reorderLevel, true)}
-          {...register('reorderLevel')}
-        />
-      </Field>
-      {children}
-      <div className="flex flex-wrap gap-[10px]">
-        <Button type="submit" className="min-h-[46px] px-[22px]" disabled={isSubmitting}>
-          {isSubmitting ? submittingLabel : submitLabel}
-        </Button>
-        {onCancel && (
-          <Button
-            type="button"
-            variant="secondary"
-            className="min-h-[46px] px-[18px]"
-            disabled={isSubmitting}
-            onClick={onCancel}
-          >
-            Cancel
+        {children}
+        <div className="flex flex-wrap gap-[10px]">
+          <Button type="submit" size="md" disabled={isSubmitting}>
+            {isSubmitting ? submittingLabel : submitLabel}
           </Button>
-        )}
-      </div>
-    </form>
+          {onCancel && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              disabled={isSubmitting}
+              onClick={onCancel}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
+      </form>
+    </Card>
   );
 }

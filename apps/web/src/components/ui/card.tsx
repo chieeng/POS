@@ -1,3 +1,4 @@
+import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import * as React from 'react';
 import { cn } from '@/lib/utils';
@@ -20,11 +21,15 @@ const cardVariants = cva('flex flex-col', {
 });
 
 export interface CardProps
-  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof cardVariants> {}
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof cardVariants> {
+  /** Styles its one child (a form, section or list item) as the card instead of a div. */
+  asChild?: boolean;
+}
 
 export const Card = React.forwardRef<HTMLDivElement, CardProps>(
-  ({ className, size, tone, ...props }, ref) => (
-    <div ref={ref} className={cn(cardVariants({ size, tone }), className)} {...props} />
-  ),
+  ({ className, size, tone, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? Slot : 'div';
+    return <Comp ref={ref} className={cn(cardVariants({ size, tone }), className)} {...props} />;
+  },
 );
 Card.displayName = 'Card';

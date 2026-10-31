@@ -10,6 +10,13 @@ vi.mock('@/features/auth/useTurnstile', () => ({
   }),
 }));
 
+// jsdom has no ResizeObserver; Radix's Checkbox measures itself with one inside a form.
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+
 afterEach(() => {
   cleanup();
 });

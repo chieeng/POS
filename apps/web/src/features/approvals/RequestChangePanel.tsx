@@ -2,8 +2,11 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { CheckboxField } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Segmented } from '@/components/ui/segmented';
 import type { Category, Product } from '@/features/catalog/data';
 import { toFields } from '@/features/catalog/helpers';
 import { deletePhotoFiles, describePhotoError, uploadPhoto } from '@/features/catalog/photos';
@@ -21,6 +24,12 @@ import {
 import { RequestChanges } from './RequestChanges';
 
 const REASON_MAX = 200;
+
+const PHOTO_OPTIONS = [
+  { value: 'keep', label: 'Keep' },
+  { value: 'replace', label: 'Replace' },
+  { value: 'remove', label: 'Remove' },
+] as const;
 
 /**
  * PROD-04: on a product's page, Special Sales asks the Owner for a change instead of making it.
@@ -81,44 +90,38 @@ export function RequestChangePanel({
   if (pending) {
     const outdated = isOutdated(pending, product);
     return (
-      <section
-        aria-label="Your request"
-        className="flex flex-col gap-[10px] rounded-[30px] bg-surface px-[18px] py-[16px] md:px-[22px]"
-      >
-        <p className="text-[15px] font-semibold">Your request is waiting for the Owner.</p>
-        {outdated && (
-          <Alert variant="warn">
-            <span>
-              <b>Outdated:</b> the product changed since you asked. Withdraw this request and make a
-              new one if the change is still needed.
-            </span>
-          </Alert>
-        )}
-        <RequestChanges
-          request={pending}
-          product={product}
-          categories={categories}
-          outdated={outdated}
-        />
-        <p className="text-[14px]">
-          <span className="text-neutral-700">Your reason: </span>
-          {pending.reason}
-        </p>
-        {error && <Alert variant="danger">{error}</Alert>}
-        <div className="flex flex-wrap items-center gap-[12px]">
-          <Button
-            variant="secondary"
-            className="min-h-[44px] px-[18px]"
-            disabled={busy}
-            onClick={() => void withdraw()}
-          >
-            {busy ? 'Withdrawing…' : 'Withdraw'}
-          </Button>
-          <Link to="/requests" className="text-[14px]">
-            All my requests
-          </Link>
-        </div>
-      </section>
+      <Card asChild size="panel" className="gap-[10px] py-[16px]">
+        <section aria-label="Your request">
+          <p className="text-[15px] font-semibold">Your request is waiting for the Owner.</p>
+          {outdated && (
+            <Alert variant="warn">
+              <span>
+                <b>Outdated:</b> the product changed since you asked. Withdraw this request and make
+                a new one if the change is still needed.
+              </span>
+            </Alert>
+          )}
+          <RequestChanges
+            request={pending}
+            product={product}
+            categories={categories}
+            outdated={outdated}
+          />
+          <p className="text-[14px]">
+            <span className="text-neutral-700">Your reason: </span>
+            {pending.reason}
+          </p>
+          {error && <Alert variant="danger">{error}</Alert>}
+          <div className="flex flex-wrap items-center gap-[12px]">
+            <Button variant="secondary" size="md" disabled={busy} onClick={() => void withdraw()}>
+              {busy ? 'Withdrawing…' : 'Withdraw'}
+            </Button>
+            <Link to="/requests" className="text-[14px]">
+              All my requests
+            </Link>
+          </div>
+        </section>
+      </Card>
     );
   }
 
@@ -134,7 +137,7 @@ export function RequestChangePanel({
         )}
         <div className="flex flex-wrap items-center gap-[12px]">
           <Button
-            className="min-h-[46px] px-[20px]"
+            size="md"
             onClick={() => {
               onStart?.();
               setNotice(null);
@@ -222,48 +225,32 @@ export function RequestChangePanel({
           }
         }}
       >
-        <label className="flex items-center gap-[10px] text-[14.5px]">
-          <input
-            type="checkbox"
-            checked={toggleActive}
-            onChange={(event) => setToggleActive(event.target.checked)}
-            className="size-[18px] accent-accent"
-          />
-          {product.active ? 'Deactivate this product' : 'Reactivate this product'}
-        </label>
+        <CheckboxField
+          label={product.active ? 'Deactivate this product' : 'Reactivate this product'}
+          checked={toggleActive}
+          onCheckedChange={(checked) => setToggleActive(checked === true)}
+        />
         {product.photoKey && (
-          <fieldset className="flex flex-col gap-[8px]">
-            <legend className="mb-[6px] text-[13px] font-semibold">Photo</legend>
-            {(
-              [
-                ['keep', 'Keep the photo'],
-                ['replace', 'Replace the photo'],
-                ['remove', 'Remove the photo'],
-              ] as const
-            ).map(([value, label]) => (
-              <label key={value} className="flex items-center gap-[10px] text-[14.5px]">
-                <input
-                  type="radio"
-                  name="request-photo"
-                  checked={photo === value}
-                  onChange={() => {
-                    setPhoto(value);
-                    setError(null);
-                  }}
-                  className="size-[18px] accent-accent"
-                />
-                {label}
-              </label>
-            ))}
+          <div className="flex flex-col gap-[10px]">
+            <Label asChild>
+              <span>Photo</span>
+            </Label>
+            <Segmented
+              label="Photo"
+              options={PHOTO_OPTIONS}
+              value={photo}
+              onChange={(value) => {
+                setPhoto(value);
+                setError(null);
+              }}
+            />
             {photo === 'replace' && (
               <PhotoPicker label="New photo" file={photoFile} onChange={setPhotoFile} />
             )}
-          </fieldset>
+          </div>
         )}
         <div>
-          <Label htmlFor="request-reason" className="text-[13px]">
-            Reason for the Owner
-          </Label>
+          <Label htmlFor="request-reason">Reason for the Owner</Label>
           <Input
             id="request-reason"
             value={reason}
@@ -271,7 +258,8 @@ export function RequestChangePanel({
             autoComplete="off"
             placeholder="For example: the supplier raised the price"
             onChange={(event) => setReason(event.target.value)}
-            className="min-h-[48px] bg-bg text-[15px]"
+            size="touch"
+            className="bg-bg"
           />
         </div>
       </ProductForm>

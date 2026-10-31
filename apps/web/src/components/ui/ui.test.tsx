@@ -4,6 +4,7 @@ import { Inbox } from 'lucide-react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Alert, AlertAction } from './alert';
+import { Card } from './card';
 import { Checkbox, CheckboxField } from './checkbox';
 import { ConnectionPill } from './connection-pill';
 import { EmptyState } from './empty-state';
@@ -80,6 +81,19 @@ describe('Sheet', () => {
     const dialog = screen.getByRole('dialog', { name: 'Adjust stock' });
     expect(dialog.className).toContain('rounded-card');
     expect(dialog.className).not.toContain('rounded-t-[32px]');
+  });
+});
+
+describe('Card', () => {
+  it('styles its child as the card with asChild, so a form stays a form', () => {
+    render(
+      <Card asChild size="panel" className="py-[18px]">
+        <form aria-label="Product" />
+      </Card>,
+    );
+    const form = screen.getByRole('form', { name: 'Product' });
+    expect(form).toHaveClass('rounded-card', 'bg-surface', 'py-[18px]');
+    expect(form).not.toHaveClass('py-2');
   });
 });
 

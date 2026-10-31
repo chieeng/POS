@@ -1,7 +1,17 @@
+import { History, PencilLine, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { Alert } from '@/components/ui/alert';
-import { Tag } from '@/components/ui/tag';
+import { Alert, AlertAction } from '@/components/ui/alert';
+import { Card } from '@/components/ui/card';
+import { StatusBadge } from '@/components/ui/status-badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useProducts, useSuppliers } from '@/features/catalog/data';
 import { PageHeader } from '@/features/settings/PageHeader';
 import { formatPeso } from '@/lib/money';
@@ -32,9 +42,21 @@ export function StockReceiptPage() {
   return (
     <div className="flex w-full max-w-[760px] flex-col gap-[14px] p-[14px] md:px-[26px] md:py-[22px] xl:py-[28px] xl:pl-[16px]">
       <PageHeader title="Stock-in" backTo="/stock-in" backLabel="Back to stock-ins" alwaysBack>
-        {found?.isDeletion && <Tag variant="muted">Deleted</Tag>}
-        {found?.correctsReceiptId && !found.isDeletion && <Tag variant="accent-2">Correction</Tag>}
-        {correction && <Tag variant="neutral">Corrected</Tag>}
+        {found?.isDeletion && (
+          <StatusBadge tone="pending" icon={Trash2}>
+            Deleted
+          </StatusBadge>
+        )}
+        {found?.correctsReceiptId && !found.isDeletion && (
+          <StatusBadge tone="accent" icon={PencilLine}>
+            Correction
+          </StatusBadge>
+        )}
+        {correction && (
+          <StatusBadge tone="pending" icon={History}>
+            Corrected
+          </StatusBadge>
+        )}
       </PageHeader>
       {(state?.saved || state?.corrected) && (
         <p role="status" className="px-[4px] text-[14px] text-neutral-800">
@@ -56,110 +78,114 @@ export function StockReceiptPage() {
       ) : (
         <>
           {found.correctsReceiptId && (
-            <p className="px-[4px] text-[14px]">
-              {found.isDeletion ? 'Deletes' : 'Corrects'}{' '}
-              <Link to={`/stock-in/${found.correctsReceiptId}`} className="font-semibold underline">
-                the stock-in as first recorded
-              </Link>
+            <Alert
+              variant="info"
+              icon={found.isDeletion ? Trash2 : PencilLine}
+              action={
+                <AlertAction asChild>
+                  <Link to={`/stock-in/${found.correctsReceiptId}`}>
+                    Open the original stock-in
+                  </Link>
+                </AlertAction>
+              }
+            >
+              {found.isDeletion ? 'Deletes' : 'Corrects'} an earlier stock-in
               {found.correctedByName && `, by ${found.correctedByName}`}.
-            </p>
-          )}
-          {correction && (
-            <Alert variant="warn">
-              <span>
-                <b>
-                  {correction.isDeletion ? 'Deleted' : 'Corrected'} on{' '}
-                  {formatWhen(correction.createdAt)}
-                  {correction.correctedByName && ` by ${correction.correctedByName}`}.
-                </b>{' '}
-                This is how it was first recorded; stock and cost follow the{' '}
-                {correction.isDeletion ? 'deletion' : 'correction'}.{' '}
-                <Link
-                  to={`/stock-in/${correction.id}`}
-                  className="font-semibold whitespace-nowrap text-warn-fg underline"
-                >
-                  Open the {correction.isDeletion ? 'deletion' : 'correction'}
-                </Link>
-              </span>
             </Alert>
           )}
-          <dl className="grid grid-cols-[auto_1fr] gap-x-[18px] gap-y-[8px] rounded-[30px] bg-surface px-[18px] py-[16px] text-[15px] md:px-[22px]">
-            <dt className="text-neutral-700">Reference</dt>
-            <dd className="font-semibold">{found.reference ?? '—'}</dd>
-            <dt className="text-neutral-700">Supplier</dt>
-            <dd className="font-semibold">
-              {found.supplierId
-                ? (suppliers.data.find((supplier) => supplier.id === found.supplierId)?.name ?? '—')
-                : '—'}
-            </dd>
-            <dt className="text-neutral-700">Received</dt>
-            <dd className="font-semibold">
-              {formatWhen(found.createdAt)} · {found.receivedByName}
-            </dd>
-          </dl>
+          {correction && (
+            <Alert
+              variant="warn"
+              icon={History}
+              action={
+                <AlertAction asChild>
+                  <Link to={`/stock-in/${correction.id}`}>
+                    Open the {correction.isDeletion ? 'deletion' : 'correction'}
+                  </Link>
+                </AlertAction>
+              }
+            >
+              <b>
+                {correction.isDeletion ? 'Deleted' : 'Corrected'} on{' '}
+                {formatWhen(correction.createdAt)}
+                {correction.correctedByName && ` by ${correction.correctedByName}`}.
+              </b>{' '}
+              This is how it was first recorded; stock and cost follow the{' '}
+              {correction.isDeletion ? 'deletion' : 'correction'}.
+            </Alert>
+          )}
+          <Card
+            asChild
+            size="panel"
+            className="grid grid-cols-[auto_1fr] gap-x-[18px] gap-y-[8px] py-[16px] text-[15px]"
+          >
+            <dl>
+              <dt className="text-neutral-700">Reference</dt>
+              <dd className="font-semibold">{found.reference ?? '—'}</dd>
+              <dt className="text-neutral-700">Supplier</dt>
+              <dd className="font-semibold">
+                {found.supplierId
+                  ? (suppliers.data.find((supplier) => supplier.id === found.supplierId)?.name ??
+                    '—')
+                  : '—'}
+              </dd>
+              <dt className="text-neutral-700">Received</dt>
+              <dd className="font-semibold">
+                {formatWhen(found.createdAt)} · {found.receivedByName}
+              </dd>
+            </dl>
+          </Card>
           {found.isDeletion ? (
             <p className="px-[4px] text-[14px] text-neutral-700">
               No lines: this deletion took every quantity of the earlier stock-in back out of stock.
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-[30px] bg-surface px-[14px] py-[8px] md:px-[22px]">
-              <table className="w-full border-collapse text-left text-[14px]">
-                <thead>
-                  <tr className="text-[12px] text-neutral-700">
-                    <th scope="col" className="py-[6px] pr-[10px] font-semibold">
-                      #
-                    </th>
-                    <th scope="col" className="py-[6px] pr-[10px] font-semibold">
-                      Product
-                    </th>
-                    <th scope="col" className="py-[6px] pr-[10px] text-right font-semibold">
-                      Qty
-                    </th>
-                    <th scope="col" className="py-[6px] pr-[10px] text-right font-semibold">
-                      Unit cost
-                    </th>
-                    <th scope="col" className="py-[6px] text-right font-semibold">
-                      Line total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+            <Card size="panel">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Product</TableHead>
+                    <TableHead numeric>Qty</TableHead>
+                    <TableHead numeric>Unit cost</TableHead>
+                    <TableHead numeric>Line total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {found.lines.map((line) => {
                     const product = productById.get(line.productId);
                     return (
-                      <tr key={line.lineNo} className="border-t border-text/8">
-                        <td className="py-[8px] pr-[10px] text-neutral-700">{line.lineNo}</td>
-                        <td className="py-[8px] pr-[10px]">
+                      <TableRow key={line.lineNo}>
+                        <TableCell className="text-neutral-700">{line.lineNo}</TableCell>
+                        <TableCell>
                           <Link to={`/products/${line.productId}`}>
                             {product?.name ?? 'Product'}
                           </Link>
                           <span className="block text-[12px] text-neutral-700">{product?.sku}</span>
-                        </td>
-                        <td className="py-[8px] pr-[10px] text-right">
+                        </TableCell>
+                        <TableCell numeric>
                           {line.qty} {product?.unit}
-                        </td>
-                        <td className="py-[8px] pr-[10px] text-right">
-                          {formatPeso(line.unitCost)}
-                        </td>
-                        <td className="py-[8px] text-right font-semibold">
+                        </TableCell>
+                        <TableCell numeric>{formatPeso(line.unitCost)}</TableCell>
+                        <TableCell numeric className="font-semibold">
                           {formatPeso(line.qty * line.unitCost)}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
+                </TableBody>
                 <tfoot>
-                  <tr className="border-t border-text/20">
-                    <td colSpan={4} className="py-[8px] pr-[10px] text-right font-semibold">
+                  <tr>
+                    <TableCell colSpan={4} numeric className="border-b-0 font-semibold">
                       Total
-                    </td>
-                    <td className="py-[8px] text-right text-[16px] font-bold">
+                    </TableCell>
+                    <TableCell numeric className="border-b-0 text-[16px] font-bold">
                       {formatPeso(receiptTotal(found))}
-                    </td>
+                    </TableCell>
                   </tr>
                 </tfoot>
-              </table>
-            </div>
+              </Table>
+            </Card>
           )}
           {!correction && !found.isDeletion && (
             <CorrectionPanel

@@ -1,8 +1,9 @@
-import { Check, ChevronRight, UserPlus, UserX } from 'lucide-react';
+import { ChevronRight, UserPlus, UserX } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Avatar } from '@/components/Avatar';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Tag } from '@/components/ui/tag';
 import { ROLE_LABELS, type Role } from '@/features/auth/roles';
 import { PageHeader } from '@/features/settings/PageHeader';
@@ -21,12 +22,12 @@ export function RoleTag({ role }: { role: Role }) {
 }
 
 export function StatusTag({ active }: { active: boolean }) {
-  const Icon = active ? Check : UserX;
-  return (
-    <Tag variant={active ? 'accent-2' : 'muted'}>
-      <Icon size={12} strokeWidth={ICON_STROKE} aria-hidden />
-      {active ? 'Active' : 'Deactivated'}
-    </Tag>
+  return active ? (
+    <StatusBadge tone="ok">Active</StatusBadge>
+  ) : (
+    <StatusBadge tone="pending" icon={UserX}>
+      Deactivated
+    </StatusBadge>
   );
 }
 

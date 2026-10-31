@@ -1,3 +1,4 @@
+import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { CircleAlert, CloudOff, Info, TriangleAlert, type LucideIcon } from 'lucide-react';
 import * as React from 'react';
@@ -44,17 +45,22 @@ export function Alert({ className, variant, icon, action, children, ...props }: 
   );
 }
 
-/** The Retry-style button inside an Alert: outlined in the alert's own color. */
+/**
+ * The Retry-style button inside an Alert: outlined in the alert's own color. With `asChild` it
+ * styles a link instead, such as "Open the correction".
+ */
 export function AlertAction({
   className,
   type = 'button',
+  asChild = false,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot : 'button';
   return (
-    <button
-      type={type}
+    <Comp
+      type={asChild ? undefined : type}
       className={cn(
-        'inline-flex min-h-11 items-center gap-1.5 rounded-full border border-current px-4 font-body text-[14px] font-bold hover:bg-text/7 disabled:cursor-not-allowed disabled:opacity-45',
+        'inline-flex min-h-11 items-center gap-1.5 rounded-full border border-current px-4 font-body text-[14px] font-bold text-current no-underline hover:bg-text/7 disabled:cursor-not-allowed disabled:opacity-45',
         className,
       )}
       {...props}
