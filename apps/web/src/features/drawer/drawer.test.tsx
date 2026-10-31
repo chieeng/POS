@@ -232,3 +232,17 @@ describe('parsePeso', () => {
     expect(parsePeso('')).toBeNull();
   });
 });
+
+describe('the Owner’s drawer report link', () => {
+  it('shows for the Owner only', async () => {
+    signInAs('owner');
+    renderPage();
+    expect(await screen.findByRole('link', { name: 'Drawer report' })).toBeInTheDocument();
+  });
+
+  it('is not there for staff', async () => {
+    renderPage();
+    await screen.findByLabelText('Opening cash');
+    expect(screen.queryByRole('link', { name: 'Drawer report' })).toBeNull();
+  });
+});

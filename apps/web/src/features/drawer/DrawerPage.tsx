@@ -1,4 +1,10 @@
-import { ArrowDownToLine, ArrowUpFromLine, Calculator, LockOpen } from 'lucide-react';
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Calculator,
+  ClipboardList,
+  LockOpen,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
@@ -18,7 +24,8 @@ import { OpenDrawerForm } from './OpenDrawerForm';
  */
 export function DrawerPage() {
   const role = useSession((s) => s.user?.role);
-  const canClose = role === 'owner' || role === 'special_sales';
+  const isOwner = role === 'owner';
+  const canClose = isOwner || role === 'special_sales';
   const drawer = useDrawerToday();
   const [sheet, setSheet] = useState<EntryType | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -26,12 +33,22 @@ export function DrawerPage() {
 
   return (
     <div className="flex w-full max-w-[560px] flex-col gap-[16px] p-[14px] md:px-[26px] md:py-[22px] xl:py-[28px] xl:pl-[16px]">
-      <div>
-        <h1 className="text-[30px] leading-[1.1]">
-          {session ? 'Cash drawer' : 'Open today’s drawer'}
-        </h1>
-        {drawer.data && (
-          <p className="mt-[4px] text-[14.5px] text-neutral-700">{dayLabel(drawer.data.today)}</p>
+      <div className="flex flex-wrap items-start gap-[12px]">
+        <div className="flex-1">
+          <h1 className="text-[30px] leading-[1.1]">
+            {session ? 'Cash drawer' : 'Open today’s drawer'}
+          </h1>
+          {drawer.data && (
+            <p className="mt-[4px] text-[14.5px] text-neutral-700">{dayLabel(drawer.data.today)}</p>
+          )}
+        </div>
+        {isOwner && (
+          <Button asChild variant="secondary" size="md">
+            <Link to="report">
+              <ClipboardList size={16} strokeWidth={ICON_STROKE} aria-hidden />
+              Drawer report
+            </Link>
+          </Button>
         )}
       </div>
 
