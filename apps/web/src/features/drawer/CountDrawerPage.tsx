@@ -72,7 +72,7 @@ export function CountDrawerPage() {
 
       {drawer.error ? (
         <Alert variant="danger">
-          <b>Couldn’t load the drawer.</b> Check your connection and try again.
+          <b>The drawer needs internet.</b> Connect and try again.
         </Alert>
       ) : drawer.loading ? (
         <p className="text-neutral-700" role="status">

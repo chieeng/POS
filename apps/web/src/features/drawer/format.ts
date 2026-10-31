@@ -1,3 +1,5 @@
+import type { EntryReason } from './data';
+
 const MANILA = 'Asia/Manila';
 
 /** "2026-11-01" as "Sunday, Nov 1, 2026". */
@@ -28,3 +30,12 @@ export function dayBefore(day: string): string {
   date.setUTCDate(date.getUTCDate() - 1);
   return date.toISOString().slice(0, 10);
 }
+
+/** SHIFT-02: the reason chips' words (kept here so the audit log can use them too). */
+export const REASON_LABELS: Record<EntryReason, string> = {
+  supplier_payment: 'Supplier payment',
+  expense: 'Expense',
+  owner_withdrawal: 'Owner withdrawal',
+  change_fund: 'Change fund',
+  other: 'Other',
+};

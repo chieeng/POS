@@ -12,6 +12,7 @@ const server = vi.hoisted(() => ({
   today: {} as Json,
   expected: 2000 as number | null,
   failWith: null as string | null,
+  offline: false,
   calls: [] as { fn: string; args: Json | undefined }[],
 }));
 
@@ -20,7 +21,13 @@ vi.mock('@/lib/supabase', () => ({
   supabase: {
     rpc: (fn: string, args?: Json) => {
       server.calls.push({ fn, args });
-      if (fn === 'drawer_today') return Promise.resolve({ data: server.today, error: null });
+      if (fn === 'drawer_today') {
+        return Promise.resolve(
+          server.offline
+            ? { data: null, error: { message: 'Failed to fetch' } }
+            : { data: server.today, error: null },
+        );
+      }
       if (fn === 'drawer_expected_cash') {
         return Promise.resolve({ data: server.expected, error: null });
       }
@@ -70,11 +77,20 @@ beforeEach(() => {
   server.calls = [];
   server.expected = 2000;
   server.failWith = null;
+  server.offline = false;
   server.today = { today: '2026-11-01', session: null, lastCount: null, staleOpen: false };
   signInAs('sales');
 });
 
 describe('opening the drawer (SHIFT-01)', () => {
+  it('says the drawer needs internet when it can’t load, without calling it closed', async () => {
+    server.offline = true;
+    renderPage();
+    expect(await screen.findByText('The drawer needs internet.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Cash drawer');
+    expect(screen.queryByText(/Open today/)).toBeNull();
+  });
+
   it('opens with the cash entered when there is no earlier count', async () => {
     const user = renderPage();
     expect(await screen.findByText('Sunday, Nov 1, 2026')).toBeInTheDocument();

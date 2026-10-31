@@ -109,6 +109,22 @@ describe('the day in order (SHIFT-04)', () => {
     expect(csv.startsWith('﻿Date,Time,Type,Reason / note,By,Amount\r\n')).toBe(true);
     expect(csv).toContain('2026-11-01,10:30 AM,Cash out,"Expense · Ice, 2 sacks",Jun,-350.00');
     expect(csv).toContain('2026-11-01,8:06 PM,Closed,One coin under the tray,Maricel,1930.00');
+    expect(csv).toMatch(
+      /2026-11-01,,Expected,,,1950\.00\r\n2026-11-01,,Counted,,,1930\.00\r\n2026-11-01,,Over\/short,Short,,-20\.00\r\n$/,
+    );
+  });
+
+  it('ends a drawer nobody counted with "Not counted"', () => {
+    const notCounted = {
+      ...CLOSED,
+      status: 'not_counted' as const,
+      countedCash: null,
+      overShort: null,
+      closedByName: null,
+    };
+    expect(drawerCsv(notCounted, ENTRIES)).toMatch(
+      /Expected,,,1950\.00\r\n2026-11-01,,Counted,Not counted,,\r\n2026-11-01,,Over\/short,Not counted,,\r\n$/,
+    );
   });
 });
 

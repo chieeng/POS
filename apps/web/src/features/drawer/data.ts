@@ -113,13 +113,7 @@ export type EntryType = 'cash_in' | 'cash_out';
 export type EntryReason =
   'supplier_payment' | 'expense' | 'owner_withdrawal' | 'change_fund' | 'other';
 
-export const REASON_LABELS: Record<EntryReason, string> = {
-  supplier_payment: 'Supplier payment',
-  expense: 'Expense',
-  owner_withdrawal: 'Owner withdrawal',
-  change_fund: 'Change fund',
-  other: 'Other',
-};
+export { REASON_LABELS } from './format';
 
 /** SHIFT-02: the design's reason chips. Money comes in only as change or for another reason. */
 export const REASONS: Record<EntryType, readonly EntryReason[]> = {

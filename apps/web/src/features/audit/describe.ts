@@ -22,6 +22,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { ROLE_LABELS, type Role } from '@/features/auth/roles';
+import type { EntryReason } from '@/features/drawer/data';
+import { REASON_LABELS, shortDay } from '@/features/drawer/format';
 import type { AuditRecord } from '@/features/users/data';
 import { formatPeso } from '@/lib/money';
 
@@ -63,6 +65,8 @@ export const ACTION_LABELS: Record<string, string> = {
   'drawer.close': 'Drawer counted and closed',
   'drawer.notCounted': 'Drawer not counted',
   'drawer.reopen': 'Drawer reopened',
+  'drawer.cashIn': 'Cash put in the drawer',
+  'drawer.cashOut': 'Cash taken out of the drawer',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -157,6 +161,13 @@ function signedPeso(amount: number): string {
 function overShortText(amount: number): string {
   if (amount === 0) return 'exact';
   return `${amount > 0 ? 'over' : 'short'} ${formatPeso(Math.abs(amount))}`;
+}
+
+/** A drawer's business day, "2026-10-31", as the app shows days: "Oct 31". */
+function drawerDay(value: unknown): string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? shortDay(value)
+    : text(value);
 }
 
 const asObject = (value: unknown): Json =>
@@ -415,7 +426,7 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
     case 'drawer.open':
       return {
         icon: Wallet,
-        what: `opened the drawer for ${text(after.businessDate)}`,
+        what: `opened the drawer for ${drawerDay(after.businessDate)}`,
         change:
           after.lastCount === null ||
           after.lastCount === undefined ||
@@ -426,24 +437,42 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
     case 'drawer.close':
       return {
         icon: Wallet,
-        what: `counted and closed the drawer for ${text(after.businessDate)}`,
+        what: `counted and closed the drawer for ${drawerDay(after.businessDate)}`,
         change: `Counted ${formatPeso(Number(after.counted))}, expected ${formatPeso(Number(after.expected))}, ${overShortText(Number(after.overShort))}`,
       };
     case 'drawer.notCounted':
       return {
         icon: Wallet,
-        what: `opened today's drawer; the drawer for ${text(after.businessDate)} was never counted`,
+        what: `opened today's drawer; the drawer for ${drawerDay(after.businessDate)} was never counted`,
         change: `Expected ${formatPeso(Number(after.expected))}, not counted`,
       };
     case 'drawer.reopen':
       return {
         icon: Wallet,
-        what: `reopened the drawer for ${text(before.businessDate)}`,
+        what: `reopened the drawer for ${drawerDay(before.businessDate)}`,
         change:
-          before.counted === null || before.counted === undefined
+          (before.counted === null || before.counted === undefined
             ? 'It was not counted'
-            : `It was counted at ${formatPeso(Number(before.counted))}, ${overShortText(Number(before.overShort))}`,
+            : `It was counted at ${formatPeso(Number(before.counted))}, ${overShortText(Number(before.overShort))}`) +
+          (entry.reason ? ` · Reason: ${entry.reason}` : ''),
       };
+    case 'drawer.cashIn':
+    case 'drawer.cashOut': {
+      const amount = formatPeso(Number(after.amount));
+      return {
+        icon: Wallet,
+        what:
+          entry.action === 'drawer.cashIn'
+            ? `put ${amount} into the drawer for ${drawerDay(after.businessDate)}`
+            : `took ${amount} out of the drawer for ${drawerDay(after.businessDate)}`,
+        change: [
+          REASON_LABELS[after.reason as EntryReason] ?? text(after.reason),
+          typeof after.note === 'string' && after.note !== '' ? after.note : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      };
+    }
     case 'products.export':
       return {
         icon: FileDown,

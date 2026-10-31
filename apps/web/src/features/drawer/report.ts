@@ -187,8 +187,40 @@ export function movements(record: DrawerRecord, entries: DrawerEntryRecord[]): M
 
 export const DRAWER_CSV_HEADERS = ['Date', 'Time', 'Type', 'Reason / note', 'By', 'Amount'];
 
+/** The CSV's closing lines: expected, counted and over/short, so the file reads on its own. */
+export function drawerSummary(
+  record: DrawerRecord,
+  entries: DrawerEntryRecord[],
+): { type: string; note: string; amount: number | null }[] {
+  const expected = record.expectedCash ?? expectedFrom(record, entries).expected;
+  const counted = record.status === 'closed' ? record.countedCash : null;
+  const overShort = record.status === 'closed' ? record.overShort : null;
+  const missing =
+    record.status === 'not_counted' ? 'Not counted' : record.status === 'open' ? 'Still open' : '';
+  return [
+    { type: 'Expected', note: record.status === 'open' ? 'So far' : '', amount: expected },
+    { type: 'Counted', note: counted === null ? missing : '', amount: counted },
+    {
+      type: 'Over/short',
+      note:
+        overShort === null ? missing : overShort === 0 ? 'Exact' : overShort < 0 ? 'Short' : 'Over',
+      amount: overShort,
+    },
+  ];
+}
+
 /** SHIFT-04: the day's movements as CSV for Excel, like the product export. */
 export function drawerCsv(record: DrawerRecord, entries: DrawerEntryRecord[]): string {
+  const summary = drawerSummary(record, entries).map((line) =>
+    [
+      csvCell(record.businessDate),
+      '',
+      csvCell(line.type),
+      csvCell(line.note),
+      '',
+      line.amount === null ? '' : line.amount.toFixed(2),
+    ].join(','),
+  );
   const rows = movements(record, entries).map((move) =>
     [
       csvCell(record.businessDate),
@@ -207,5 +239,5 @@ export function drawerCsv(record: DrawerRecord, entries: DrawerEntryRecord[]): s
       move.amount === null ? '' : move.amount.toFixed(2),
     ].join(','),
   );
-  return `${BOM}${[DRAWER_CSV_HEADERS.join(','), ...rows].join('\r\n')}\r\n`;
+  return `${BOM}${[DRAWER_CSV_HEADERS.join(','), ...rows, ...summary].join('\r\n')}\r\n`;
 }
