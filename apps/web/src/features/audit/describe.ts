@@ -18,6 +18,7 @@ import {
   UserCheck,
   UserPlus,
   UserX,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { ROLE_LABELS, type Role } from '@/features/auth/roles';
@@ -58,6 +59,10 @@ export const ACTION_LABELS: Record<string, string> = {
   'approval.approve': 'Requests approved',
   'approval.reject': 'Requests rejected',
   'outbox.rejected': 'Offline entries not saved',
+  'drawer.open': 'Drawer opened',
+  'drawer.close': 'Drawer counted and closed',
+  'drawer.notCounted': 'Drawer not counted',
+  'drawer.reopen': 'Drawer reopened',
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -142,6 +147,17 @@ function settingText(key: string, value: unknown): string {
 }
 
 type Json = Record<string, unknown>;
+
+/** "+₱20.00", "−₱140.00". */
+function signedPeso(amount: number): string {
+  return `${amount < 0 ? '−' : '+'}${formatPeso(Math.abs(amount))}`;
+}
+
+/** "over ₱20.00", "short ₱10.00", "exact". */
+function overShortText(amount: number): string {
+  if (amount === 0) return 'exact';
+  return `${amount > 0 ? 'over' : 'short'} ${formatPeso(Math.abs(amount))}`;
+}
 
 const asObject = (value: unknown): Json =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Json) : {};
@@ -395,6 +411,38 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
             ? 'made a clock-in offline that could not be saved'
             : 'made a sale offline that could not be saved',
         change: `${text(entry.reason)} Kept on device ${text(entry.deviceTag ?? '—')}.`,
+      };
+    case 'drawer.open':
+      return {
+        icon: Wallet,
+        what: `opened the drawer for ${text(after.businessDate)}`,
+        change:
+          after.lastCount === null ||
+          after.lastCount === undefined ||
+          Number(after.difference) === 0
+            ? formatPeso(Number(after.opening))
+            : `${formatPeso(Number(after.opening))} (last count ${formatPeso(Number(after.lastCount))}, ${signedPeso(Number(after.difference))})`,
+      };
+    case 'drawer.close':
+      return {
+        icon: Wallet,
+        what: `counted and closed the drawer for ${text(after.businessDate)}`,
+        change: `Counted ${formatPeso(Number(after.counted))}, expected ${formatPeso(Number(after.expected))}, ${overShortText(Number(after.overShort))}`,
+      };
+    case 'drawer.notCounted':
+      return {
+        icon: Wallet,
+        what: `opened today's drawer; the drawer for ${text(after.businessDate)} was never counted`,
+        change: `Expected ${formatPeso(Number(after.expected))}, not counted`,
+      };
+    case 'drawer.reopen':
+      return {
+        icon: Wallet,
+        what: `reopened the drawer for ${text(before.businessDate)}`,
+        change:
+          before.counted === null || before.counted === undefined
+            ? 'It was not counted'
+            : `It was counted at ${formatPeso(Number(before.counted))}, ${overShortText(Number(before.overShort))}`,
       };
     case 'products.export':
       return {

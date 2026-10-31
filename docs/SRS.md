@@ -107,9 +107,9 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| SHIFT-01 | The store has one shared cash drawer; all cash payments go into it. Each day the first staff member enters the opening cash. The app pre-fills yesterday's counted closing cash; if the amount entered differs, the difference is flagged for the Owner. Only one drawer session can be open per day. | M |
-| SHIFT-02 | Any staff member can record cash-in and cash-out (change fund, petty expense) with a reason; each entry is logged with their name. | M |
-| SHIFT-03 | At closing, the Owner or a Special Sales counts the drawer. The system shows expected cash (opening + cash sales + cash utang payments − cash refunds − cash-outs) and records the over/short. | M |
+| SHIFT-01 | The store has one shared cash drawer; all cash payments go into it. Each day the first staff member enters the opening cash. The app pre-fills the last counted closing cash; if the amount entered differs, a reason is required and the difference is flagged for the Owner. Only one drawer session can be opened per day. A drawer left open on an earlier day is closed as "not counted" when today's drawer opens, and flagged for the Owner; a forgotten close never blocks selling. A closed drawer does not reopen the same day (later sales go to the next day's drawer); only the Owner can reopen the latest drawer, with a reason. | M |
+| SHIFT-02 | Any staff member can record cash-in and cash-out with a reason (Supplier payment, Expense, Owner withdrawal, Change fund, Other) and an optional note (required for Other); each entry is logged with their name. Only the Owner sees "Expected cash after" while recording. | M |
+| SHIFT-03 | At closing, the Owner or a Special Sales counts the drawer by denomination (₱1,000 down to ₱1). The count is blind: expected cash (opening + cash sales + cash utang payments + cash-ins − cash refunds − cash-outs) is shown only after the count is entered, and Special Sales and Sales never see expected cash before that. The system records the exact over/short (no tolerance) and an optional note for the Owner. | M |
 | SHIFT-04 | Daily drawer report: sales by payment method and by salesperson, voids, corrections, refunds, utang collected, cash-in/out, over/short. | M |
 
 ### 3.5 Inventory (INV)
@@ -247,8 +247,8 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 | `price_changes` | product\_id, old\_price, new\_price, source (created, owner\_edit, approval, import), changed\_by, changed\_by\_name, device\_tag, created\_at | Functions only; append-only; Owner and Special Sales read |
 | `product_costs` | product\_id, cost\_price (weighted average, 4 decimals), updated\_at | Functions only; Owner-only read |
 | `customers` | branch\_id, name, phone, address, credit\_limit, balance, active | Sales (create), Owner (edit); `balance` only via functions |
-| `drawer_sessions` | branch\_id, business\_date (unique per branch), opened\_by, opening\_cash, prefill\_difference, closed\_by, counted\_cash, expected\_cash, over\_short, status | open\_drawer / close\_drawer functions |
-| `drawer_entries` | session\_id, type (cash\_in, cash\_out), amount, reason, user\_id, created\_at | Function; append-only |
+| `drawer_sessions` | branch\_id, business\_date (unique per branch, Asia/Manila), status (open, closed, not\_counted), opened\_by, opening\_cash, prefill\_cash, prefill\_difference, opening\_reason, closed\_by, counts (by denomination), counted\_cash, expected\_cash, over\_short, closing\_note | open\_drawer, close\_drawer and reopen\_drawer functions; the Owner reads them; staff get today's state through drawer\_today, without expected cash |
+| `drawer_entries` | session\_id, type (cash\_in, cash\_out), amount, reason (supplier\_payment, expense, owner\_withdrawal, change\_fund, other), note, user\_id, user\_name, created\_at | record\_drawer\_entry; append-only; the Owner reads them |
 | `sales` | id (client-generated UUID), receipt\_no (unique), branch\_id, session\_id, salesperson\_id, device\_tag, customer\_id, subtotal, discount\_total, total, change, status (completed, voided, corrected), correction\_of, voided\_by, void\_reason, flags, created\_at, synced\_at | complete\_sale and approval functions only; append-only |
 | `sale_items` | sale\_id, product\_id, name, sku, qty, unit\_price, unit\_cost, discount, line\_total | complete\_sale only |
 | `sale_payments` | sale\_id, method (cash, gcash, maya, credit), amount, reference | complete\_sale only; duplicate GCash/Maya references checked |
@@ -300,6 +300,8 @@ Role and active flag live in `profiles`. RLS policies check them through small h
 | View and edit everyone's attendance; set store location, schedule and daily rates; approve corrections; run payroll, record cash advances, mark payslips paid | Yes | No | No |
 | Sell, hold, share slip | Yes | Yes | Yes |
 | Open the day's drawer, record cash-in/out | Yes | Yes | Yes |
+| Count and close the drawer | Yes | Yes | No |
+| Reopen a closed drawer, see expected cash before the count | Yes | No | No |
 | Discount within limit | Yes | Yes | Yes |
 | Discount over limit, credit sale over limit | Yes | Needs approval | Needs approval |
 | Correct or void a sale, process return | Yes | Needs approval | Needs approval |
