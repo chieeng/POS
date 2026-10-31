@@ -18,7 +18,7 @@ select is(
 
 select tables_are(
   'public',
-  array['branches', 'profiles', 'devices', 'audit_logs', 'backup_log', 'categories', 'suppliers', 'products', 'price_changes', 'approval_requests', 'product_costs', 'stock_receipts', 'stock_receipt_items', 'stock_movements', 'stock_adjustments'],
+  array['branches', 'profiles', 'devices', 'audit_logs', 'backup_log', 'categories', 'suppliers', 'products', 'price_changes', 'approval_requests', 'product_costs', 'stock_receipts', 'stock_receipt_items', 'stock_movements', 'stock_adjustments', 'drawer_sessions', 'drawer_entries'],
   'public holds exactly the expected tables'
 );
 
@@ -74,8 +74,8 @@ select is(
     from information_schema.role_table_grants
     where table_schema = 'public' and grantee = 'authenticated'
   ),
-  'approval_requests:SELECT audit_logs:SELECT backup_log:SELECT branches:SELECT categories:SELECT devices:SELECT price_changes:SELECT product_costs:SELECT products:SELECT profiles:SELECT stock_adjustments:SELECT stock_movements:SELECT stock_receipt_items:SELECT stock_receipts:SELECT suppliers:SELECT',
-  'authenticated has table-wide SELECT on fifteen tables and nothing else'
+  'approval_requests:SELECT audit_logs:SELECT backup_log:SELECT branches:SELECT categories:SELECT devices:SELECT drawer_entries:SELECT drawer_sessions:SELECT price_changes:SELECT product_costs:SELECT products:SELECT profiles:SELECT stock_adjustments:SELECT stock_movements:SELECT stock_receipt_items:SELECT stock_receipts:SELECT suppliers:SELECT',
+  'authenticated has table-wide SELECT on seventeen tables and nothing else'
 );
 
 select is(
@@ -96,7 +96,7 @@ select is(
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')
   ),
-  'adjust_stock correct_stock_in create_category create_product create_supplier decide_approval product_stock_history record_account_event record_product_export record_sign_in record_stock_in report_unsent request_product_change request_stock_adjustment request_stock_in_correction set_product_photo update_branch_settings update_category update_product update_supplier withdraw_request',
+  'adjust_stock close_drawer correct_stock_in create_category create_product create_supplier decide_approval drawer_expected_cash drawer_today open_drawer product_stock_history record_account_event record_drawer_entry record_product_export record_sign_in record_stock_in reopen_drawer report_unsent request_product_change request_stock_adjustment request_stock_in_correction set_product_photo update_branch_settings update_category update_product update_supplier withdraw_request',
   'only the API functions in public are callable by a signed-in user'
 );
 
