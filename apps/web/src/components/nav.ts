@@ -6,6 +6,7 @@ import {
   Send,
   Settings,
   ShoppingCart,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { ROLE_HOME, type Role } from '@/features/auth/roles';
@@ -101,12 +102,13 @@ export function navItems(role: Role, pending: number): NavItem[] {
       icon: Send,
       badge: pending,
     },
+    drawer: { to: '/drawer', label: 'Cash drawer', short: 'Drawer', icon: Wallet },
     settings: { to: '/settings', label: 'Settings', short: 'Settings', icon: Settings },
   };
   const available: Record<Role, readonly NavKey[]> = {
-    owner: ['home', 'approvals', 'products', 'stockIn', 'settings'],
-    special_sales: ['sell', 'products', 'stockIn', 'requests'],
-    sales: ['sell', 'products'],
+    owner: ['home', 'approvals', 'products', 'stockIn', 'drawer', 'settings'],
+    special_sales: ['sell', 'products', 'stockIn', 'drawer', 'requests'],
+    sales: ['sell', 'products', 'drawer'],
   };
   return NAV_ORDER[role]
     .filter((key) => available[role].includes(key) && built[key])

@@ -16,11 +16,18 @@ describe('navItems', () => {
       'approvals',
       'products',
       'stockIn',
+      'drawer',
       'settings',
     ]);
-    expect(keys(navItems('special_sales', 0))).toEqual(['sell', 'products', 'stockIn', 'requests']);
+    expect(keys(navItems('special_sales', 0))).toEqual([
+      'sell',
+      'products',
+      'stockIn',
+      'drawer',
+      'requests',
+    ]);
     // SRS 6.1: Sales can view products and stock levels.
-    expect(keys(navItems('sales', 0))).toEqual(['sell', 'products']);
+    expect(keys(navItems('sales', 0))).toEqual(['sell', 'products', 'drawer']);
   });
 
   it('puts the pending count on Approvals and My requests', () => {
@@ -31,7 +38,8 @@ describe('navItems', () => {
 
 describe('phoneNav', () => {
   it('shows every item and no More while five fit', () => {
-    for (const role of ['owner', 'special_sales', 'sales'] as const) {
+    // The Owner has six with the drawer: see the next tests.
+    for (const role of ['special_sales', 'sales'] as const) {
       const items = navItems(role, 0);
       expect(phoneNav(role, items)).toEqual({ bar: items, more: [] });
     }
