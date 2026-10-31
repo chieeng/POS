@@ -2,11 +2,11 @@
 # as is; Pages reads it from there. The app's own tests check it (src/test/hosting.test.ts).
 #
 # connect-src allows any Supabase project so one build config serves staging and production.
-# challenges.cloudflare.com is Turnstile (SEC-06). Fonts come from Google Fonts.
+# challenges.cloudflare.com is Turnstile (SEC-06). Fonts are bundled with the app.
 # img-src: product photos come from Supabase Storage; blob: previews a chosen photo.
 # api.pwnedpasswords.com is the leaked-password check on new passwords (SEC-05).
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.pwnedpasswords.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; font-src 'self'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.pwnedpasswords.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
   Strict-Transport-Security: max-age=63072000; includeSubDomains
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
@@ -17,3 +17,11 @@
 # File names under /assets carry a content hash, so they never change.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The service worker and the manifest are checked on every visit, so a deploy reaches
+# installed apps (the worker then waits for the user to reload, see UpdateBanner).
+/sw.js
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache
