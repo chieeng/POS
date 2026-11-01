@@ -43,6 +43,7 @@ import { describeDrawerError } from './data';
 import { shortDay, timeLabel } from './format';
 import {
   drawerCsv,
+  earlierCount,
   expectedFrom,
   movements,
   reopenDrawer,
@@ -169,6 +170,7 @@ function Report({
   const difference = record.prefillDifference ?? 0;
   const rows = movements(record, entries, events);
   const countedBefore = events.some((event) => event.kind === 'closed');
+  const earlier = earlierCount(record, events);
 
   return (
     <>
@@ -206,7 +208,7 @@ function Report({
                 : 'Still open'
           }
         />
-        <OverShortCard overShort={record.overShort} status={record.status} />
+        <OverShortCard overShort={record.overShort} status={record.status} earlier={earlier} />
       </div>
 
       {record.status === 'not_counted' && (
@@ -214,6 +216,7 @@ function Report({
           {countedBefore
             ? 'Nobody counted this drawer again after it was reopened.'
             : 'Nobody counted this drawer.'}{' '}
+          {earlier && `${earlier}. `}
           It was closed when the next day&apos;s drawer opened.
         </Alert>
       )}
@@ -354,9 +357,11 @@ function SummaryCard({
 function OverShortCard({
   overShort,
   status,
+  earlier,
 }: {
   overShort: number | null;
   status: 'open' | 'closed' | 'not_counted';
+  earlier: string | null;
 }) {
   if (overShort === null) {
     return (
@@ -364,7 +369,7 @@ function OverShortCard({
         icon={CircleAlert}
         label="Over / short"
         value="—"
-        sub={status === 'open' ? 'Shows after the count' : 'Not counted'}
+        sub={status === 'open' ? 'Shows after the count' : (earlier ?? 'Not counted')}
         tone={status === 'not_counted' ? 'warn' : 'plain'}
       />
     );

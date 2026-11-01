@@ -201,6 +201,17 @@ const closeResult = (overShort: number | null) =>
       ? 'Exact'
       : `${overShort < 0 ? 'Short' : 'Over'} ${formatPeso(Math.abs(overShort))}`;
 
+/**
+ * A reopened drawer nobody recounted: the result of its last count, so a shortage doesn't
+ * drop out of the headline. Null for any other drawer.
+ */
+export function earlierCount(record: DrawerRecord, events: DrawerEvent[]): string | null {
+  if (record.status !== 'not_counted') return null;
+  const last = events.filter((event) => event.kind === 'closed').pop();
+  if (!last || last.overShort === null) return null;
+  return `Earlier count before the reopen: ${closeResult(last.overShort).toLowerCase()}`;
+}
+
 const noteOf = (...parts: (string | null)[]) => parts.filter(Boolean).join(' · ');
 
 /**
@@ -278,6 +289,7 @@ export const DRAWER_CSV_HEADERS = ['Date', 'Time', 'Type', 'Reason / note', 'By'
 export function drawerSummary(
   record: DrawerRecord,
   entries: DrawerEntryRecord[],
+  events: DrawerEvent[] = [],
 ): { type: string; note: string; amount: number | null }[] {
   const expected = record.expectedCash ?? expectedFrom(record, entries).expected;
   const counted = record.status === 'closed' ? record.countedCash : null;
@@ -290,7 +302,13 @@ export function drawerSummary(
     {
       type: 'Over/short',
       note:
-        overShort === null ? missing : overShort === 0 ? 'Exact' : overShort < 0 ? 'Short' : 'Over',
+        overShort === null
+          ? noteOf(missing, earlierCount(record, events))
+          : overShort === 0
+            ? 'Exact'
+            : overShort < 0
+              ? 'Short'
+              : 'Over',
       amount: overShort,
     },
   ];
@@ -302,7 +320,7 @@ export function drawerCsv(
   entries: DrawerEntryRecord[],
   events: DrawerEvent[] = [],
 ): string {
-  const summary = drawerSummary(record, entries).map((line) =>
+  const summary = drawerSummary(record, entries, events).map((line) =>
     [
       csvCell(record.businessDate),
       '',
