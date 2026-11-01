@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DrawerReportPage } from './DrawerReportPage';
 import {
   drawerCsv,
+  earlierCount,
   expectedFrom,
   movements,
   reopenDrawer,
@@ -194,6 +195,40 @@ describe('a drawer that was reopened (SHIFT-04)', () => {
       ['Reopened', 'Reason: test reopen', null],
       ['Closed', 'Exact', 1150],
     ]);
+  });
+
+  it('keeps the earlier result in the headline, the banner and the CSV', () => {
+    state.record = REOPENED;
+    state.entries = [];
+    state.events = EVENTS;
+    renderReport();
+    expect(screen.getByText('Earlier count before the reopen: short ₱10.00')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /again after it was reopened\. Earlier count before the reopen: short ₱10\.00\./,
+      ),
+    ).toBeInTheDocument();
+    expect(drawerCsv(REOPENED, [], EVENTS)).toContain(
+      '2026-11-01,,Over/short,Not counted · Earlier count before the reopen: short ₱10.00,,\r\n',
+    );
+  });
+
+  it('reads the last count’s result: over, exact, and nothing without a count', () => {
+    const first = EVENTS[0]!;
+    expect(earlierCount(REOPENED, [{ ...first, overShort: 25 }])).toBe(
+      'Earlier count before the reopen: over ₱25.00',
+    );
+    expect(earlierCount(REOPENED, [{ ...first, overShort: 0 }])).toBe(
+      'Earlier count before the reopen: exact',
+    );
+    expect(
+      earlierCount(REOPENED, [
+        { ...first, overShort: -10 },
+        { ...first, id: 'c2', overShort: 5 },
+      ]),
+    ).toBe('Earlier count before the reopen: over ₱5.00');
+    expect(earlierCount(REOPENED, [])).toBeNull();
+    expect(earlierCount(CLOSED, EVENTS)).toBeNull();
   });
 
   it('shows the rows, and doesn’t say the drawer was never counted', () => {
