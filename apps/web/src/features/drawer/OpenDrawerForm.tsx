@@ -82,8 +82,18 @@ export function OpenDrawerForm({
         />
         {last && (
           <p className="px-[8px] text-[13px] text-neutral-700">
-            {yesterday ? 'Yesterday’s' : `Last (${shortDay(last.businessDate)})`} closing count:{' '}
-            {formatPeso(last.amount)} ({last.countedByName}, {timeLabel(last.closedAt)})
+            {last.beforeReopen ? (
+              <>
+                Last count: {formatPeso(last.amount)} ({last.countedByName},{' '}
+                {shortDay(last.businessDate)} {timeLabel(last.closedAt)}, before the drawer was
+                reopened)
+              </>
+            ) : (
+              <>
+                {yesterday ? 'Yesterday’s' : `Last (${shortDay(last.businessDate)})`} closing count:{' '}
+                {formatPeso(last.amount)} ({last.countedByName}, {timeLabel(last.closedAt)})
+              </>
+            )}
           </p>
         )}
       </div>

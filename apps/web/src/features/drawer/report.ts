@@ -1,6 +1,7 @@
 import { BOM, csvCell } from '@/features/catalog/export';
 import { useLiveRows } from '@/hooks/useLiveRows';
 import { getDeviceTag } from '@/lib/device';
+import { formatPeso } from '@/lib/money';
 import { supabase } from '@/lib/supabase';
 import { REASON_LABELS, type EntryReason, type EntryType } from './data';
 
@@ -31,6 +32,18 @@ export interface DrawerEntryRecord {
   note: string | null;
   userName: string;
   createdAt: Date;
+}
+
+/** A close or reopen of one drawer, from the audit log: a reopen clears the drawer's closing. */
+export interface DrawerEvent {
+  id: string;
+  kind: 'closed' | 'reopened';
+  at: Date;
+  by: string;
+  counted: number | null;
+  overShort: number | null;
+  /** The closing note, or the reason for the reopen. */
+  note: string | null;
 }
 
 type Row = Record<string, unknown>;
@@ -116,6 +129,44 @@ export function useDrawerEntries(sessionId: string | undefined) {
   });
 }
 
+const toEvent = (row: Row): DrawerEvent => {
+  const after = (row.after ?? {}) as Row;
+  const actor = (row.actor ?? {}) as Row;
+  return {
+    id: String(row.id),
+    kind: row.action === 'drawer.reopen' ? 'reopened' : 'closed',
+    at: new Date(String(row.created_at)),
+    by: String(actor.display_name ?? ''),
+    counted: money(after.counted),
+    overShort: money(after.overShort),
+    note: text(row.reason),
+  };
+};
+
+/**
+ * Every close and reopen of one drawer, oldest first. Reads the audit log, and loads again
+ * when the drawer's own row changes: each close and reopen changes it in the same transaction.
+ */
+export function useDrawerEvents(sessionId: string | undefined) {
+  return useLiveRows({
+    table: 'drawer_sessions',
+    queryKey: sessionId ?? '',
+    load: () =>
+      sessionId
+        ? supabase
+            .from('audit_logs')
+            .select('id, action, after, reason, created_at, actor:profiles!actor_id(display_name)')
+            .eq('target_type', 'drawer')
+            .eq('target_id', sessionId)
+            .in('action', ['drawer.close', 'drawer.reopen'])
+            .order('created_at')
+            .limit(100)
+        : Promise.resolve({ data: [], error: null }),
+    map: toEvent,
+    filter: sessionId ? `id=eq.${sessionId}` : undefined,
+  });
+}
+
 /** Opening + cash in − cash out: what the drawer should hold (sales come with checkout). */
 export function expectedFrom(record: DrawerRecord, entries: DrawerEntryRecord[]) {
   const cashIn = entries.filter((e) => e.type === 'cash_in').reduce((s, e) => s + e.amount, 0);
@@ -135,7 +186,7 @@ export async function reopenDrawer(sessionId: string, reason: string): Promise<v
 
 export interface Movement {
   at: Date | null;
-  kind: 'opened' | EntryType | 'closed' | 'not_counted';
+  kind: 'opened' | EntryType | 'closed' | 'reopened' | 'not_counted';
   type: string;
   note: string;
   by: string;
@@ -143,8 +194,24 @@ export interface Movement {
   amount: number | null;
 }
 
-/** The day in time order, as the report's table and the CSV show it. */
-export function movements(record: DrawerRecord, entries: DrawerEntryRecord[]): Movement[] {
+const closeResult = (overShort: number | null) =>
+  overShort === null
+    ? ''
+    : overShort === 0
+      ? 'Exact'
+      : `${overShort < 0 ? 'Short' : 'Over'} ${formatPeso(Math.abs(overShort))}`;
+
+const noteOf = (...parts: (string | null)[]) => parts.filter(Boolean).join(' · ');
+
+/**
+ * The day in time order, as the report's table and the CSV show it: every close and reopen
+ * included, so a count that a reopen set aside stays visible.
+ */
+export function movements(
+  record: DrawerRecord,
+  entries: DrawerEntryRecord[],
+  events: DrawerEvent[] = [],
+): Movement[] {
   const list: Movement[] = [
     {
       at: record.openedAt,
@@ -162,13 +229,33 @@ export function movements(record: DrawerRecord, entries: DrawerEntryRecord[]): M
       by: entry.userName,
       amount: entry.type === 'cash_in' ? entry.amount : -entry.amount,
     })),
+    ...events.map((event) =>
+      event.kind === 'reopened'
+        ? {
+            at: event.at,
+            kind: event.kind,
+            type: 'Reopened',
+            note: event.note ? `Reason: ${event.note}` : '',
+            by: event.by,
+            amount: null,
+          }
+        : {
+            at: event.at,
+            kind: event.kind,
+            type: 'Closed',
+            note: noteOf(closeResult(event.overShort), event.note),
+            by: event.by,
+            amount: event.counted,
+          },
+    ),
   ];
-  if (record.status === 'closed') {
+  // The events are still loading or failed: the drawer's own row still shows its closing.
+  if (record.status === 'closed' && !events.some((event) => event.kind === 'closed')) {
     list.push({
       at: record.closedAt,
       kind: 'closed',
       type: 'Closed',
-      note: record.closingNote ?? '',
+      note: noteOf(closeResult(record.overShort), record.closingNote),
       by: record.closedByName ?? '',
       amount: record.countedCash,
     });
@@ -182,7 +269,7 @@ export function movements(record: DrawerRecord, entries: DrawerEntryRecord[]): M
       amount: null,
     });
   }
-  return list;
+  return list.sort((a, b) => (a.at?.getTime() ?? 0) - (b.at?.getTime() ?? 0));
 }
 
 export const DRAWER_CSV_HEADERS = ['Date', 'Time', 'Type', 'Reason / note', 'By', 'Amount'];
@@ -210,7 +297,11 @@ export function drawerSummary(
 }
 
 /** SHIFT-04: the day's movements as CSV for Excel, like the product export. */
-export function drawerCsv(record: DrawerRecord, entries: DrawerEntryRecord[]): string {
+export function drawerCsv(
+  record: DrawerRecord,
+  entries: DrawerEntryRecord[],
+  events: DrawerEvent[] = [],
+): string {
   const summary = drawerSummary(record, entries).map((line) =>
     [
       csvCell(record.businessDate),
@@ -221,7 +312,7 @@ export function drawerCsv(record: DrawerRecord, entries: DrawerEntryRecord[]): s
       line.amount === null ? '' : line.amount.toFixed(2),
     ].join(','),
   );
-  const rows = movements(record, entries).map((move) =>
+  const rows = movements(record, entries, events).map((move) =>
     [
       csvCell(record.businessDate),
       csvCell(

@@ -17,6 +17,8 @@ export interface LastCount {
   countedByName: string;
   closedAt: Date;
   businessDate: string;
+  /** The drawer was reopened after this count, and nobody counted it again. */
+  beforeReopen: boolean;
 }
 
 export interface DrawerToday {
@@ -56,6 +58,7 @@ export function toDrawerToday(raw: unknown): DrawerToday {
           countedByName: String(last.counted_by_name ?? ''),
           closedAt: new Date(String(last.closed_at)),
           businessDate: String(last.business_date),
+          beforeReopen: last.before_reopen === true,
         }
       : null,
     staleOpen: data.staleOpen === true,
