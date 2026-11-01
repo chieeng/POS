@@ -104,6 +104,23 @@ describe('opening the drawer (SHIFT-01)', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Today’s drawer is open.');
   });
 
+  it('says when the last count was taken before the drawer was reopened', async () => {
+    server.today.lastCount = {
+      amount: 1140,
+      counted_by_name: 'Test Special 5',
+      closed_at: '2026-10-31T19:33:00+08:00',
+      business_date: '2026-10-31',
+      before_reopen: true,
+    };
+    renderPage();
+    expect(await screen.findByLabelText('Opening cash')).toHaveValue('1140.00');
+    expect(
+      screen.getByText(
+        'Last count: ₱1,140.00 (Test Special 5, Oct 31 7:33 PM, before the drawer was reopened)',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('pre-fills yesterday’s count, and a different amount needs a reason', async () => {
     server.today.lastCount = {
       amount: 2000,

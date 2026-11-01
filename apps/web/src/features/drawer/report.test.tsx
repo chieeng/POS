@@ -9,12 +9,14 @@ import {
   movements,
   reopenDrawer,
   type DrawerEntryRecord,
+  type DrawerEvent,
   type DrawerRecord,
 } from './report';
 
 const state = vi.hoisted(() => ({
   record: null as unknown,
   entries: [] as unknown[],
+  events: [] as unknown[],
   latestId: 'd1',
 }));
 
@@ -27,6 +29,7 @@ vi.mock('./report', async (importOriginal) => ({
     error: false,
   }),
   useDrawerEntries: () => ({ data: state.entries, loading: false, error: false }),
+  useDrawerEvents: () => ({ data: state.events, loading: false, error: false }),
   useLatestDrawer: () => ({ data: [{ id: state.latestId }], loading: false, error: false }),
   reopenDrawer: vi.fn(() => Promise.resolve()),
 }));
@@ -82,6 +85,7 @@ function renderReport() {
 beforeEach(() => {
   state.record = CLOSED;
   state.entries = ENTRIES;
+  state.events = [];
   state.latestId = 'd1';
   vi.mocked(reopenDrawer).mockClear();
 });
@@ -94,7 +98,7 @@ describe('the day in order (SHIFT-04)', () => {
       ['Opened', 'Ice before opening', 'Jun', 1800],
       ['Cash out', 'Expense · Ice, 2 sacks', 'Jun', -350],
       ['Cash in', 'Change fund', 'Liza', 500],
-      ['Closed', 'One coin under the tray', 'Maricel', 1930],
+      ['Closed', 'Short ₱20.00 · One coin under the tray', 'Maricel', 1930],
     ]);
     expect(expectedFrom(CLOSED, ENTRIES)).toEqual({ cashIn: 500, cashOut: 350, expected: 1950 });
   });
@@ -108,7 +112,9 @@ describe('the day in order (SHIFT-04)', () => {
     const csv = drawerCsv(CLOSED, ENTRIES);
     expect(csv.startsWith('﻿Date,Time,Type,Reason / note,By,Amount\r\n')).toBe(true);
     expect(csv).toContain('2026-11-01,10:30 AM,Cash out,"Expense · Ice, 2 sacks",Jun,-350.00');
-    expect(csv).toContain('2026-11-01,8:06 PM,Closed,One coin under the tray,Maricel,1930.00');
+    expect(csv).toContain(
+      '2026-11-01,8:06 PM,Closed,Short ₱20.00 · One coin under the tray,Maricel,1930.00',
+    );
     expect(csv).toMatch(
       /2026-11-01,,Expected,,,1950\.00\r\n2026-11-01,,Counted,,,1930\.00\r\n2026-11-01,,Over\/short,Short,,-20\.00\r\n$/,
     );
@@ -125,6 +131,81 @@ describe('the day in order (SHIFT-04)', () => {
     expect(drawerCsv(notCounted, ENTRIES)).toMatch(
       /Expected,,,1950\.00\r\n2026-11-01,,Counted,Not counted,,\r\n2026-11-01,,Over\/short,Not counted,,\r\n$/,
     );
+  });
+});
+
+describe('a drawer that was reopened (SHIFT-04)', () => {
+  const REOPENED: DrawerRecord = {
+    ...CLOSED,
+    status: 'not_counted',
+    closedByName: 'Jun',
+    closedAt: new Date('2026-11-02T07:50:00+08:00'),
+    countedCash: null,
+    overShort: null,
+    closingNote: null,
+  };
+  const EVENTS: DrawerEvent[] = [
+    {
+      id: 'c1',
+      kind: 'closed',
+      at: new Date('2026-11-01T19:33:00+08:00'),
+      by: 'Maricel',
+      counted: 1140,
+      overShort: -10,
+      note: null,
+    },
+    {
+      id: 'r1',
+      kind: 'reopened',
+      at: new Date('2026-11-01T19:55:00+08:00'),
+      by: 'Rosario',
+      counted: null,
+      overShort: null,
+      note: 'test reopen',
+    },
+  ];
+
+  it('keeps the set-aside count and the reopen with its reason, in time order', () => {
+    expect(movements(REOPENED, [], EVENTS).map((m) => [m.type, m.note, m.by, m.amount])).toEqual([
+      ['Opened', 'Ice before opening', 'Jun', 1800],
+      ['Closed', 'Short ₱10.00', 'Maricel', 1140],
+      ['Reopened', 'Reason: test reopen', 'Rosario', null],
+      ['Not counted', 'Closed when the next drawer opened', 'Jun', null],
+    ]);
+    const csv = drawerCsv(REOPENED, [], EVENTS);
+    expect(csv).toContain('2026-11-01,7:33 PM,Closed,Short ₱10.00,Maricel,1140.00');
+    expect(csv).toContain('2026-11-01,7:55 PM,Reopened,Reason: test reopen,Rosario,');
+  });
+
+  it('lists a recount after the first close, and does not repeat the closing', () => {
+    const recount: DrawerEvent = {
+      ...EVENTS[0]!,
+      id: 'c2',
+      at: new Date('2026-11-01T20:10:00+08:00'),
+      counted: 1150,
+      overShort: 0,
+    };
+    const closed = { ...REOPENED, status: 'closed' as const, countedCash: 1150, overShort: 0 };
+    expect(
+      movements(closed, [], [...EVENTS, recount]).map((m) => [m.type, m.note, m.amount]),
+    ).toEqual([
+      ['Opened', 'Ice before opening', 1800],
+      ['Closed', 'Short ₱10.00', 1140],
+      ['Reopened', 'Reason: test reopen', null],
+      ['Closed', 'Exact', 1150],
+    ]);
+  });
+
+  it('shows the rows, and doesn’t say the drawer was never counted', () => {
+    state.record = REOPENED;
+    state.entries = [];
+    state.events = EVENTS;
+    renderReport();
+    expect(screen.getByText('Reason: test reopen')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '₱1,140.00' })).toBeInTheDocument();
+    expect(screen.getByText('Not counted again after the reopen')).toBeInTheDocument();
+    expect(screen.getByText(/Nobody counted this drawer again/)).toBeInTheDocument();
+    expect(screen.queryByText('Never counted')).toBeNull();
   });
 });
 

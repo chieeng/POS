@@ -48,8 +48,10 @@ import {
   reopenDrawer,
   useDrawerDay,
   useDrawerEntries,
+  useDrawerEvents,
   useLatestDrawer,
   type DrawerEntryRecord,
+  type DrawerEvent,
   type DrawerRecord,
   type Movement,
 } from './report';
@@ -64,6 +66,7 @@ const MOVE_ICONS: Record<Movement['kind'], LucideIcon> = {
   cash_in: ArrowDownToLine,
   cash_out: ArrowUpFromLine,
   closed: Lock,
+  reopened: RotateCcw,
   not_counted: CircleAlert,
 };
 
@@ -80,6 +83,7 @@ export function DrawerReportPage() {
   const drawer = useDrawerDay(day);
   const record = drawer.data[0] ?? null;
   const entries = useDrawerEntries(record?.id);
+  const events = useDrawerEvents(record?.id);
   const latest = useLatestDrawer();
   const [reopening, setReopening] = useState(false);
 
@@ -106,7 +110,9 @@ export function DrawerReportPage() {
           variant="secondary"
           className="min-h-[40px]"
           disabled={!record}
-          onClick={() => record && download(`drawer-${day}.csv`, drawerCsv(record, entries.data))}
+          onClick={() =>
+            record && download(`drawer-${day}.csv`, drawerCsv(record, entries.data, events.data))
+          }
         >
           <Download size={15} strokeWidth={ICON_STROKE} aria-hidden />
           CSV
@@ -127,6 +133,7 @@ export function DrawerReportPage() {
         <Report
           record={record}
           entries={entries.data}
+          events={events.data}
           canReopen={canReopen}
           onReopen={() => setReopening(true)}
         />
@@ -147,18 +154,21 @@ export function DrawerReportPage() {
 function Report({
   record,
   entries,
+  events,
   canReopen,
   onReopen,
 }: {
   record: DrawerRecord;
   entries: DrawerEntryRecord[];
+  events: DrawerEvent[];
   canReopen: boolean;
   onReopen: () => void;
 }) {
   const { cashIn, cashOut, expected: expectedNow } = expectedFrom(record, entries);
   const expected = record.expectedCash ?? expectedNow;
   const difference = record.prefillDifference ?? 0;
-  const rows = movements(record, entries);
+  const rows = movements(record, entries, events);
+  const countedBefore = events.some((event) => event.kind === 'closed');
 
   return (
     <>
@@ -190,7 +200,9 @@ function Report({
             record.status === 'closed'
               ? `Closed ${record.closedAt ? timeLabel(record.closedAt) : ''} by ${record.closedByName ?? ''}`
               : record.status === 'not_counted'
-                ? 'Never counted'
+                ? countedBefore
+                  ? 'Not counted again after the reopen'
+                  : 'Never counted'
                 : 'Still open'
           }
         />
@@ -199,7 +211,10 @@ function Report({
 
       {record.status === 'not_counted' && (
         <Alert variant="warn">
-          Nobody counted this drawer. It was closed when the next day&apos;s drawer opened.
+          {countedBefore
+            ? 'Nobody counted this drawer again after it was reopened.'
+            : 'Nobody counted this drawer.'}{' '}
+          It was closed when the next day&apos;s drawer opened.
         </Alert>
       )}
 
@@ -429,8 +444,8 @@ function ReopenDialog({
       <DialogContent>
         <DialogTitle>Reopen the drawer for {shortDay(day)}?</DialogTitle>
         <DialogDescription>
-          Its count is set aside (it stays in the audit log), and it has to be counted and closed
-          again.
+          Its count is set aside (it stays on this report and in the audit log), and it has to be
+          counted and closed again.
         </DialogDescription>
         <div className="flex flex-col gap-[6px]">
           <Label htmlFor="reopen-reason" className="text-[13px]">
