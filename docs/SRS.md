@@ -30,7 +30,7 @@ Out of scope for v1: online ordering, e-commerce, government contributions and w
 - One store at launch. Every record carries a `branchId` so more branches can be added later without a data migration.
 - Up to 20 user accounts, each signing in on their own phone or laptop; several may sell at the same time. No barcode scanners: items are found by name search, category, or a typed SKU.
 - GCash and Maya are paid to the store's own number or QR; the salesperson enters the reference number. No payment API in v1.
-- Receipts are shown on screen and can be shared or printed; they are sales slips, not BIR official receipts, unless the owner decides otherwise (see Open questions).
+- Receipts are shown on screen only. They are sales slips, never BIR official receipts (the owner's decision, Nov 1, 2026); every slip says "This is not an official receipt."
 - The store has internet most of the time, with occasional outages.
 
 ## 2. Overall description
@@ -46,7 +46,7 @@ Three roles cover the store's 20 users: the Owner, a few Special Sales who also 
 **Operating environment**
 
 - Clients: each user's own Android/iOS phone or laptop, in Chrome, Edge or Safari (latest two versions); installable as a PWA.
-- Peripherals: none required. No barcode scanner or dedicated terminal. A printer is optional for slips.
+- Peripherals: none required. No barcode scanner, dedicated terminal or printer.
 - Notifications: none outside the app. The Owner sees new approval requests in the live Approvals list and the count badge on its menu item (no push notifications, by the owner's decision of Oct 31, 2026).
 - Backend: Supabase (Postgres, Auth, Storage, Edge Functions, Realtime) on the Free plan, region Southeast Asia (Singapore). Both projects stay on the Free plan permanently.
 - Frontend hosting: Cloudflare Pages (static single-page app).
@@ -71,13 +71,13 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | AUTH-02 | The Owner creates, edits, deactivates and reactivates users and assigns one role each: Owner, Special Sales or Sales. A new user gets a one-time link to set their own password; the Owner never sets or sees a password. User codes are 2 to 6 letters or digits, unique per branch. The Owner cannot demote or deactivate their own account. A reactivated user keeps their role, user code, history and password; if they forgot the password, the Owner makes a one-time reset link from the user's page, as for any active user. Users are never hard-deleted. | M |
 | AUTH-03 | Role and active flag are stored in the profiles table and can be changed only through an Owner-only Edge Function or database function, never by direct table writes. | M |
 | AUTH-04 | A user may be signed in on more than one of their own devices. The Owner can sign a user out of all devices (lost phone, staff leaving). | M |
-| AUTH-05 | The app locks after 15 minutes idle (configurable) and asks for the user's password to resume. A staff PIN is not used. | S |
+| AUTH-05 | The app locks after 15 minutes idle (configurable) and asks for the user's password to resume. A staff PIN is not used. The lock works offline too: the password is checked against a slow salted hash kept on the device from the user's last online sign-in or unlock, never the password itself; a device with no hash yet says "Connect to the internet to unlock". | S |
 
 ### 3.2 Products and catalog (PROD)
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| PROD-01 | Products have: name, SKU, category, unit, selling price per unit, reorder level, active flag, photo. The unit is one of pc (default), pack, box, bottle, can, sachet, set, pair, roll; the price and every quantity (stock-in, sale, count) are per that unit, in whole numbers. An item sold in two units (for example per stick and per pack) is two products, each with its own SKU, price and stock. | M |
+| PROD-01 | Products have: name, SKU, category, unit, selling price per unit, reorder level, active flag, photo. The unit is one of pc (default), pack, box, bottle, can, sachet, set, pair, roll, kg, L; the price and every quantity (stock-in, sale, count) are per that unit. Products in kg or L are "sold by weight or volume" and take up to 3 decimals; every other unit stays in whole numbers. A product holding a part of a unit cannot change to a whole-number unit. An item sold in two units (for example per stick and per pack) is two products, each with its own SKU, price and stock. | M |
 | PROD-02 | Special Sales types the SKU manually when adding a product: 1 to 20 letters, digits or dashes, saved in capitals. SKUs are unique per branch whatever their case; duplicates are rejected. No barcodes. | M |
 | PROD-03 | Special Sales and the Owner add products, categories and suppliers directly. Category and supplier names are trimmed and unique per branch whatever their case. Nothing is deleted: a deactivated category or supplier stays on existing products and history but cannot be chosen for new ones, and a category that still has active products cannot be deactivated ("Move or deactivate its N products first"). | M |
 | PROD-04 | Edits and deactivation by Special Sales (name, SKU, category, unit, price, reorder level, deactivate or reactivate) go through an Owner approval request (SRS 3.9); the Owner edits directly. Categories and suppliers are changed by the Owner only, with no requests: Special Sales asks the Owner in person. | M |
@@ -91,17 +91,18 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | --- | --- | --- |
 | POS-01 | Find items by name search (partial, case-insensitive), by tapping a category and then the item, or by typing the SKU. Tapping an item adds it; tapping again increases its quantity. | M |
 | POS-02 | Edit quantity and remove lines before payment. | M |
-| POS-03 | Apply a line or whole-sale discount (amount or %). Discounts above the sales limit need Owner approval; the sale waits as held until approved. | M |
-| POS-04 | Accept Cash (compute change), GCash, Maya (reference number required), Credit/utang (customer required), or a split of these. | M |
+| POS-03 | Staff never type a discount (the owner's decision, Nov 1, 2026); there is no discount limit and no discount approval. The Owner defines preset discounts (name, % or fixed ₱ per unit or per kg/L, and which products or categories) and package deals (for example 3 for ₱100, repeating for 6 or 9, with extra units at the regular price; or a bundle of specific items at one price). The cart shows which deals apply and staff tap one; the app never adds a deal by itself. One deal per line, and a package cannot also take a preset discount. Deals are switched on or off, with no date ranges. In a package, each item stays its own line with the price split in proportion to the regular prices, so stock, cost and reports stay correct. | M |
+| POS-04 | Accept Cash (compute change), GCash, Maya (reference number required), Credit/utang (customer required, build step 12), or a split of these. The Owner lists the store's payment accounts (GCash or Maya, label, number). With one account it is selected automatically; with several, staff pick which was paid; with none, the sale still records the reference. Each sale keeps the account's label as it was. When "Round cash totals to the nearest peso" is on (Owner setting, on by default), the cash part of a sale is rounded and the slip shows the rounding, because the drawer is counted in whole pesos; GCash and Maya stay exact. | M |
 | POS-05 | Hold a sale and resume it later on the same device. | S |
 | POS-06 | Complete a sale in one database transaction (the complete\_sale function): sale, lines, payments, stock decrement per line, stock movements, drawer totals. Offline, the sale goes to the device's outbox and is submitted when online; its client-generated id makes a resubmission safe. | M |
-| POS-07 | After payment, show a digital slip with store info, receipt number, items, totals, payment, salesperson, and "This is not an official receipt" unless configured otherwise. The slip can be shared as an image or PDF, or printed if the device has a printer. Re-sharing is logged. | M |
+| POS-07 | After payment, show a digital slip on screen with store info, receipt number, items, totals, payment, salesperson, and "This is not an official receipt". The slip is not printed or shared (the owner's decision, Nov 1, 2026). When the Owner's "VAT registered" setting is on (off by default; rate 12% by default), the slip shows the VAT part of the VAT-inclusive total: total × rate ÷ (100 + rate), at the rate kept on the sale. | M |
 | POS-08 | Receipt numbers are unique without a central counter: `<user code>-<YYYYMMDD>-<device tag>-<sequence kept on the device>`. | M |
 | POS-09 | Warn when an item's stock would go below zero; allow the sale (the item is physically in hand) and flag it for Special Sales. | M |
 | POS-10 | Void a completed sale (same day) or process a return/refund (any day) through an Owner approval request with a reason; stock is restored when approved. | M |
 | POS-11 | Sale correction request: when a sale was entered wrong (item, quantity, price, discount, payment method or customer), the salesperson opens it, makes the fixes, and sends them to the Owner with a reason. The Owner sees the original and the corrected version side by side and approves or rejects. | M |
 | POS-12 | On approval, the original sale is marked "corrected" and a new sale with the fixes is created and linked to it. Stock, drawer totals and utang balances are adjusted by the difference. The original is never edited or deleted. | M |
-| POS-13 | Duplicate reference check: a GCash or Maya reference number already used on another sale or utang payment is rejected while online. Sales made offline are checked when they sync; a duplicate is flagged on both sales and the Owner is notified. | M |
+| POS-13 | Duplicate reference check: a GCash or Maya reference number already used on another sale or utang payment is rejected while online. Offline, only that phone's own sales can be checked; sales made offline are checked when they sync, and a duplicate is flagged on both sales and shown to the Owner on the report and in the audit log. | M |
+| POS-14 | A sale made offline is never rejected for what changed while it waited (the owner's decisions, Nov 1, 2026). It keeps the price and deal the customer paid, flagged for the Owner if they have changed since. If the drawer closed before it synced, it goes to the next drawer that opens; if none is open, it waits and attaches when one opens. The Owner's report flags it with its amount and both dates, because its cash may already be in the earlier count. Online, selling with no drawer open is allowed, with a banner and an Open button; the sale attaches the same way. | M |
 
 ### 3.4 Cash drawer (SHIFT)
 
@@ -117,7 +118,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | INV-01 | Every quantity change writes a stock movement (append-only): sale, void, return, stock-in, stock-in reversal, adjustment, count correction. Stock-ins, adjustments and corrections never take stock below zero ("Only N in stock; this would leave −M"); only a sale may (POS-09). | M |
-| INV-02 | Stock-in (Special Sales, Owner): search the product by name or SKU, type the quantity (whole units) and unit cost (at least ₱0.01), with optional supplier and DR/invoice number. Each product once per stock-in ("Chips Classic is already on line 3"); active products and suppliers only; up to 100 lines. Applied immediately. The stock on the shelves at go-live is entered the same way, as a stock-in with the reference "Opening stock", no supplier, and an estimated unit cost (never ₱0). | M |
+| INV-02 | Stock-in (Special Sales, Owner): search the product by name or SKU, type the quantity (whole units, or up to 3 decimals for kg and L) and unit cost (at least ₱0.01), with optional supplier and DR/invoice number. Each product once per stock-in ("Chips Classic is already on line 3"); active products and suppliers only; up to 100 lines. Applied immediately. The stock on the shelves at go-live is entered the same way, as a stock-in with the reference "Opening stock", no supplier, and an estimated unit cost (never ₱0). | M |
 | INV-03 | A new product can be created during stock-in, with its SKU typed manually. | M |
 | INV-04 | Adjustments (damage, loss, expiry, found, store use, other) and corrections or deletions of past stock-ins (quantity, unit cost, supplier, reference): Special Sales submits an Owner approval request with a reason, for their own stock-ins only; the Owner applies them directly. The original stock-in is never edited or deleted: a correction posts reversing and new movements and recomputes the cost. | M |
 | INV-05 | Low-stock list of active products with a reorder level and stock at or below it: a card on the Owner's home and a "Low stock only" filter on Products. | M |
@@ -131,7 +132,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 | --- | --- | --- |
 | CRED-01 | Manage credit customers: name, phone, address, credit limit, active flag. | M |
 | CRED-02 | A credit sale needs a selected customer; sales beyond the credit limit need a Owner approval. | M |
-| CRED-03 | Record payments against a customer's balance (cash, GCash, Maya), with a printed acknowledgment. | M |
+| CRED-03 | Record payments against a customer's balance (cash, GCash, Maya), with an on-screen acknowledgment. | M |
 | CRED-04 | Each customer has a ledger of charges and payments with a running balance. | M |
 | CRED-05 | Aging report: balances grouped by 0–30, 31–60, 61–90 and 90+ days. | S |
 
@@ -150,7 +151,7 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| SYS-01 | Store settings (Owner only): name, address, contact, TIN, receipt footer, sales discount limit, idle lock time, and the store's location and clock-in radius (ATT-02). The Owner sets the location with "Use my current location" (browser geolocation, while standing in the store) or by typing the coordinates, for example copied from Google Maps; the radius defaults to 100 m. Until a location is set, Store settings shows a reminder. Every change is audit-logged with old and new values. | M |
+| SYS-01 | Store settings (Owner only): name, address, contact, TIN, receipt footer, VAT registered and VAT rate, cash rounding, payment accounts, preset discounts and package deals, idle lock time, and the store's location and clock-in radius (ATT-02). The Owner sets the location with "Use my current location" (browser geolocation, while standing in the store) or by typing the coordinates, for example copied from Google Maps; the radius defaults to 100 m. Until a location is set, Store settings shows a reminder. Every change is audit-logged with old and new values. | M |
 | SYS-02 | Each browser creates a 4-character device tag on first sign-in, stored locally and registered in the devices table, used in receipt numbers and the audit log. The Owner can see each user's active devices. | M |
 | SYS-03 | Audit log of sensitive actions: sign-in, user and role changes, price changes, approval requests and decisions, voids, refunds, stock adjustments, slip re-shares. Read-only. | M |
 | SYS-04 | Encrypted backups of the whole database (including user accounts) made by a GitHub Actions workflow, never in the browser. The **developer who maintains the system** makes and keeps them; the store's Owner has no GitHub access. **Manual:** at least every 7 days the developer runs it, downloads the file (kept on GitHub for 1 day) and saves it to their PC and Google Drive. **Nightly:** production only, kept on GitHub for 7 days as a safety net. Files are encrypted to a key the developer keeps offline. The developer is emailed when the last manual production backup is more than 7 days old (after go-live) or a nightly run fails. The app shows the Owner the last backup date, read-only, and a calm note on their home screen when a backup is overdue ("Your system administrator has been notified"), with no steps to follow. | M |
@@ -159,13 +160,13 @@ Requirements are numbered by module. Priority: **M** = must have for launch, **S
 
 | ID | Requirement | Priority |
 | --- | --- | --- |
-| APPR-01 | These actions by non-Owners create an approval request instead of applying: product edit or deactivation, stock adjustment, correcting or deleting a stock-in, physical count differences, sale correction, void, return/refund, discount over limit, credit sale over limit. | M |
+| APPR-01 | These actions by non-Owners create an approval request instead of applying: product edit or deactivation, stock adjustment, correcting or deleting a stock-in, physical count differences, sale correction, void, return/refund, credit sale over limit. | M |
 | APPR-02 | A request stores what changes (the requested fields as they were then, and as requested), the reason (required), the requester and the time. Nothing changes until the Owner approves. A requester has at most one pending request per item, and may withdraw it while it is pending (status "withdrawn", audit-logged). Requests do not expire. | M |
 | APPR-03 | The Owner sees new requests in the live Approvals list, with a count badge on its menu item, and approves or rejects with an optional note. There are no push notifications. | M |
 | APPR-04 | On approval, the database applies the change exactly as requested in one transaction, with the same checks as the Owner's own edit, writes the stock movement if any, and logs it. If the item changed after the request was made (any requested field differs from the value then), the request is **outdated**: it shows the current, original and requested values, cannot be approved, only rejected, and the requester makes a new one. The Owner approves as requested or rejects; there is no "approve with changes". | M |
 | APPR-05 | The requester sees the status of their requests (pending, approved, rejected, withdrawn, outdated) and the Owner's note, live, under My requests. | M |
 
-Build step 3 delivers the requests and the product edit type. Stock adjustments and stock-in corrections followed in step 4. The other types in APPR-01 arrive with the features they change: physical counts (step 15), discounts, voids, returns and sale corrections (steps 9 and 10), credit over the limit (step 12). Push notifications (step 6) were dropped by the owner's decision (Oct 31, 2026); the live list and its count badge are how the Owner learns of new requests.
+Build step 3 delivers the requests and the product edit type. Stock adjustments and stock-in corrections followed in step 4. The other types in APPR-01 arrive with the features they change: physical counts (step 15), voids, returns and sale corrections (step 10), credit over the limit (step 12). Discounts need no approval: staff pick only what the Owner defined (POS-03). Push notifications (step 6) were dropped by the owner's decision (Oct 31, 2026); the live list and its count badge are how the Owner learns of new requests.
 
 ### 3.10 Attendance (ATT)
 
@@ -237,21 +238,21 @@ A sale links its shift, salesperson and optional customer, and spawns stock move
 
 | Table | Key columns | Written by |
 | --- | --- | --- |
-| `branches` | name, address, contact, tin, receipt\_footer, sales\_discount\_limit, idle\_lock\_minutes, store\_lat, store\_lng, radius\_m, morning\_clock\_in, afternoon\_clock\_in, grace\_minutes, late\_deduction, late\_penalty, paid\_minutes\_per\_day, afternoon\_day\_credit, owner\_clocks\_in | Read by the branch's active users; written by the Owner through `update_branch_settings` |
+| `branches` | name, address, contact, tin, receipt\_footer, vat\_registered, vat\_rate, round\_cash, idle\_lock\_minutes, store\_lat, store\_lng, radius\_m, morning\_clock\_in, afternoon\_clock\_in, grace\_minutes, late\_deduction, late\_penalty, paid\_minutes\_per\_day, afternoon\_day\_credit, owner\_clocks\_in | Read by the branch's active users; written by the Owner through `update_branch_settings` |
 | `profiles` | id (= auth user id), display\_name, role (owner, special\_sales, sales), user\_code, branch\_id, active, clock\_in\_override, created\_at | Owner-only Edge Function / function |
 | `devices` | user\_id, device\_tag, label, push\_subscription (unused: push was dropped), last\_seen\_at | The user (own rows) |
 | `pay_rates` | user\_id, daily\_rate, effective\_from, updated\_by | Owner only (read and write) |
 | `categories` | branch\_id, name (unique per branch, case-insensitive), active | Read by the branch; created by Special Sales and the Owner, changed by the Owner, through functions |
 | `suppliers` | branch\_id, name (unique per branch, case-insensitive), contact\_person, phone, address, active | Owner and Special Sales read; created by both, changed by the Owner, through functions |
-| `products` | branch\_id, sku (unique per branch), name, category\_id, unit, sell\_price, stock\_qty, reorder\_level, photo\_key (the current photo, PROD-07), active, updated\_at | create\_product, update\_product, set\_product\_photo and approved requests; `stock_qty` only via stock functions |
+| `products` | branch\_id, sku (unique per branch), name, category\_id, unit, sold\_by\_measure (follows the unit: kg and L), sell\_price, stock\_qty, reorder\_level, photo\_key (the current photo, PROD-07), active, updated\_at | create\_product, update\_product, set\_product\_photo and approved requests; `stock_qty` only via stock functions |
 | `price_changes` | product\_id, old\_price, new\_price, source (created, owner\_edit, approval, import), changed\_by, changed\_by\_name, device\_tag, created\_at | Functions only; append-only; Owner and Special Sales read |
 | `product_costs` | product\_id, cost\_price (weighted average, 4 decimals), updated\_at | Functions only; Owner-only read |
 | `customers` | branch\_id, name, phone, address, credit\_limit, balance, active | Sales (create), Owner (edit); `balance` only via functions |
 | `drawer_sessions` | branch\_id, business\_date (unique per branch, Asia/Manila), status (open, closed, not\_counted), opened\_by, opening\_cash, prefill\_cash, prefill\_difference, opening\_reason, closed\_by, counts (by denomination), counted\_cash, expected\_cash, over\_short, closing\_note | open\_drawer, close\_drawer and reopen\_drawer functions; the Owner reads them; staff get today's state through drawer\_today, without expected cash |
 | `drawer_entries` | session\_id, type (cash\_in, cash\_out), amount, reason (supplier\_payment, expense, owner\_withdrawal, change\_fund, other), note, user\_id, user\_name, created\_at | record\_drawer\_entry; append-only; the Owner reads them |
-| `sales` | id (client-generated UUID), receipt\_no (unique), branch\_id, session\_id, salesperson\_id, device\_tag, customer\_id, subtotal, discount\_total, total, change, status (completed, voided, corrected), correction\_of, voided\_by, void\_reason, flags, created\_at, synced\_at | complete\_sale and approval functions only; append-only |
+| `sales` | id (client-generated UUID), receipt\_no (unique), branch\_id, session\_id, salesperson\_id, device\_tag, customer\_id, subtotal, discount\_total, rounding, total, vat\_rate, change, status (completed, voided, corrected), correction\_of, voided\_by, void\_reason, flags, created\_at, synced\_at | complete\_sale and approval functions only; append-only |
 | `sale_items` | sale\_id, product\_id, name, sku, qty, unit\_price, unit\_cost, discount, line\_total | complete\_sale only |
-| `sale_payments` | sale\_id, method (cash, gcash, maya, credit), amount, reference | complete\_sale only; duplicate GCash/Maya references checked |
+| `sale_payments` | sale\_id, method (cash, gcash, maya, credit), amount, reference, account\_label | complete\_sale only; duplicate GCash/Maya references checked |
 | `returns` | sale\_id, items (jsonb), refund\_amount, refund\_method, reason, approval\_id, created\_at | Approval function |
 | `stock_receipts`, `stock_receipt_items` | supplier\_id, reference, received\_by, received\_by\_name, device\_tag, created\_at, corrects\_receipt\_id (a correction replaces one earlier stock-in, at most once), is\_deletion, corrected\_by, corrected\_by\_name; line\_no, product\_id (once per receipt), qty, unit\_cost | record\_stock\_in and correction functions; never edited or deleted; the Owner reads all, the receiver reads their own (with costs), including corrections of them |
 | `stock_movements` | product\_id, type (stock\_in, stock\_in\_reversal, adjustment, sale, void, return, count), qty\_change, stock\_after, unit\_cost, ref\_type, ref\_id, user\_id, user\_name, device\_tag, created\_at | Functions only; append-only; Owner reads directly, Special Sales through product\_stock\_history (no cost) |
@@ -298,12 +299,13 @@ Role and active flag live in `profiles`. RLS policies check them through small h
 | Request an attendance correction | No | Yes | Yes |
 | View own attendance, penalties and finalized payslips | Yes | Yes | Yes |
 | View and edit everyone's attendance; set store location, schedule and daily rates; approve corrections; run payroll, record cash advances, mark payslips paid | Yes | No | No |
-| Sell, hold, share slip | Yes | Yes | Yes |
+| Sell, hold | Yes | Yes | Yes |
 | Open the day's drawer, record cash-in/out | Yes | Yes | Yes |
 | Count and close the drawer | Yes | Yes | No |
 | Reopen a closed drawer, see expected cash before the count | Yes | No | No |
-| Discount within limit | Yes | Yes | Yes |
-| Discount over limit, credit sale over limit | Yes | Needs approval | Needs approval |
+| Pick a preset discount or package deal | Yes | Yes | Yes |
+| Define preset discounts, package deals and payment accounts | Yes | No | No |
+| Credit sale over limit | Yes | Needs approval | Needs approval |
 | Correct or void a sale, process return | Yes | Needs approval | Needs approval |
 | Add credit customer, record utang payment | Yes | Yes | Yes |
 | Edit customer, credit limit | Yes | No | No |
@@ -368,7 +370,7 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | Offline / install | `vite-plugin-pwa`; IndexedDB (Dexie) for the cached product list and the outbox of sales and clock-ins. The cached product and category lists belong to the signed-in user and are cleared on sign-out, deactivation and "sign out everywhere" (never cost prices) |
 | Product search | Client-side filtering of the cached product list (a plain text match on name and SKU; a fuzzy matcher only if the store needs one) |
 | Location | Browser Geolocation API (`enableHighAccuracy`, 10 s timeout); distance computed again in `clock_in` |
-| Receipts | On-screen slip rendered to image or PDF and shared with the Web Share API; browser print as a fallback |
+| Receipts | On-screen slip only |
 | Database | Supabase Postgres (Singapore): SQL migrations, RLS, security-definer functions, pg\_cron for scheduled jobs |
 | Edge Functions | Deno + TypeScript: `admin-users` (create, role, deactivate, reactivate, sign out everywhere, password reset link) |
 | Auth | Supabase Auth: email and password, TOTP two-factor, Turnstile CAPTCHA |
@@ -378,6 +380,8 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 **Free plan.** The system runs on the Supabase Free plan permanently, so every design is checked against its quotas (as listed on supabase.com/pricing in October 2026): database 500 MB, file storage 1 GB, egress 5 GB plus cached egress 5 GB a month, Realtime 200 concurrent connections and 2 million messages a month, Edge Functions 500,000 invocations a month, no server-side image transformations, and a pause after a week without user database activity (the heartbeat workflow prevents it with a query every 6 hours; GitHub Actions minutes are free in a public repository). Product photos are resized in the browser and cached for a year at paths that never change, which keeps their egress to a few hundred MB a month.
 
 **Must fix before checkout (build step 9) goes live:** `useLiveRows` loads a whole list again on every change. For the product list (about 100 KB for 500 products) that is fine while only stock-ins and edits change products, but once every sale changes `stock_qty`, 500 sales a day on 20 phones would be about 1 GB of egress a day, and the Realtime messages would approach the monthly quota. Build step 7 changes it to apply only the changed row from the Realtime message, and the Realtime message count is checked again then.
+
+**Archive plan, required before go-live:** sales are what can fill the 500 MB database (first estimate about 3 KB a sale: about 165 MB a year at 150 sales a day, about 550 MB a year at 500; the complete\_sale pull request replaces this with the measured size and the months until 500 MB at both rates). Once a year, sales and their lines older than the period still open to returns and corrections are exported into the backup, and the app keeps their daily totals so reports stay whole. No sale gets an audit log line of its own, because the sale is already the record. The exact period, the export and its restore check are built and tested before go-live.
 
 ### 7.2 UI design
 
@@ -489,7 +493,7 @@ The store can start selling after Phase 2; each later phase ships on its own.
 3. **Phase 2 – POS and attendance (go-live gate).** Checkout by name search, category or SKU; cash, GCash and Maya; digital slips; daily cash drawer with closing count; offline mode; voids and returns through approval; audit log. Attendance with location check, late deductions and correction requests, and the Owner's attendance board. Gate: one week of parallel run against the store's current method with zero stock, cash or attendance discrepancies traced to the system.
 4. **Phase 3 – Credit.** Customers, credit sales, utang payments, ledger, aging report.
 5. **Phase 4 – Reports.** Dashboard, report views, sales and profit reports, attendance summaries, payroll runs with payslips and cash advances, CSV export, backups verified.
-6. **Phase 5 – Polish.** Held sales, physical count, CSV import of products, Bluetooth thermal printing if the owner wants paper slips.
+6. **Phase 5 – Polish.** Held sales, physical count, CSV import of products.
 
 ### Build order
 
@@ -503,26 +507,29 @@ The phases above are built in this order, one step (one or a few pull requests) 
 6. ~~Push notifications to the Owner~~ (**dropped by the owner's decision (Oct 31, 2026)**)
 7. Installable app, offline product list (the offline queue moved to step 9)
 8. Cash drawer
-9. Checkout: the offline queue (outbox) first, then search, cart, payments, receipts, digital slip
+9. Checkout: the offline queue (outbox) first, then decimal quantities, payment settings, search, cart, payments, digital slip, offline unlock, preset discounts and package deals
 10. Voids, returns, sale corrections
 11. Attendance with location check and late rules, then **one week running beside the store's current method before go-live** (the Phase 2 gate)
 12. Customer credit (utang)
 13. Owner dashboard and reports
 14. Payroll
-15. Polish: held sales, physical count, CSV import of products, printing
+15. Polish: held sales, physical count, CSV import of products
 
 ### Open questions
 
-- [ ] Does the owner need BIR-registered receipts? If yes, the system needs BIR accreditation or must work beside an accredited POS/receipt booklet.
-- [ ] Are GCash and Maya paid to one store number or QR, or to each salesperson's phone?
-- [ ] Is VAT applicable (VAT-registered or non-VAT)? This changes receipt fields and price display.
+- [x] Does the owner need BIR-registered receipts? *No: the app never issues official receipts (Nov 1, 2026).*
+- [x] Are GCash and Maya paid to one store number or QR, or to each salesperson's phone? *To the owner's accounts, possibly more than one: an Owner setting lists them (POS-04).*
+- [x] Is VAT applicable (VAT-registered or non-VAT)? *Unknown: an Owner setting, off by default (POS-07).*
 - [ ] Should credit customers be shared across future branches or kept per branch?
-- [ ] Are digital slips enough, or does the store want paper slips from a printer?
+- [x] Are digital slips enough, or does the store want paper slips from a printer? *Yes: on screen only, no printing (Nov 1, 2026).*
 - [x] Should SKUs follow a pattern so the app can suggest the next free one? *Not known yet: SKUs are free-form (PROD-02); "suggest the next number" can be added later.*
 - [x] What are this store's coordinates and allowed radius? *Set by the Owner at handover in Store settings; radius 100 m by default; location check off until set.*
 - [x] Do this store's shift start times and late deduction match pos-erag? *Not known yet: defaults 6:00 AM / 1:00 PM / 15-minute grace, editable; late deduction none by default, with "minutes late" or a flat amount (₱0 by default) as Owner choices (ATT-06).*
 - [x] Does a day that starts with the afternoon shift count as a full day or a half day of pay? *Half day by default, editable by the Owner.*
 - [x] Does the Owner clock in too, or only staff? *Staff only by default; the Owner can turn on "Owner clocks in too".*
 - [ ] Is there an existing product list (spreadsheet) to import, and roughly how many items? *To find out at handover; products are entered by hand until CSV import (build step 15).*
-- [ ] Does the store sell anything by weight or length (kg, g, L, m)? That needs decimal quantities in stock-in, checkout and the offline queue, so it must be decided before checkout (build step 9).
+- [x] Does the store sell anything by weight or length (kg, g, L, m)? *Yes: kg and L, up to 3 decimals (PROD-01).*
 - [ ] Does the store sell the same item in two units (for example per stick and per pack)? For now that is two products, each with its own SKU, price and stock.
+- [ ] Senior citizen and PWD discounts: required by Philippine law (20% + VAT exemption, or 5% on basic necessities); confirm with the owner before go-live. Not in build step 9: a 20% preset would not handle the VAT exemption or record the customer's ID.
+- [ ] If the store turns out to be VAT-registered, the owner should check with an accountant whether unofficial slips are enough.
+- [ ] Paper is the backup only when the phone itself is dead. How those paper sales get entered later is not decided and is not in build step 9.

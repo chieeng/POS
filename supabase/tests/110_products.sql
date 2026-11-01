@@ -93,7 +93,7 @@ from unnest(array[
   '{"sku": "X2", "name": "X", "category_id": "00000000-0000-4000-8000-0000000000c1", "sell_price": 0}',
   '{"sku": "X2", "name": "X", "category_id": "00000000-0000-4000-8000-0000000000c1", "sell_price": 1000001}',
   '{"sku": "X2", "name": "X", "category_id": "00000000-0000-4000-8000-0000000000c1", "sell_price": "free"}',
-  '{"sku": "X2", "name": "X", "category_id": "00000000-0000-4000-8000-0000000000c1", "sell_price": 1, "unit": "kg"}',
+  '{"sku": "X2", "name": "X", "category_id": "00000000-0000-4000-8000-0000000000c1", "sell_price": 1, "unit": "ton"}',
   '{"sku": "X2", "name": "X", "category_id": "00000000-0000-4000-8000-0000000000c1", "sell_price": 1, "reorder_level": -1}',
   '{"sku": "X2", "name": "X", "category_id": "00000000-0000-4000-8000-0000000000c1", "sell_price": 1, "stock_qty": 99}',
   '{"sku": "X2", "name": "X", "category_id": "not-a-uuid", "sell_price": 1}'
@@ -197,7 +197,7 @@ select is(
   'invalid_input',
   'refused: ' || changes
 )
-from unnest(array['{}', '{"stock_qty": 100}', '{"branch_id": "tother"}', '{"active": "no"}', '{"sell_price": 0}', '{"unit": "kg"}']) as changes;
+from unnest(array['{}', '{"stock_qty": 100}', '{"branch_id": "tother"}', '{"active": "no"}', '{"sell_price": 0}', '{"unit": "ton"}']) as changes;
 select is(
   tests.message('owner', format('select public.update_product(%L, %L)', pg_temp.product_id('CK-12'), '{"category_id": "00000000-0000-4000-8000-0000000000c3"}')),
   'category_inactive',
