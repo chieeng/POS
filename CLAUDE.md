@@ -47,7 +47,7 @@ laptops. Roles: owner, special_sales, sales.
   day to day; or differs from the SRS or the design file.
 - Small PRs, all into `dev`, each on a new branch from `origin/dev`. Never stack on unmerged
   PRs. When two PRs conflict, rebase the second after the first merges. After each PR say
-  "ready to merge #N", then start the next.
+  "ready to merge #N", then start the next (unless the pace rule below says to wait).
 - Before EVERY PR, re-read the SRS sections for that PR and its design file; don't rely on
   memory from earlier in the session.
 - Every PR description lists the SRS sections and the design files read for it.
@@ -81,6 +81,24 @@ laptops. Roles: owner, special_sales, sales.
 
 - When the owner comes back with the reviewer's findings, fix them on ONE small PR from `dev`,
   say "ready to merge #N", and give a short "Re-test hand-off" block the same way.
+- Reviewer hand-off after EVERY task: whenever Claude finishes something and needs the owner to
+  act (a PR is ready, an answer is needed, a step is done, or something failed), the reply ends
+  with ONE copy-paste block titled "Reviewer hand-off". The owner sends it to a separate
+  reviewer who guides them and can't see the repo or the chat. It contains:
+  1. What was just done, in plain words.
+  2. Every open PR right now (from `gh pr list`), including Dependabot: number, title, ready or
+     not, merge order, and any conflicts between them.
+  3. What the owner should do next, in order (merge X, then Y, wait for green).
+  4. What to check on staging after merging, with expected results, or "nothing to test yet;
+     tested at the end of step N".
+  5. Any question Claude is waiting on, with its recommendation.
+  6. What Claude will do next once the owner has acted.
+
+  No secrets, passwords, one-time links, design link or project ID in the block. At the end of
+  a step, the hand-off includes the full "Test hand-off" checklist.
+
+- Pace: don't start a new PR while 2 or more of Claude's PRs are waiting to be merged. Stop,
+  give the reviewer hand-off, and wait for the owner.
 - On this Windows setup long Bash heredocs break: write long files with the Write tool, and
   check that a failed command left no partial changes.
 
