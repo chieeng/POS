@@ -1,5 +1,6 @@
 import { useLiveRows } from '@/hooks/useLiveRows';
 import { getDeviceTag } from '@/lib/device';
+import { formatQty } from '@/lib/quantity';
 import { supabase } from '@/lib/supabase';
 
 /** INV-02: one stock-in (a delivery, or "Opening stock"), with its lines. */
@@ -287,7 +288,7 @@ export function describeStockError(error: unknown, productName: (id: string) => 
         stock?: number;
         result?: number;
       };
-      return `${productName(detail.product_id ?? '')}: only ${detail.stock} in stock; this would leave ${detail.result}.`;
+      return `${productName(detail.product_id ?? '')}: only ${formatQty(Number(detail.stock))} in stock; this would leave ${formatQty(Number(detail.result))}.`;
     } catch {
       return 'This would take stock below zero.';
     }

@@ -201,6 +201,32 @@ describe('New stock-in (INV-02)', () => {
     expect(recordStockIn).not.toHaveBeenCalled();
   });
 
+  test('a product in kg takes up to 3 decimals; the total follows (PROD-01)', async () => {
+    state.products = [
+      ...state.products,
+      product({ id: 'p9', sku: 'RICE-25', name: 'Rice', unit: 'kg', stockQty: 12.5 }),
+    ];
+    const { user } = renderNew();
+    await user.type(screen.getByLabelText('Find a product by name or SKU'), 'rice');
+    expect(screen.getByText(/12\.5 kg in stock/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Rice/ }));
+    const qty = screen.getByLabelText('Quantity of Rice');
+    expect(qty).toHaveAttribute('inputmode', 'decimal');
+    await user.type(qty, '2.5005');
+    await user.type(screen.getByLabelText('Unit cost of Rice'), '48');
+    await user.click(screen.getByRole('button', { name: 'Save stock-in' }));
+    expect(
+      screen.getByText('Rice: enter a quantity in kg, up to 3 decimals, for example 1.25.'),
+    ).toBeInTheDocument();
+    await user.clear(qty);
+    await user.type(qty, '2.25');
+    expect(screen.getAllByText('₱108.00')).not.toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Save stock-in' }));
+    expect(recordStockIn).toHaveBeenCalledWith(null, '', [
+      { product_id: 'p9', qty: 2.25, unit_cost: 48 },
+    ]);
+  });
+
   test('a line can be removed', async () => {
     const { user } = renderNew();
     await addLine(user, 'chips', 'Chips Classic');
@@ -224,6 +250,18 @@ describe('server messages', () => {
     expect(describeStockError({ message: 'supplier_inactive' }, name)).toBe(
       'This supplier is inactive. Choose another.',
     );
+  });
+
+  test('stock below zero shows the decimals the database sends', () => {
+    expect(
+      describeStockError(
+        {
+          message: 'stock_negative',
+          details: '{"product_id": "p1", "stock": 1.250, "result": -0.5}',
+        },
+        name,
+      ),
+    ).toBe('Chips Classic: only 1.25 in stock; this would leave -0.5.');
   });
 });
 

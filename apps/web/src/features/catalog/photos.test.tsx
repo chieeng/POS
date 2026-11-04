@@ -290,6 +290,17 @@ describe('CSV export (PROD-06)', () => {
     expect(lines[3]).toBe('');
   });
 
+  test('kg and L quantities keep up to 3 decimals, as plain numbers (PROD-01)', () => {
+    const csv = productsCsv(
+      [{ ...CHIPS, unit: 'kg', stockQty: 12.345, reorderLevel: 2.5 }],
+      CATEGORIES,
+      new Map(),
+    );
+    expect(csv.slice(1).split('\r\n')[1]).toBe(
+      'CK-12,Chips Classic,Snacks,kg,45.00,2.5,Yes,12.345,',
+    );
+  });
+
   test('one field', () => {
     expect(csvCell(null)).toBe('');
     expect(csvCell(12)).toBe('12');

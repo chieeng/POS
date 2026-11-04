@@ -17,6 +17,7 @@ import { isLowStock, useProductCost } from '@/features/stock/data';
 import { AdjustStockPanel } from '@/features/stock/AdjustStockPanel';
 import { StockHistory } from '@/features/stock/StockHistory';
 import { formatPeso } from '@/lib/money';
+import { isSoldByMeasure, qtyWithUnit } from '@/lib/quantity';
 import { useSession } from '@/stores/session';
 import {
   describeCatalogError,
@@ -123,14 +124,20 @@ function ProductDetail({ product }: { product: Product }) {
   const facts: [string, string][] = [
     ['SKU', product.sku],
     ['Category', category ? `${category.name}${category.active ? '' : ' (inactive)'}` : '—'],
-    ['Price', `${formatPeso(product.sellPrice)} / ${product.unit}`],
-    ['In stock', `${product.stockQty} ${product.unit}${isLowStock(product) ? ' (low stock)' : ''}`],
+    [
+      'Price',
+      `${formatPeso(product.sellPrice)} / ${product.unit}${isSoldByMeasure(product.unit) ? ' (sold by weight or volume)' : ''}`,
+    ],
+    [
+      'In stock',
+      `${qtyWithUnit(product.stockQty, product.unit)}${isLowStock(product) ? ' (low stock)' : ''}`,
+    ],
     ...(averageCost === undefined
       ? []
       : ([['Average cost', `${formatPeso(averageCost)} / ${product.unit}`]] as [string, string][])),
     [
       'Reorder level',
-      product.reorderLevel === 0 ? 'Off' : `${product.reorderLevel} ${product.unit}`,
+      product.reorderLevel === 0 ? 'Off' : qtyWithUnit(product.reorderLevel, product.unit),
     ],
   ];
 

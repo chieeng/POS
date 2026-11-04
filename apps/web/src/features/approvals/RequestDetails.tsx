@@ -1,5 +1,6 @@
 import { ADJUSTMENT_LABELS, type AdjustmentType } from '@/features/stock/data';
 import { formatPeso } from '@/lib/money';
+import { formatQty, signedQty } from '@/lib/quantity';
 import type { RequestContext } from './context';
 import type { ApprovalRequest } from './data';
 import { RequestChanges } from './RequestChanges';
@@ -41,10 +42,12 @@ export function RequestDetails({
       <p className="text-[15px]">
         <b>{ADJUSTMENT_LABELS[type] ?? type}</b>:{' '}
         <b className={qty < 0 ? 'text-danger-fg' : 'text-accent-2-800'}>
-          {qty > 0 ? '+' : '−'}
-          {Math.abs(qty)} {product?.unit}
+          {signedQty(qty)} {product?.unit}
         </b>
-        <span className="text-neutral-700"> · now {product?.stockQty ?? '—'} in stock</span>
+        <span className="text-neutral-700">
+          {' '}
+          · now {product ? formatQty(product.stockQty) : '—'} in stock
+        </span>
       </p>
     );
   }
@@ -100,18 +103,17 @@ export function RequestDetails({
               ? { qty: 0, unit_cost: line.unit_cost }
               : after.get(line.product_id);
             const changed = wanted?.qty !== line.qty || wanted?.unit_cost !== line.unit_cost;
+            // "10 pc @ ₱30.00", "1.25 kg @ ₱120.00".
+            const lineText = (qty: unknown, cost: unknown) =>
+              `${formatQty(Number(qty))}${product ? ` ${product.unit}` : ''} @ ${formatPeso(Number(cost))}`;
             return (
               <tr key={line.product_id} className="border-t border-text/8 align-top">
                 <th scope="row" className="py-[6px] pr-[10px] font-normal">
                   {product?.name ?? 'Product'}
                 </th>
-                <td className="py-[6px] pr-[10px]">
-                  {line.qty} @ {formatPeso(Number(line.unit_cost))}
-                </td>
+                <td className="py-[6px] pr-[10px]">{lineText(line.qty, line.unit_cost)}</td>
                 <td className={changed ? 'py-[6px] font-semibold' : 'py-[6px] text-neutral-700'}>
-                  {wanted?.qty === 0
-                    ? 'removed'
-                    : `${wanted?.qty} @ ${formatPeso(Number(wanted?.unit_cost))}`}
+                  {wanted?.qty === 0 ? 'removed' : lineText(wanted?.qty, wanted?.unit_cost)}
                 </td>
               </tr>
             );

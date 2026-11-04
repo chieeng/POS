@@ -1,7 +1,7 @@
 import { useLiveRows } from '@/hooks/useLiveRows';
 import { getDeviceTag } from '@/lib/device';
 import { supabase } from '@/lib/supabase';
-import type { Product } from '@/features/catalog/data';
+import { STOCK_FRACTIONAL, type Product } from '@/features/catalog/data';
 import { deletePhotoFiles } from '@/features/catalog/photos';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
@@ -182,6 +182,8 @@ export function describeApprovalError(error: unknown): string {
       return 'Another product already uses this SKU.';
     case 'category_inactive':
       return 'This category is inactive. Choose an active one.';
+    case 'stock_fractional':
+      return STOCK_FRACTIONAL;
     case 'invalid_input':
       return 'Some details are not valid. Check the form.';
     case 'photo_missing':

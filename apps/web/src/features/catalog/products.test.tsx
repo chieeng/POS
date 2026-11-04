@@ -317,6 +317,32 @@ describe('Add product (PROD-02, PROD-03)', () => {
     expect(screen.queryByText('Another product already uses this SKU.')).toBeNull();
   });
 
+  test('kg and L are "sold by weight or volume"; only they take decimals (PROD-01)', async () => {
+    const { user } = renderAt('/products/new');
+    const unit = screen.getByLabelText('Unit');
+    expect(screen.getByRole('group', { name: 'Sold by weight or volume' }).textContent).toBe(
+      'kg (kilogram)L (litre)',
+    );
+    await user.type(screen.getByLabelText('Product name'), 'Rice');
+    await user.type(screen.getByLabelText('SKU'), 'rice-kg');
+    await user.selectOptions(screen.getByLabelText('Category'), 'c1');
+    await user.type(screen.getByLabelText('Selling price (₱)'), '52');
+    const reorder = screen.getByLabelText('Reorder level (pc)');
+    await user.clear(reorder);
+    await user.type(reorder, '2.5');
+    await user.click(screen.getByRole('button', { name: 'Add product' }));
+    expect(await screen.findByText('Enter a whole number.')).toBeInTheDocument();
+    expect(createProduct).not.toHaveBeenCalled();
+
+    await user.selectOptions(unit, 'kg');
+    expect(screen.getByText(/Sold by weight or volume: the price is per kg/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Reorder level (kg)')).toHaveAttribute('inputmode', 'decimal');
+    await user.click(screen.getByRole('button', { name: 'Add product' }));
+    expect(createProduct).toHaveBeenCalledWith(
+      expect.objectContaining({ unit: 'kg', reorder_level: 2.5 }),
+    );
+  });
+
   test('a SKU already used says so', async () => {
     vi.mocked(createProduct).mockRejectedValue({ code: '23505', message: 'sku_taken' });
     const { user } = renderAt('/products/new');
@@ -358,6 +384,25 @@ describe('Product page', () => {
       reorder_level: 10,
     });
     expect(await screen.findByText('Saved.')).toBeInTheDocument();
+  });
+
+  test('a product in kg shows its decimals; leaving kg with part of a unit is explained', async () => {
+    state.products = [
+      { ...CHIPS, id: 'p9', name: 'Rice', unit: 'kg', stockQty: 12.5, reorderLevel: 2.5 },
+    ];
+    vi.mocked(updateProduct).mockRejectedValue({ code: '22023', message: 'stock_fractional' });
+    const { user } = renderAt('/products/p9');
+    expect(screen.getByText('₱45.00 / kg (sold by weight or volume)')).toBeInTheDocument();
+    expect(screen.getByText('12.5 kg')).toBeInTheDocument();
+    expect(screen.getByText('2.5 kg')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit product' }));
+    await user.selectOptions(screen.getByLabelText('Unit'), 'pack');
+    await user.clear(screen.getByLabelText('Reorder level (pack)'));
+    await user.type(screen.getByLabelText('Reorder level (pack)'), '3');
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(
+      await screen.findByText(/has part of a unit in stock or in its reorder level/),
+    ).toBeInTheDocument();
   });
 
   test('the Owner deactivates after confirming', async () => {

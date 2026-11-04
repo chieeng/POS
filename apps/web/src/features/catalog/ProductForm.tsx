@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { ReactNode } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { isSoldByMeasure, qtyInputMode } from '@/lib/quantity';
 import { UNITS, type Category } from './data';
 import { selectClass } from './helpers';
 import { productSchema, UNIT_LABELS, type ProductValues } from './schemas';
@@ -74,8 +75,11 @@ export function ProductForm({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<ProductValues>({ resolver: zodResolver(productSchema), defaultValues });
+  const unit = useWatch({ control, name: 'unit' });
+  const byMeasure = isSoldByMeasure(unit);
 
   const choices = categories
     .filter((category) => category.active || category.id === currentCategoryId)
@@ -156,7 +160,11 @@ export function ProductForm({
           <Field
             id="product-unit"
             label="Unit"
-            hint="The price and every quantity are per this unit."
+            hint={
+              byMeasure
+                ? `Sold by weight or volume: the price is per ${unit}, and quantities take up to 3 decimals, for example 1.25 ${unit}.`
+                : 'The price and every quantity are per this unit, in whole numbers.'
+            }
             error={errors.unit?.message}
           >
             <select
@@ -165,11 +173,20 @@ export function ProductForm({
               aria-describedby={describedBy('product-unit', errors.unit, true)}
               {...register('unit')}
             >
-              {UNITS.map((unit) => (
-                <option key={unit} value={unit}>
-                  {UNIT_LABELS[unit]}
-                </option>
-              ))}
+              <optgroup label="Counted in whole units">
+                {UNITS.filter((unit) => !isSoldByMeasure(unit)).map((unit) => (
+                  <option key={unit} value={unit}>
+                    {UNIT_LABELS[unit]}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Sold by weight or volume">
+                {UNITS.filter(isSoldByMeasure).map((unit) => (
+                  <option key={unit} value={unit}>
+                    {UNIT_LABELS[unit]}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </Field>
           <Field id="product-price" label="Selling price (₱)" error={errors.sellPrice?.message}>
@@ -187,13 +204,13 @@ export function ProductForm({
         </div>
         <Field
           id="product-reorder"
-          label="Reorder level"
+          label={`Reorder level (${unit})`}
           hint="When stock falls to this, the product shows as low stock. 0 turns it off."
           error={errors.reorderLevel?.message}
         >
           <Input
             id="product-reorder"
-            inputMode="numeric"
+            inputMode={qtyInputMode(unit)}
             autoComplete="off"
             size="touch"
             className="max-w-[160px] bg-bg"

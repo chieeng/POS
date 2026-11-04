@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useProducts } from '@/features/catalog/data';
+import { formatQty, qtyWithUnit } from '@/lib/quantity';
 import { isLowStock } from './data';
 
 const SHOWN = 10;
@@ -36,11 +37,9 @@ export function LowStockCard() {
                 <Link to={`/products/${product.id}`} className="min-w-0 flex-1 truncate">
                   {product.name}
                 </Link>
-                <span className="font-semibold">
-                  {product.stockQty} {product.unit}
-                </span>
+                <span className="font-semibold">{qtyWithUnit(product.stockQty, product.unit)}</span>
                 <span className="text-[12.5px] text-neutral-700">
-                  reorder at {product.reorderLevel}
+                  reorder at {formatQty(product.reorderLevel)}
                 </span>
               </li>
             ))}

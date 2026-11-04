@@ -19,9 +19,10 @@ import { ProductPhoto } from '@/features/catalog/ProductPhoto';
 import { ProductForm } from '@/features/catalog/ProductForm';
 import { PageHeader } from '@/features/settings/PageHeader';
 import { formatPeso } from '@/lib/money';
+import { isSoldByMeasure, qtyInputMode, qtyWithUnit } from '@/lib/quantity';
 import { ICON_STROKE } from '@/lib/utils';
 import { describeStockError, recordStockIn } from './data';
-import { COST, lineProblem, MAX_LINES, OPENING_STOCK, QTY, type Line } from './lines';
+import { COST, lineProblem, lineQty, MAX_LINES, OPENING_STOCK, type Line } from './lines';
 
 /**
  * New stock-in (INV-02, INV-03), the Owner and Special Sales: a delivery from a supplier, or
@@ -101,9 +102,9 @@ export function NewStockInPage() {
   };
 
   const total = lines.reduce((sum, line) => {
-    const qty = Number(line.qty);
+    const qty = lineQty(line);
     const cost = Number(line.cost);
-    return Number.isFinite(qty) && Number.isFinite(cost) ? sum + qty * cost : sum;
+    return qty !== null && Number.isFinite(cost) ? sum + qty * cost : sum;
   }, 0);
 
   const save = async () => {
@@ -125,7 +126,7 @@ export function NewStockInPage() {
         reference,
         lines.map((line) => ({
           product_id: line.productId,
-          qty: Number(line.qty),
+          qty: lineQty(line) ?? 0,
           unit_cost: Number(line.cost),
         })),
       );
@@ -254,7 +255,7 @@ export function NewStockInPage() {
                     <span className="flex-1">
                       <b>{product.name}</b>{' '}
                       <span className="text-neutral-700">
-                        · {product.sku} · {product.stockQty} {product.unit} in stock
+                        · {product.sku} · {qtyWithUnit(product.stockQty, product.unit)} in stock
                       </span>
                     </span>
                     <Plus size={16} strokeWidth={ICON_STROKE} aria-hidden />
@@ -296,11 +297,11 @@ export function NewStockInPage() {
                 <Trash2 size={16} strokeWidth={ICON_STROKE} aria-hidden />
               </Button>
               <label className="col-start-2 flex flex-col gap-[2px] text-[12px] text-neutral-700 md:col-start-auto">
-                Qty
+                Qty ({line.unit})
                 <Input
                   aria-label={`Quantity of ${line.name}`}
-                  placeholder="Qty"
-                  inputMode="numeric"
+                  placeholder={isSoldByMeasure(line.unit) ? 'e.g. 1.25' : 'Qty'}
+                  inputMode={qtyInputMode(line.unit)}
                   value={line.qty}
                   onChange={(event) => update(index, { qty: event.target.value })}
                   className="min-h-[44px] bg-bg text-[15px] text-text"
@@ -318,8 +319,8 @@ export function NewStockInPage() {
                 />
               </label>
               <span className="col-start-2 text-right text-[14px] font-semibold md:col-start-auto">
-                {QTY.test(line.qty) && COST.test(line.cost)
-                  ? formatPeso(Number(line.qty) * Number(line.cost))
+                {lineQty(line) !== null && COST.test(line.cost)
+                  ? formatPeso((lineQty(line) ?? 0) * Number(line.cost))
                   : '—'}
               </span>
             </li>
