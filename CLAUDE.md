@@ -54,11 +54,33 @@ laptops. Roles: owner, special_sales, sales.
 - Decisions the owner makes in chat go into docs/SRS.md (or into this file if it is a working
   rule) in the next PR, never only in the chat.
 - When a rule changes, update this file in the same PR.
-- ONE click-only test checklist at the end of each step: phone and laptop, every role
-  (including Special Sales), light and dark. If a command is truly needed, give the exact
-  PowerShell command and what the owner should see.
-- The Owner signs in with TOTP, so Owner flows can't be tested locally; the owner checks them
-  on staging.
+- The Owner signs in with TOTP, so Owner flows can't be tested locally; they are checked on
+  staging.
+- Testing hand-off: the owner tests with a separate reviewer, not with Claude. At the END of
+  each step, and whenever a PR needs a check on staging before the next one, write ONE
+  copy-paste block titled "Test hand-off: <step / PRs>" for the owner to send to the
+  reviewer. Don't walk the owner through the test. The block covers every role (including
+  Special Sales), phone and laptop, light and dark. It must stand on its own (the reviewer
+  can't see the repo or the chat) and contain:
+  1. What was built, in plain words, and which PRs (merged or not).
+  2. Where to test: the staging URL (https://dev.pos-duz.pages.dev), and which data on staging
+     to use or set up first (products, drawer state, test users by name: Owner on the laptop,
+     Test Special 5 / Test Two on the phone).
+  3. The checks in order, one per line: who, which device, what to do, and exactly what they
+     should see (amounts, labels, wording).
+  4. Money and blind-count checks spelled out with the expected numbers.
+  5. Offline checks (Airplane mode) where the step has offline behaviour.
+  6. Anything Claude is unsure about or couldn't test itself (for example Owner screens), so
+     the reviewer looks there first.
+  7. Known limitations and things deliberately left out, so they aren't reported as bugs.
+  8. Anything that must wait (for example next-day checks), with what to do the evening
+     before.
+
+  No secrets, passwords, one-time links, design link or project ID in the block. If a command
+  is truly needed, give the exact PowerShell command and what should be seen.
+
+- When the owner comes back with the reviewer's findings, fix them on ONE small PR from `dev`,
+  say "ready to merge #N", and give a short "Re-test hand-off" block the same way.
 - On this Windows setup long Bash heredocs break: write long files with the Write tool, and
   check that a failed command left no partial changes.
 
