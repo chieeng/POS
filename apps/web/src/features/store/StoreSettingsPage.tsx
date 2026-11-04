@@ -1,13 +1,16 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ExternalLink, LocateFixed } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { PageHeader } from '@/features/settings/PageHeader';
+import { formatPeso, vatPart } from '@/lib/money';
 import { ICON_STROKE } from '@/lib/utils';
+import { PaymentAccountsSection } from './PaymentAccountsSection';
 import { describeSaveError, updateBranchSettings, useBranch, type BranchSettings } from './data';
 import {
   currentLocation,
@@ -18,8 +21,10 @@ import {
   type Fix,
 } from './geo';
 import {
+  checkoutSchema,
   storeDetailsSchema,
   storeLocationSchema,
+  type CheckoutValues,
   type StoreDetailsValues,
   type StoreLocationValues,
 } from './schemas';
@@ -75,8 +80,13 @@ const detailsFrom = (branch: BranchSettings): StoreDetailsValues => ({
   contact: branch.contact ?? '',
   tin: branch.tin ?? '',
   receiptFooter: branch.receiptFooter ?? '',
-  discountLimit: branch.salesDiscountLimit === null ? '' : String(branch.salesDiscountLimit),
   idleLockMinutes: String(branch.idleLockMinutes),
+});
+
+const checkoutFrom = (branch: BranchSettings): CheckoutValues => ({
+  vatRegistered: branch.vatRegistered,
+  vatRate: String(branch.vatRate),
+  roundCash: branch.roundCash,
 });
 
 const locationFrom = (branch: BranchSettings): StoreLocationValues => ({
@@ -105,6 +115,8 @@ export function StoreSettingsPage() {
       ) : (
         <>
           <StoreDetailsForm branch={branch} />
+          <CheckoutForm branch={branch} />
+          <PaymentAccountsSection />
           <StoreLocationForm branch={branch} />
         </>
       )}
@@ -141,7 +153,6 @@ function StoreDetailsForm({ branch }: { branch: BranchSettings }) {
         contact: values.contact || null,
         tin: values.tin || null,
         receipt_footer: values.receiptFooter || null,
-        sales_discount_limit: values.discountLimit === '' ? null : Number(values.discountLimit),
         idle_lock_minutes: Number(values.idleLockMinutes),
       });
       reset(values);
@@ -227,22 +238,6 @@ function StoreDetailsForm({ branch }: { branch: BranchSettings }) {
         />
       </Field>
       <Field
-        id="store-discount"
-        label="Discount limit per sale (₱)"
-        hint="Staff can give discounts up to this amount without your approval. Leave empty: every discount needs approval."
-        error={errors.discountLimit?.message}
-      >
-        <Input
-          id="store-discount"
-          inputMode="decimal"
-          autoComplete="off"
-          className={inputClass}
-          aria-invalid={!!errors.discountLimit || undefined}
-          aria-describedby={describedBy('store-discount', errors.discountLimit)}
-          {...register('discountLimit')}
-        />
-      </Field>
-      <Field
         id="store-idle"
         label="Lock after (minutes idle)"
         hint="The app asks for the password again after this long without use, on every device."
@@ -275,6 +270,165 @@ function StoreDetailsForm({ branch }: { branch: BranchSettings }) {
         )}
       </div>
     </form>
+  );
+}
+
+/** SYS-01, POS-04, POS-07: VAT and cash rounding, as checkout will use them. */
+function CheckoutForm({ branch }: { branch: BranchSettings }) {
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting, isDirty },
+  } = useForm<CheckoutValues>({
+    resolver: zodResolver(checkoutSchema),
+    defaultValues: checkoutFrom(branch),
+  });
+
+  useEffect(() => {
+    if (!isDirty) reset(checkoutFrom(branch));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branch]);
+
+  const vatOn = useWatch({ control, name: 'vatRegistered' });
+  const rateText = useWatch({ control, name: 'vatRate' });
+  const rate = Number(rateText);
+  const rateOk = checkoutSchema.shape.vatRate.safeParse(rateText).success;
+
+  const onSubmit = handleSubmit(async (values) => {
+    setError(null);
+    setSaved(false);
+    try {
+      await updateBranchSettings({
+        vat_registered: values.vatRegistered,
+        vat_rate: Number(values.vatRate),
+        round_cash: values.roundCash,
+      });
+      reset(values);
+      setSaved(true);
+    } catch (caught) {
+      setError(describeSaveError(caught));
+    }
+  });
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      noValidate
+      className={sectionClass}
+      aria-labelledby="checkout-heading"
+    >
+      <h2 id="checkout-heading" className={headingClass}>
+        Checkout
+      </h2>
+      {error && <Alert variant="danger">{error}</Alert>}
+
+      <SwitchRow
+        id="store-vat"
+        label="VAT registered"
+        hint="Prices already include VAT. When this is on, every slip shows the VAT part of the total. Slips are never official receipts."
+      >
+        <Controller
+          control={control}
+          name="vatRegistered"
+          render={({ field }) => (
+            <Switch
+              id="store-vat"
+              checked={field.value}
+              onCheckedChange={field.onChange}
+              aria-describedby="store-vat-hint"
+            />
+          )}
+        />
+      </SwitchRow>
+      {vatOn && (
+        <Field
+          id="store-vat-rate"
+          label="VAT rate (%)"
+          hint={
+            rateOk
+              ? `A ₱100.00 sale includes ${formatPeso(vatPart(100, rate))} VAT (₱100.00 × ${rateText} ÷ ${100 + rate}).`
+              : 'The Philippine rate is 12%.'
+          }
+          error={errors.vatRate?.message}
+        >
+          <Input
+            id="store-vat-rate"
+            inputMode="decimal"
+            autoComplete="off"
+            className={`${inputClass} max-w-[140px]`}
+            aria-invalid={!!errors.vatRate || undefined}
+            aria-describedby={describedBy('store-vat-rate', errors.vatRate)}
+            {...register('vatRate')}
+          />
+        </Field>
+      )}
+
+      <SwitchRow
+        id="store-round"
+        label="Round cash totals to the nearest peso"
+        hint="The drawer is counted in whole pesos, so a ₱123.75 cash total is charged ₱124.00 and the slip shows “Rounding +₱0.25”. GCash and Maya stay exact."
+      >
+        <Controller
+          control={control}
+          name="roundCash"
+          render={({ field }) => (
+            <Switch
+              id="store-round"
+              checked={field.value}
+              onCheckedChange={field.onChange}
+              aria-describedby="store-round-hint"
+            />
+          )}
+        />
+      </SwitchRow>
+
+      <div className="flex flex-wrap items-center gap-[12px]">
+        <Button
+          needsInternet
+          type="submit"
+          className="min-h-[46px] px-[22px]"
+          disabled={isSubmitting || !isDirty}
+        >
+          {isSubmitting ? 'Saving…' : 'Save checkout settings'}
+        </Button>
+        {saved && !isDirty && (
+          <span role="status" className="text-[13.5px] text-neutral-700">
+            Saved.
+          </span>
+        )}
+      </div>
+    </form>
+  );
+}
+
+/** A yes/no setting: the label and hint on the left, the switch on the right. */
+function SwitchRow({
+  id,
+  label,
+  hint,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-[14px]">
+      <div className="flex-1">
+        <Label htmlFor={id} className="text-[15px] font-semibold">
+          {label}
+        </Label>
+        <p id={`${id}-hint`} className="mt-[3px] text-[12.5px] text-neutral-700">
+          {hint}
+        </p>
+      </div>
+      {children}
+    </div>
   );
 }
 

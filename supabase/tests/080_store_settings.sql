@@ -32,7 +32,7 @@ select is(
     'owner',
     $$select public.update_branch_settings(
       '{"name": "  Eragon Store ", "address": "12 Rizal St.", "tin": "123-456-789-000",
-        "sales_discount_limit": 50, "idle_lock_minutes": 10,
+        "vat_registered": true, "idle_lock_minutes": 10,
         "store_lat": 14.5995, "store_lng": 120.9842, "radius_m": 150}', 'A1B2')$$
   ),
   'ok 1',
@@ -41,11 +41,11 @@ select is(
 
 select is(
   (
-    select concat_ws(' | ', name, address, tin, sales_discount_limit, idle_lock_minutes,
+    select concat_ws(' | ', name, address, tin, vat_registered, idle_lock_minutes,
       store_lat, store_lng, radius_m)
     from public.branches where id = 'tmain'
   ),
-  'Eragon Store | 12 Rizal St. | 123-456-789-000 | 50.00 | 10 | 14.5995 | 120.9842 | 150',
+  'Eragon Store | 12 Rizal St. | 123-456-789-000 | t | 10 | 14.5995 | 120.9842 | 150',
   'the values are saved, with text trimmed'
 );
 
@@ -118,7 +118,7 @@ from unnest(array[
   '{"store_lat": 14.6}',
   '{"store_lat": 91, "store_lng": 120}',
   '{"idle_lock_minutes": 0}',
-  '{"sales_discount_limit": -1}',
+  '{"sales_discount_limit": 50}',
   '{"tin": "12345"}',
   '{"receipt_footer": "' || repeat('x', 301) || '"}'
 ]) as changes;
