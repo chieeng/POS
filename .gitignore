@@ -28,6 +28,10 @@ supabase/.branches/
 # Cloudflare Wrangler
 .wrangler/
 
+# Claude: private notes (design link, local facts) and locally installed skills stay off GitHub
+CLAUDE.local.md
+.claude/skills/
+
 # Editors and OS
 .vscode/*
 !.vscode/extensions.json
