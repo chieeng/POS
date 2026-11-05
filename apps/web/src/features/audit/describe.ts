@@ -26,6 +26,7 @@ import type { EntryReason } from '@/features/drawer/data';
 import { REASON_LABELS, shortDay } from '@/features/drawer/format';
 import type { AuditRecord } from '@/features/users/data';
 import { formatPeso } from '@/lib/money';
+import { formatQty, signedQty } from '@/lib/quantity';
 
 export interface AuditLine {
   icon: LucideIcon;
@@ -173,11 +174,17 @@ function drawerDay(value: unknown): string {
 const asObject = (value: unknown): Json =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Json) : {};
 
-/** "Expiry −2 pack". */
+/** A quantity from the database ("2.5", 12) as the app writes it, or "—". */
+const qtyText = (value: unknown) =>
+  (typeof value === 'number' || typeof value === 'string') &&
+  value !== '' &&
+  Number.isFinite(Number(value))
+    ? formatQty(Number(value))
+    : '—';
+
+/** "Expiry −2 pack", "Damage −0.25 kg". */
 function adjustmentText(type: unknown, qty: unknown, unit: unknown): string {
-  const count = Number(qty);
-  const sign = count > 0 ? '+' : '−';
-  return `${ADJUSTMENT_WORDS[String(type)] ?? text(type)} ${sign}${Math.abs(count)}${unit ? ` ${text(unit)}` : ''}`;
+  return `${ADJUSTMENT_WORDS[String(type)] ?? text(type)} ${signedQty(Number(qty))}${unit ? ` ${text(unit)}` : ''}`;
 }
 
 interface LineValue {
@@ -217,9 +224,10 @@ function correctionChanges(
     const qty = after.deleted ? 0 : Number(next?.qty ?? old.qty);
     const cost = Number(next?.unit_cost ?? old.cost);
     if (qty === old.qty && cost === old.cost) return '';
-    if (cost === old.cost || qty === 0) return `${old.name}: ${old.qty} → ${qty}`;
+    const [was, now] = [formatQty(old.qty), formatQty(qty)];
+    if (cost === old.cost || qty === 0) return `${old.name}: ${was} → ${now}`;
     if (qty === old.qty) return `${old.name}: ${formatPeso(old.cost)} → ${formatPeso(cost)}`;
-    return `${old.name}: ${old.qty} @ ${formatPeso(old.cost)} → ${qty} @ ${formatPeso(cost)}`;
+    return `${old.name}: ${was} @ ${formatPeso(old.cost)} → ${now} @ ${formatPeso(cost)}`;
   });
   if (after.deleted) return lines.filter(Boolean);
   return [
@@ -328,7 +336,7 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
       return {
         icon: PackagePlus,
         what: `recorded a stock-in${reference}${supplier}`,
-        change: `${plural(after.lines, 'line')} · ${plural(after.units, 'unit')} · ${settingText('sell_price', after.value)}`,
+        change: `${plural(after.lines, 'line')} · ${plural(qtyText(after.units), 'unit')} · ${settingText('sell_price', after.value)}`,
       };
     }
     case 'stock.adjust':
@@ -337,7 +345,7 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
         what:
           `adjusted the stock of “${text(after.label)}”` +
           (after.via === 'approval' ? ' (approved request)' : ''),
-        change: `${adjustmentText(after.type, after.qty, after.unit)} · now ${text(after.stock_after)}${entry.reason ? ` · ${entry.reason}` : ''}`,
+        change: `${adjustmentText(after.type, after.qty, after.unit)} · now ${qtyText(after.stock_after)}${entry.reason ? ` · ${entry.reason}` : ''}`,
       };
     case 'stock.correct': {
       const reference = typeof before.reference === 'string' ? ` “${before.reference}”` : '';

@@ -31,6 +31,8 @@ export const UNITS = [
   'set',
   'pair',
   'roll',
+  'kg',
+  'L',
 ] as const;
 export type Unit = (typeof UNITS)[number];
 
@@ -264,6 +266,13 @@ export async function createProduct(fields: ProductFields): Promise<string> {
 export const updateProduct = (id: string, changes: Partial<ProductFields> & { active?: boolean }) =>
   call('update_product', { p_id: id, p_changes: changes });
 
+/**
+ * The server's `stock_fractional`: a product holding part of a unit can't move to a unit that
+ * is counted whole (PROD-01).
+ */
+export const STOCK_FRACTIONAL =
+  'This product has part of a unit in stock or in its reorder level, so it has to stay in kg or L. Adjust the stock and the reorder level to whole numbers first, then change the unit.';
+
 /** The server's error codes as a sentence. */
 export function describeCatalogError(
   error: unknown,
@@ -285,6 +294,7 @@ export function describeCatalogError(
   if (message === 'name_taken') {
     return `A ${what} with this name already exists. If it is inactive, reactivate it instead.`;
   }
+  if (message === 'stock_fractional') return STOCK_FRACTIONAL;
   if (message === 'invalid_input') return 'Some details are not valid. Check the form.';
   if (message === 'not_found') return `This ${what} no longer exists. Reload the page.`;
   if (code === '42501') return `Only the Owner can change a ${what}.`;

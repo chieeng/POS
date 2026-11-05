@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { LoadMore } from '@/components/ui/load-more';
 import { Tag } from '@/components/ui/tag';
 import { formatPeso } from '@/lib/money';
+import { formatQty } from '@/lib/quantity';
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 import { isLowStock } from '@/features/stock/data';
@@ -207,7 +208,7 @@ export function ProductsPage() {
                       {formatPeso(product.sellPrice)}
                     </span>
                     <span className="block text-[12.5px] text-neutral-700">
-                      / {product.unit} · {product.stockQty} in stock
+                      / {product.unit} · {formatQty(product.stockQty)} in stock
                     </span>
                   </span>
                   <ChevronRight

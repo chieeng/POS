@@ -13,13 +13,14 @@ import {
 } from '@/features/approvals/data';
 import type { Product, Supplier } from '@/features/catalog/data';
 import { selectClass } from '@/features/catalog/helpers';
+import { formatQty, MAX_QTY, parseQty, qtyInputMode, qtyRule } from '@/lib/quantity';
 import {
   correctStockIn,
   describeStockError,
   requestStockInCorrection,
   type StockReceipt,
 } from './data';
-import { COST, QTY } from './lines';
+import { COST } from './lines';
 
 interface LineDraft {
   productId: string;
@@ -71,7 +72,7 @@ export function CorrectionPanel({
     setLines(
       receipt.lines.map((line) => ({
         productId: line.productId,
-        qty: String(line.qty),
+        qty: formatQty(line.qty),
         cost: line.unitCost.toFixed(2),
       })),
     );
@@ -90,14 +91,18 @@ export function CorrectionPanel({
     .filter((supplier) => supplier.active || supplier.id === receipt.supplierId)
     .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
   const nameOf = (id: string) => products.get(id)?.name ?? 'A product';
+  // Unknown products keep to whole numbers; the server checks the real unit anyway.
+  const unitOf = (id: string) => products.get(id)?.unit ?? 'pc';
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
     if (!deleting) {
       for (const line of lines) {
-        if (!QTY.test(line.qty.trim()) || Number(line.qty) > 100_000) {
-          setError(`${nameOf(line.productId)}: enter a whole quantity (0 takes it off).`);
+        const unit = unitOf(line.productId);
+        const qty = parseQty(line.qty, unit);
+        if (qty === null || qty > MAX_QTY) {
+          setError(`${nameOf(line.productId)}: ${qtyRule(unit, { zeroAllowed: true })}`);
           return;
         }
         if (!COST.test(line.cost.trim()) || Number(line.cost) < 0.01) {
@@ -115,7 +120,7 @@ export function CorrectionPanel({
       reference,
       lines: lines.map((line) => ({
         product_id: line.productId,
-        qty: Number(line.qty),
+        qty: parseQty(line.qty, unitOf(line.productId)) ?? 0,
         unit_cost: Number(line.cost),
       })),
       delete: deleting,
@@ -267,11 +272,13 @@ export function CorrectionPanel({
                         {name}
                       </span>
                       <div>
-                        <Label htmlFor={`correct-qty-${index}`}>Qty</Label>
+                        <Label htmlFor={`correct-qty-${index}`}>
+                          Qty ({unitOf(line.productId)})
+                        </Label>
                         <Input
                           id={`correct-qty-${index}`}
                           aria-label={`Quantity of ${name}`}
-                          inputMode="numeric"
+                          inputMode={qtyInputMode(unitOf(line.productId))}
                           value={line.qty}
                           onChange={(event) =>
                             setLines((current) =>

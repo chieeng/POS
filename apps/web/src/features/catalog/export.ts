@@ -1,4 +1,5 @@
 import { getDeviceTag } from '@/lib/device';
+import { formatQty } from '@/lib/quantity';
 import { supabase } from '@/lib/supabase';
 import type { Category, Product } from './data';
 
@@ -51,9 +52,10 @@ export function productsCsv(
         categoryName.get(product.categoryId) ?? '',
         product.unit,
         product.sellPrice.toFixed(2),
-        product.reorderLevel,
+        // Up to 3 decimals in kg or L; plain digits, so they stay numbers (PROD-01).
+        Number(formatQty(product.reorderLevel)),
         product.active ? 'Yes' : 'No',
-        product.stockQty,
+        Number(formatQty(product.stockQty)),
         cost === undefined ? null : cost.toFixed(4),
       ].map((value) =>
         // Fixed-decimal numbers arrive as strings; they are numbers in the file.

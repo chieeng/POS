@@ -15,6 +15,7 @@ import {
 import { useProducts, useSuppliers } from '@/features/catalog/data';
 import { PageHeader } from '@/features/settings/PageHeader';
 import { formatPeso } from '@/lib/money';
+import { formatQty } from '@/lib/quantity';
 import { useSession } from '@/stores/session';
 import { CorrectionPanel } from './CorrectionPanel';
 import { useStockReceipt } from './data';
@@ -164,7 +165,7 @@ export function StockReceiptPage() {
                           <span className="block text-[12px] text-neutral-700">{product?.sku}</span>
                         </TableCell>
                         <TableCell numeric>
-                          {line.qty} {product?.unit}
+                          {formatQty(line.qty)} {product?.unit}
                         </TableCell>
                         <TableCell numeric>{formatPeso(line.unitCost)}</TableCell>
                         <TableCell numeric className="font-semibold">

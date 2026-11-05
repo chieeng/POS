@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { selectClass } from '@/features/catalog/helpers';
 import { formatPeso } from '@/lib/money';
+import { formatQty, signedQty } from '@/lib/quantity';
 import { cn } from '@/lib/utils';
 import { MOVEMENT_LABELS, useStockHistory, type HistoryFilter, type MovementType } from './data';
 import { formatWhen } from './format';
@@ -122,11 +123,10 @@ export function StockHistory({
                   movement.qtyChange > 0 ? 'text-accent-2-800' : 'text-danger-fg',
                 )}
               >
-                {movement.qtyChange > 0 ? '+' : '−'}
-                {Math.abs(movement.qtyChange)} {unit}
+                {signedQty(movement.qtyChange)} {unit}
               </span>
               <span className="text-neutral-700">
-                → {movement.stockAfter} · {movement.userName}
+                → {formatQty(movement.stockAfter)} · {movement.userName}
                 {showCost &&
                   movement.unitCost !== null &&
                   ` · ${formatPeso(movement.unitCost)} / ${unit}`}

@@ -1,6 +1,8 @@
-import type { Category, Product } from '@/features/catalog/data';
+import type { Category, Product, Unit } from '@/features/catalog/data';
 import { ProductPhoto } from '@/features/catalog/ProductPhoto';
+import { UNIT_LABELS } from '@/features/catalog/schemas';
 import { formatPeso } from '@/lib/money';
+import { formatQty } from '@/lib/quantity';
 import { currentValue, type ApprovalRequest } from './data';
 
 const FIELD_LABELS: Record<string, string> = {
@@ -29,6 +31,8 @@ const ORDER = [
 function fieldText(key: string, value: unknown, categories: Category[]): string {
   if (value === null || value === undefined) return '—';
   if (key === 'sell_price') return formatPeso(Number(value));
+  if (key === 'reorder_level') return formatQty(Number(value));
+  if (key === 'unit') return UNIT_LABELS[value as Unit] ?? String(value);
   if (key === 'active') return value === true ? 'Active' : 'Inactive';
   if (key === 'category_id') {
     const category = categories.find((row) => row.id === value);

@@ -158,6 +158,31 @@ describe('Adjust stock (INV-04)', () => {
     expect(adjustStock).not.toHaveBeenCalled();
   });
 
+  test('a product sold by weight takes up to 3 decimals (PROD-01)', async () => {
+    const rice = { ...CHIPS, id: 'p9', name: 'Rice', unit: 'kg' as const, stockQty: 5 };
+    render(
+      <MemoryRouter>
+        <AdjustStockPanel product={rice} isOwner />
+      </MemoryRouter>,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Adjust stock' }));
+    expect(screen.getByText('Now 5 kg in stock.')).toBeInTheDocument();
+    const qty = screen.getByLabelText('Quantity (kg)');
+    expect(qty).toHaveAttribute('inputmode', 'decimal');
+    await user.type(qty, '0.0005');
+    await user.type(screen.getByLabelText('Reason'), 'Spilled');
+    await user.click(screen.getByRole('button', { name: 'Save adjustment' }));
+    expect(
+      screen.getByText('Enter a quantity in kg, up to 3 decimals, for example 1.25.'),
+    ).toBeInTheDocument();
+    await user.clear(qty);
+    await user.type(qty, '0.25');
+    await user.click(screen.getByRole('button', { name: 'Save adjustment' }));
+    expect(adjustStock).toHaveBeenCalledWith('p9', 'damage', -0.25, 'Spilled');
+    expect(await screen.findByText('Stock adjusted: −0.25 kg.')).toBeInTheDocument();
+  });
+
   test('below zero is explained', async () => {
     vi.mocked(adjustStock).mockRejectedValue({
       message: 'stock_negative',
@@ -466,8 +491,8 @@ describe('the new request types on the Approvals page', () => {
       />,
     );
     expect(screen.getByText('XYZ Foods')).toBeInTheDocument();
-    expect(screen.getByText('10 @ ₱30.00')).toBeInTheDocument();
-    expect(screen.getByText('10 @ ₱20.00')).toBeInTheDocument();
+    expect(screen.getByText('10 pack @ ₱30.00')).toBeInTheDocument();
+    expect(screen.getByText('10 pack @ ₱20.00')).toBeInTheDocument();
   });
 
   test('a deletion request says so', () => {
@@ -582,5 +607,110 @@ describe('audit log', () => {
       change:
         'Chips Classic: ₱34.00 → ₱32.00 · Soda 1 L: 12 → 10 · Water 500 ml: 5 @ ₱8.00 → 6 @ ₱9.00 · Price was wrong',
     });
+  });
+
+  test('quantities in kg and L keep their decimals (PROD-01)', () => {
+    expect(
+      describeAudit(
+        entry({
+          action: 'stock.adjust',
+          after: { label: 'Rice', type: 'damage', qty: -0.25, unit: 'kg', stock_after: '4.75' },
+        }),
+        'x',
+      ).change,
+    ).toBe('Damage −0.25 kg · now 4.75');
+    expect(
+      describeAudit(
+        entry({ action: 'stock.in', after: { lines: 2, units: 26.5, value: 1200 } }),
+        'x',
+      ).change,
+    ).toBe('2 lines · 26.5 units · ₱1,200.00');
+    expect(
+      describeAudit(
+        entry({
+          action: 'stock.correct',
+          before: {
+            reference: 'DR 31',
+            lines: [{ product_id: 'p9', name: 'Rice', qty: 25, unit_cost: 48 }],
+          },
+          after: {
+            reference: 'DR 31',
+            deleted: false,
+            lines: { p9: { qty: 24.5, unit_cost: 48 } },
+          },
+        }),
+        'x',
+      ).change,
+    ).toBe('Rice: 25 → 24.5');
+  });
+});
+
+describe('Correct a stock-in in kg (PROD-01)', () => {
+  test('the correction takes decimals for kg and whole numbers for packs', async () => {
+    const rice: Product = { ...CHIPS, id: 'p9', name: 'Rice', unit: 'kg', stockQty: 25 };
+    state.products = [CHIPS, rice];
+    state.receipts = [
+      {
+        ...RECEIPT,
+        lines: [
+          { lineNo: 1, productId: 'p1', qty: 10, unitCost: 30 },
+          { lineNo: 2, productId: 'p9', qty: 25, unitCost: 48 },
+        ],
+      },
+    ];
+    const { user } = renderReceipt();
+    expect(screen.getByText('25 kg')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Correct this stock-in' }));
+    const chips = screen.getByLabelText('Quantity of Chips Classic');
+    await user.clear(chips);
+    await user.type(chips, '9.5');
+    await user.click(screen.getByRole('button', { name: 'Save correction' }));
+    expect(
+      screen.getByText('Chips Classic: enter a whole quantity (0 takes it off).'),
+    ).toBeInTheDocument();
+    await user.clear(chips);
+    await user.type(chips, '9');
+    const riceQty = screen.getByLabelText('Quantity of Rice');
+    expect(riceQty).toHaveAttribute('inputmode', 'decimal');
+    await user.clear(riceQty);
+    await user.type(riceQty, '24.75');
+    await user.click(screen.getByRole('button', { name: 'Save correction' }));
+    expect(correctStockIn).toHaveBeenCalledWith(
+      'r1',
+      expect.objectContaining({
+        lines: [
+          { product_id: 'p1', qty: 9, unit_cost: 30 },
+          { product_id: 'p9', qty: 24.75, unit_cost: 48 },
+        ],
+      }),
+    );
+  });
+
+  test('an adjustment request in kg shows its decimals on the Approvals page', () => {
+    const rice: Product = { ...CHIPS, id: 'p9', name: 'Rice', unit: 'kg', stockQty: 4.75 };
+    const context = {
+      productById: new Map([['p9', rice]]),
+      categories: [],
+      suppliers: [],
+    } as unknown as RequestContext;
+    render(
+      <RequestDetails
+        request={
+          {
+            id: 'q9',
+            type: 'stock_adjustment',
+            productId: 'p9',
+            targetId: 'p9',
+            status: 'pending',
+            before: {},
+            after: { type: 'damage', qty: -0.25 },
+          } as unknown as ApprovalRequest
+        }
+        context={context}
+        outdated={false}
+      />,
+    );
+    expect(screen.getByText('−0.25 kg')).toBeInTheDocument();
+    expect(screen.getByText(/now 4\.75 in stock/)).toBeInTheDocument();
   });
 });

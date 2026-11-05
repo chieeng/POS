@@ -13,6 +13,15 @@ import {
 import type { Product } from '@/features/catalog/data';
 import { selectClass } from '@/features/catalog/helpers';
 import {
+  MAX_QTY,
+  minQty,
+  parseQty,
+  qtyInputMode,
+  qtyRule,
+  qtyWithUnit,
+  signedQty,
+} from '@/lib/quantity';
+import {
   ADJUSTMENT_LABELS,
   ADJUSTMENT_TYPES,
   adjustStock,
@@ -26,7 +35,8 @@ type Direction = 'out' | 'in';
 /**
  * INV-04 on a product's page: the Owner adjusts stock directly; Special Sales asks the Owner.
  * Damage, loss, expiry, found, store use (items taken for the store's or owner's own use) or
- * other, with a whole quantity and a reason. Stock never goes below zero.
+ * other, with a quantity (whole, or up to 3 decimals in kg or L) and a reason. Stock never
+ * goes below zero.
  */
 export function AdjustStockPanel({ product, isOwner }: { product: Product; isOwner: boolean }) {
   const requests = useApprovalRequests(20);
@@ -59,20 +69,22 @@ export function AdjustStockPanel({ product, isOwner }: { product: Product; isOwn
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
-    if (!/^\d{1,6}$/.test(qty.trim()) || Number(qty) < 1) {
-      setError('Enter a whole quantity of at least 1.');
+    const amount = parseQty(qty, product.unit);
+    if (amount === null || amount < minQty(product.unit) || amount > MAX_QTY) {
+      const rule = qtyRule(product.unit);
+      setError(rule.charAt(0).toUpperCase() + rule.slice(1));
       return;
     }
     if (!reason.trim()) {
       setError('Give a reason.');
       return;
     }
-    const signed = direction === 'out' ? -Number(qty) : Number(qty);
+    const signed = direction === 'out' ? -amount : amount;
     setBusy(true);
     try {
       if (isOwner) {
         await adjustStock(product.id, type, signed, reason.trim());
-        setNotice(`Stock adjusted: ${signed > 0 ? '+' : '−'}${Math.abs(signed)} ${product.unit}.`);
+        setNotice(`Stock adjusted: ${signedQty(signed)} ${product.unit}.`);
       } else {
         await requestStockAdjustment(product.id, type, signed, reason.trim());
         setNotice('Request sent. The Owner will decide; you can follow it in My requests.');
@@ -101,8 +113,7 @@ export function AdjustStockPanel({ product, isOwner }: { product: Product; isOwn
         <p className="text-[15px]">
           <b>Your adjustment request is waiting for the Owner:</b>{' '}
           {ADJUSTMENT_LABELS[pending.after.type as AdjustmentType] ?? String(pending.after.type)}{' '}
-          {signed > 0 ? '+' : '−'}
-          {Math.abs(signed)} {product.unit}.
+          {signedQty(signed)} {product.unit}.
         </p>
         {error && <Alert variant="danger">{error}</Alert>}
         <div className="flex flex-wrap items-center gap-[12px]">
@@ -165,7 +176,7 @@ export function AdjustStockPanel({ product, isOwner }: { product: Product; isOwn
     >
       <h2 className="text-[18px]">{isOwner ? 'Adjust stock' : 'Request an adjustment'}</h2>
       <p className="text-[13.5px] text-neutral-700">
-        Now {product.stockQty} {product.unit} in stock.
+        Now {qtyWithUnit(product.stockQty, product.unit)} in stock.
         {!isOwner && ' Nothing changes until the Owner approves.'}
       </p>
       <div className="grid gap-[12px] sm:grid-cols-2">
@@ -196,7 +207,7 @@ export function AdjustStockPanel({ product, isOwner }: { product: Product; isOwn
           </Label>
           <Input
             id="adjust-qty"
-            inputMode="numeric"
+            inputMode={qtyInputMode(product.unit)}
             autoComplete="off"
             value={qty}
             onChange={(event) => setQty(event.target.value)}
