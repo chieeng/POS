@@ -11,6 +11,7 @@ import {
   Package,
   PackagePlus,
   ShieldPlus,
+  Smartphone,
   Tags,
   Truck,
   Store,
@@ -68,7 +69,13 @@ export const ACTION_LABELS: Record<string, string> = {
   'drawer.reopen': 'Drawer reopened',
   'drawer.cashIn': 'Cash put in the drawer',
   'drawer.cashOut': 'Cash taken out of the drawer',
+  'payment.accountCreate': 'GCash/Maya accounts added',
+  'payment.accountUpdate': 'GCash/Maya account changes',
 };
+
+/** "GCash", "Maya". */
+const providerText = (value: unknown) =>
+  value === 'gcash' ? 'GCash' : value === 'maya' ? 'Maya' : 'payment';
 
 const FIELD_LABELS: Record<string, string> = {
   displayName: 'Name',
@@ -78,7 +85,11 @@ const FIELD_LABELS: Record<string, string> = {
   contact: 'Contact',
   tin: 'TIN',
   receipt_footer: 'Receipt footer',
+  // Removed in step 9 (POS-03); kept so older entries still read.
   sales_discount_limit: 'Discount limit',
+  vat_registered: 'VAT registered',
+  vat_rate: 'VAT rate',
+  round_cash: 'Round cash to the peso',
   idle_lock_minutes: 'Lock after (min)',
   store_lat: 'Latitude',
   store_lng: 'Longitude',
@@ -147,6 +158,7 @@ function settingText(key: string, value: unknown): string {
   if (key === 'late_deduction' && typeof value === 'string')
     return LATE_DEDUCTION_LABELS[value] ?? value;
   if (key === 'afternoon_day_credit') return Number(value) === 1 ? 'Full day' : 'Half day';
+  if (key === 'vat_rate' && Number.isFinite(Number(value))) return `${Number(value)}%`;
   if (MONEY_KEYS.has(key) && Number.isFinite(Number(value))) return formatPeso(Number(value));
   return text(value);
 }
@@ -491,6 +503,34 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
       return { icon: Tags, what: `added category “${text(after.name)}”`, change: '' };
     case 'supplier.create':
       return { icon: Truck, what: `added supplier “${text(after.name)}”`, change: '' };
+    case 'payment.accountCreate':
+      return {
+        icon: Smartphone,
+        what: `added ${providerText(after.provider)} account “${text(after.label)}”`,
+        change: text(after.number),
+      };
+    case 'payment.accountUpdate': {
+      const label = text(before.label);
+      const fields = Object.keys(after).filter((key) => key !== 'active');
+      const status =
+        after.active === false ? 'deactivated' : after.active === true ? 'reactivated' : '';
+      return {
+        icon: Smartphone,
+        what:
+          status && fields.length === 0
+            ? `${status} ${providerText(before.provider)} account “${label}”`
+            : `changed ${providerText(before.provider)} account “${label}”`,
+        change: [
+          ...fields.map(
+            (key) =>
+              `${key === 'number' ? 'Number' : 'Label'}: ${text(before[key])} → ${text(after[key])}`,
+          ),
+          ...(status && fields.length > 0
+            ? [status === 'deactivated' ? 'Deactivated' : 'Reactivated']
+            : []),
+        ].join(' · '),
+      };
+    }
     case 'category.update':
     case 'supplier.update': {
       const kind = entry.action === 'category.update' ? 'category' : 'supplier';

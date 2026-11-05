@@ -17,10 +17,6 @@ export const storeDetailsSchema = z.object({
       'Use the TIN format, for example 123-456-789-000.',
     ),
   receiptFooter: optionalText(300),
-  discountLimit: z
-    .string()
-    .trim()
-    .regex(/^$|^\d{1,7}(\.\d{1,2})?$/, 'Enter an amount in pesos, for example 50 or 50.00.'),
   idleLockMinutes: z
     .string()
     .trim()
@@ -28,6 +24,35 @@ export const storeDetailsSchema = z.object({
     .refine((value) => Number(value) >= 1 && Number(value) <= 240, 'Use 1 to 240 minutes.'),
 });
 export type StoreDetailsValues = z.infer<typeof storeDetailsSchema>;
+
+// POS-04, POS-07: how checkout handles VAT and cash. The rate only matters when VAT is on, but
+// is kept either way, so turning VAT back on brings the same rate back.
+export const checkoutSchema = z.object({
+  vatRegistered: z.boolean(),
+  vatRate: z
+    .string()
+    .trim()
+    .regex(/^\d{1,2}(\.\d{1,2})?$/, 'Enter a percent, for example 12 or 12.5.')
+    .refine((value) => Number(value) >= 0.01 && Number(value) <= 50, 'Use 0.01% to 50%.'),
+  roundCash: z.boolean(),
+});
+export type CheckoutValues = z.infer<typeof checkoutSchema>;
+
+// POS-04: a GCash or Maya account staff can say was paid. The number is what the customer
+// sends to: digits, with spaces, dashes or a leading + as people write phone numbers.
+export const paymentAccountSchema = z.object({
+  provider: z.enum(['gcash', 'maya']),
+  label: z
+    .string()
+    .trim()
+    .min(1, 'Enter a label, for example “Main GCash”.')
+    .max(40, 'Use 40 characters or fewer.'),
+  number: z
+    .string()
+    .trim()
+    .regex(/^\+?\d[\d -]{3,22}\d$/, 'Enter the number, for example 0917 123 4567.'),
+});
+export type PaymentAccountValues = z.infer<typeof paymentAccountSchema>;
 
 export const storeLocationSchema = z.object({
   coordinates: z

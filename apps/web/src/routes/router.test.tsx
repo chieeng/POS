@@ -33,6 +33,7 @@ vi.mock('@/features/catalog/data', async (importOriginal) => ({
 vi.mock('@/features/store/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/store/data')>()),
   useBranchQuery: () => ({ data: [], loading: false, error: false }),
+  usePaymentAccounts: () => ({ data: [], loading: false, error: false }),
 }));
 vi.mock('@/features/backups/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/backups/data')>()),
