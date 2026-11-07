@@ -8,6 +8,7 @@ import {
   sendFailure,
   syncOutbox,
   watchOutbox,
+  watchOutboxItem,
   type OutboxCounts,
   type SendResult,
 } from './outbox';
@@ -129,6 +130,18 @@ describe('the device outbox (NFR-02)', () => {
     stop = registerSender('sale', send);
     await syncOutbox('u1');
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it('watches one item: waiting, then gone once sent (for the slip)', async () => {
+    await addToOutbox(sale('s1'));
+    const seen: unknown[] = [];
+    const unwatch = watchOutboxItem('s1', (item) => seen.push(item));
+    await vi.waitFor(() => expect(seen.at(-1)).toEqual({ status: 'waiting', error: undefined }));
+    stop = registerSender('sale', async () => ({ sent: true }));
+    goOnline();
+    await syncOutbox('u1');
+    await vi.waitFor(() => expect(seen.at(-1)).toBeNull());
+    unwatch();
   });
 
   it('survives sign-out: clearing the saved product list leaves the outbox alone', async () => {

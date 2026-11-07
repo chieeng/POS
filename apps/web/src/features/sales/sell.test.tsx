@@ -6,7 +6,7 @@ import type { Category, Product } from '@/features/catalog/data';
 import type { DrawerToday } from '@/features/drawer/data';
 import { useSession } from '@/stores/session';
 import { cartLinesFor, useCart } from './cart';
-import { lineWarning, sellResults, stockState } from './sell';
+import { itemCount, lineWarning, sellResults, stockState } from './sell';
 import { SellPage } from './SellPage';
 
 const state = vi.hoisted(() => ({
@@ -237,6 +237,31 @@ describe('the cart (POS-02)', () => {
     await user.click(screen.getByRole('button', { name: /Chips Classic/ }));
     expect(screen.getByRole('button', { name: /1 item · ₱45.00/ })).toBeInTheDocument();
     expect(within(cartPanel()).getByRole('button', { name: 'Pay ₱45.00' })).toBeEnabled();
+  });
+
+  test('the count is items, not lines: 2 packs are 2 items (reviewer, Nov 8)', async () => {
+    const user = renderSell();
+    await user.click(screen.getByRole('button', { name: /Chips Classic/ }));
+    await user.click(screen.getAllByRole('button', { name: /Chips Classic/ })[0]!);
+    expect(screen.getByRole('button', { name: /2 items · ₱90.00/ })).toBeInTheDocument();
+  });
+
+  test('itemCount: whole units by quantity, a weighed line as one item', () => {
+    const units: Record<string, string> = { chips: 'pack', rice: 'kg', oil: 'L' };
+    const unitOf = (id: string) => units[id];
+    expect(itemCount([], unitOf)).toBe(0);
+    expect(
+      itemCount(
+        [
+          { productId: 'chips', qty: 3 },
+          { productId: 'rice', qty: 1.25 },
+          { productId: 'oil', qty: 0.5 },
+        ],
+        unitOf,
+      ),
+    ).toBe(5);
+    // A product no longer in the list still counts as one.
+    expect(itemCount([{ productId: 'gone', qty: 4 }], unitOf)).toBe(1);
   });
 
   test('the cart belongs to the user who filled it', () => {

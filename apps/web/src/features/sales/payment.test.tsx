@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Product } from '@/features/catalog/data';
 import type { BranchSettings, PaymentAccount } from '@/features/store/data';
 import { BranchContext } from '@/features/store/data';
-import { addToOutbox } from '@/lib/outbox';
+import { addToOutbox, watchOutboxItem } from '@/lib/outbox';
 import { useSession } from '@/stores/session';
 import { useCart } from './cart';
 import {
@@ -32,6 +32,7 @@ vi.mock('@/lib/device', () => ({ getDeviceTag: () => 'A1B2' }));
 vi.mock('@/lib/outbox', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/outbox')>()),
   addToOutbox: vi.fn(),
+  watchOutboxItem: vi.fn(() => () => undefined),
 }));
 vi.mock('./data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./data')>()),
@@ -179,6 +180,8 @@ describe('cash (POS-04)', () => {
     );
     const slip = await screen.findByRole('article', { name: /^Slip TT-/ });
     expect(screen.getByText('₱376.00', { selector: 'b' })).toBeInTheDocument();
+    // The receipt number has a line of its own and never wraps (reviewer, Nov 8).
+    expect(within(slip).getByText(/^Receipt TT-\d{8}-A1B2-1$/)).toHaveClass('whitespace-nowrap');
     for (const text of [
       'Eragon Store',
       '12 Rizal St.',
@@ -354,6 +357,38 @@ describe('offline and lost connections (NFR-02, POS-06)', () => {
       }),
     );
     expect(await screen.findByText(/Saved on this phone/)).toBeInTheDocument();
+  });
+
+  test('once the outbox sends it, the slip says it was sent; a refusal says so too', async () => {
+    setOnline(false);
+    const user = renderSell();
+    const sheet = await cartWithRice(user);
+    await user.click(within(sheet).getByRole('button', { name: 'Exact' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Complete sale' }));
+    expect(await screen.findByText(/Saved on this phone/)).toBeInTheDocument();
+
+    const saleId = vi.mocked(addToOutbox).mock.calls[0]![0].id;
+    const [watchedId, report] = vi.mocked(watchOutboxItem).mock.calls.at(-1)!;
+    expect(watchedId).toBe(saleId);
+
+    act(() => report({ status: 'needsAttention', error: 'Reference already used.' }));
+    expect(screen.getByText('The store refused this sale.')).toBeInTheDocument();
+    expect(screen.getByText(/Reference already used\./)).toBeInTheDocument();
+
+    act(() => report(null));
+    expect(screen.getByText('Sent to the store.')).toBeInTheDocument();
+    expect(screen.queryByText(/Saved on this phone/)).toBeNull();
+    expect(screen.queryByText(/don.t sign out/)).toBeNull();
+  });
+
+  test('a sale sent at once has no note and does not watch the outbox', async () => {
+    const user = renderSell();
+    const sheet = await cartWithRice(user);
+    await user.click(within(sheet).getByRole('button', { name: 'Exact' }));
+    await user.click(within(sheet).getByRole('button', { name: 'Complete sale' }));
+    await screen.findByRole('article', { name: /^Slip TT-/ });
+    expect(screen.queryByText(/Saved on this phone|Sent to the store/)).toBeNull();
+    expect(watchOutboxItem).not.toHaveBeenCalled();
   });
 
   test('the connection drops while sending: kept in the outbox with the same id', async () => {

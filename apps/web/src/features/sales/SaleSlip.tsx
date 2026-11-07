@@ -1,4 +1,6 @@
-import { Check, CloudOff } from 'lucide-react';
+import { Check, CloudCheck, CloudOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { watchOutboxItem } from '@/lib/outbox';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { PROVIDER_LABELS } from '@/features/store/data';
@@ -25,6 +27,7 @@ const signed = (amount: number) => `${amount < 0 ? '−' : '+'}${formatPeso(Math
  * store is VAT registered, payments, salesperson, and always "This is not an official receipt".
  */
 export function SaleSlip({ slip, onNewSale }: { slip: Slip; onNewSale: () => void }) {
+  const sending = useSending(slip);
   return (
     <section
       aria-label="Sale complete"
@@ -46,10 +49,21 @@ export function SaleSlip({ slip, onNewSale }: { slip: Slip; onNewSale: () => voi
         </div>
       </div>
 
-      {slip.status === 'waiting' && (
+      {sending === 'waiting' && (
         <Alert variant="offline" icon={CloudOff}>
           Saved on this phone. It is sent to the store as soon as there is a connection; don&apos;t
           sign out until it has.
+        </Alert>
+      )}
+      {sending === 'sent' && (
+        <Alert variant="info" icon={CloudCheck}>
+          Sent to the store.
+        </Alert>
+      )}
+      {sending !== null && typeof sending === 'object' && (
+        <Alert variant="danger">
+          <b>The store refused this sale.</b> {sending.refused} It stays on this phone and the Owner
+          has been told.
         </Alert>
       )}
 
@@ -69,8 +83,9 @@ export function SaleSlip({ slip, onNewSale }: { slip: Slip; onNewSale: () => voi
             <div className="text-[12px] text-neutral-700">TIN {slip.store.tin}</div>
           )}
         </header>
-        <div className="flex justify-between gap-[8px] text-[12.5px] text-neutral-800">
-          <span>Receipt {slip.receiptNo}</span>
+        {/* The receipt number never wraps: it has a line of its own, the date and time below. */}
+        <div className="flex flex-col gap-[1px] text-[12.5px] text-neutral-800">
+          <span className="whitespace-nowrap">Receipt {slip.receiptNo}</span>
           <span>{when(slip.madeAt)}</span>
         </div>
 
@@ -125,6 +140,25 @@ export function SaleSlip({ slip, onNewSale }: { slip: Slip; onNewSale: () => voi
       </Button>
     </section>
   );
+}
+
+type Sending = null | 'waiting' | 'sent' | { refused: string };
+
+/**
+ * A sale made offline: its note follows the outbox, so once it is sent the slip says so
+ * instead of still asking staff not to sign out. A sale sent at once needs no note.
+ */
+function useSending(slip: Slip): Sending {
+  const [state, setState] = useState<Sending>(slip.status === 'waiting' ? 'waiting' : null);
+  useEffect(() => {
+    if (slip.status !== 'waiting') return;
+    return watchOutboxItem(slip.id, (item) => {
+      if (!item) setState('sent');
+      else if (item.status === 'needsAttention') setState({ refused: item.error ?? 'Refused.' });
+      else setState('waiting');
+    });
+  }, [slip.id, slip.status]);
+  return state;
 }
 
 function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {

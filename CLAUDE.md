@@ -68,7 +68,9 @@ laptops. Roles: owner, special_sales, sales.
      Test Special 5 / Test Two on the phone).
   3. The checks in order, one per line: who, which device, what to do, and exactly what they
      should see (amounts, labels, wording).
-  4. Money and blind-count checks spelled out with the expected numbers.
+  4. Money and blind-count checks spelled out with the expected numbers. Work every expected
+     stock and cash number out again check by check before sending: anything the app refuses
+     (a reused reference, too little cash) takes no stock and adds no cash.
   5. Offline checks (Airplane mode) where the step has offline behaviour.
   6. Anything Claude is unsure about or couldn't test itself (for example Owner screens), so
      the reviewer looks there first.
