@@ -8,6 +8,11 @@ export interface SessionUser {
   role: Role;
   branchId: string;
   secondFactor: boolean;
+  /**
+   * The user's code (AUTH-02), first in every receipt number (POS-08). Optional only because a
+   * session saved on the device before build step 9 lacks it; the next online load fills it.
+   */
+  userCode?: string;
 }
 
 /** Why the last session ended, shown once on the sign-in screen. */

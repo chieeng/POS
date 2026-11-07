@@ -9,7 +9,7 @@ import {
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, AlertAction } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,17 @@ import { formatPeso } from '@/lib/money';
 import { formatQty, isSoldByMeasure, MAX_QTY, minQty, parseQty, qtyWithUnit } from '@/lib/quantity';
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
+import { useBranch, usePaymentAccounts } from '@/features/store/data';
 import { cartLinesFor, useCart, type CartLine } from './cart';
+import {
+  rememberedSettings,
+  rememberSettings,
+  settingsFrom,
+  type Slip,
+  type SoldLine,
+} from './checkout';
+import { PaymentSheet } from './PaymentSheet';
+import { SaleSlip } from './SaleSlip';
 import { lineWarning, sellResults, stockState, type StockState } from './sell';
 import { lineTotalCents } from './totals';
 
@@ -37,9 +47,9 @@ const PAGE = 60;
 
 /**
  * Sell (POS-01, POS-02): find products by name, SKU or category and build the cart. Works
- * offline from the product list saved on this device (NFR-01, NFR-02). Payment and the slip
- * follow in the next build step's PR. No Hold yet (step 15), and no typed discounts: staff
- * never type one (POS-03); preset deals arrive later in step 9.
+ * offline from the product list saved on this device (NFR-01, NFR-02); payment and the slip
+ * too (POS-04, POS-07). No Hold yet (step 15), and no typed discounts: staff never type one
+ * (POS-03); preset deals arrive later in step 9.
  */
 export function SellPage() {
   const user = useSession((s) => s.user);
@@ -54,6 +64,10 @@ export function SellPage() {
   const [shown, setShown] = useState(PAGE);
   const [weighing, setWeighing] = useState<Product | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [slip, setSlip] = useState<Slip | null>(null);
+  const { branch } = useBranch();
+  const accounts = usePaymentAccounts();
 
   // A new search or category starts again from the top.
   const changeSearch = (value: string) => {
@@ -95,6 +109,40 @@ export function SellPage() {
     const product = byId.get(line.productId);
     return product ? sum + lineTotalCents(line.qty, product.sellPrice) : sum;
   }, 0);
+
+  // POS-04, POS-07: the store's settings and accounts, live while online and remembered on the
+  // device for offline sales.
+  const settings = useMemo(
+    () =>
+      branch && !accounts.loading && !accounts.error
+        ? settingsFrom(branch, accounts.data)
+        : rememberedSettings(),
+    [branch, accounts.loading, accounts.error, accounts.data],
+  );
+  useEffect(() => {
+    if (branch && !accounts.loading && !accounts.error) rememberSettings(settings);
+  }, [branch, accounts.loading, accounts.error, settings]);
+
+  const sold: SoldLine[] = lines.flatMap((line) => {
+    const product = byId.get(line.productId);
+    return product ? [{ product, qty: line.qty }] : [];
+  });
+  const startPayment = () => {
+    setCartOpen(false);
+    setPaying(true);
+  };
+
+  if (slip) {
+    return (
+      <SaleSlip
+        slip={slip}
+        onNewSale={() => {
+          setSlip(null);
+          changeSearch('');
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -177,7 +225,7 @@ export function SellPage() {
         className="sticky top-0 hidden h-dvh w-[360px] flex-none flex-col gap-[10px] bg-neutral-100 px-[16px] pt-[16px] pb-[18px] md:flex xl:w-[400px] xl:px-[20px] xl:pt-[20px]"
       >
         <h2 className="font-heading text-[22px]">Cart{count > 0 ? ` · ${count}` : ''}</h2>
-        <CartContents lines={lines} byId={byId} totalCents={totalCents} />
+        <CartContents lines={lines} byId={byId} totalCents={totalCents} onPay={startPayment} />
       </aside>
 
       {/* Phone: a bar above the tabs that opens the cart as a sheet. */}
@@ -206,7 +254,7 @@ export function SellPage() {
             <SheetTitle>
               Cart · {count} {count === 1 ? 'item' : 'items'}
             </SheetTitle>
-            <CartContents lines={lines} byId={byId} totalCents={totalCents} />
+            <CartContents lines={lines} byId={byId} totalCents={totalCents} onPay={startPayment} />
           </SheetContent>
         </Sheet>
       )}
@@ -223,6 +271,20 @@ export function SellPage() {
               else cart.add(user.uid, weighing, qty);
             }
             setWeighing(null);
+          }}
+        />
+      )}
+
+      {paying && (
+        <PaymentSheet
+          open
+          onOpenChange={(open) => !open && setPaying(false)}
+          lines={sold}
+          settings={settings}
+          onDone={(done) => {
+            cart.clear();
+            setPaying(false);
+            setSlip(done);
           }}
         />
       )}
@@ -306,10 +368,12 @@ function CartContents({
   lines,
   byId,
   totalCents,
+  onPay,
 }: {
   lines: CartLine[];
   byId: Map<string, Product>;
   totalCents: number;
+  onPay: () => void;
 }) {
   const user = useSession((s) => s.user);
   const cart = useCart();
@@ -433,12 +497,9 @@ function CartContents({
             {formatPeso(totalCents / 100)}
           </span>
         </div>
-        <Button className="min-h-[56px] w-full text-[20px]" disabled>
+        <Button className="min-h-[56px] w-full text-[20px]" onClick={onPay}>
           Pay {formatPeso(totalCents / 100)}
         </Button>
-        <p className="text-[12.5px] text-neutral-700">
-          Payment and the slip come with the next update. Cash totals are rounded when paid.
-        </p>
       </div>
       {weighing && (
         <WeighDialog
