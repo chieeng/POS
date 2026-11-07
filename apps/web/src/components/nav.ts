@@ -85,7 +85,7 @@ const PHONE_SLOTS = 5;
 export function navItems(role: Role, pending: number): NavItem[] {
   const built: Partial<Record<NavKey, Omit<NavItem, 'key'>>> = {
     home: { to: ROLE_HOME.owner, label: 'Dashboard', short: 'Home', icon: LayoutDashboard },
-    sell: { to: ROLE_HOME[role], label: 'Sell', short: 'Sell', icon: ShoppingCart },
+    sell: { to: '/sell', label: 'Sell', short: 'Sell', icon: ShoppingCart },
     approvals: {
       to: '/approvals',
       label: 'Approvals',
@@ -106,7 +106,7 @@ export function navItems(role: Role, pending: number): NavItem[] {
     settings: { to: '/settings', label: 'Settings', short: 'Settings', icon: Settings },
   };
   const available: Record<Role, readonly NavKey[]> = {
-    owner: ['home', 'approvals', 'products', 'stockIn', 'drawer', 'settings'],
+    owner: ['home', 'sell', 'approvals', 'products', 'stockIn', 'drawer', 'settings'],
     special_sales: ['sell', 'products', 'stockIn', 'drawer', 'requests'],
     sales: ['sell', 'products', 'drawer'],
   };

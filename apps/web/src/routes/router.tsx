@@ -22,6 +22,7 @@ import { CountDrawerPage } from '@/features/drawer/CountDrawerPage';
 import { DrawerPage } from '@/features/drawer/DrawerPage';
 import { DrawerReportPage } from '@/features/drawer/DrawerReportPage';
 import { HomePage } from '@/features/home/HomePage';
+import { SellPage } from '@/features/sales/SellPage';
 import { SettingsLayout } from '@/features/settings/SettingsLayout';
 import { AddUserPage } from '@/features/users/AddUserPage';
 import { UserDetailPage } from '@/features/users/UserDetailPage';
@@ -45,7 +46,7 @@ export const routes: RouteObject[] = [
           {
             element: <RequireRole role="owner" />,
             children: [
-              { path: ROLE_HOME.owner, element: <HomePage role="owner" /> },
+              { path: ROLE_HOME.owner, element: <HomePage /> },
               { path: '/approvals', element: <ApprovalsPage /> },
               // SHIFT-04: the Owner's daily drawer report.
               { path: '/drawer/report', element: <DrawerReportPage /> },
@@ -99,16 +100,14 @@ export const routes: RouteObject[] = [
             element: <RequireRole role={['owner', 'special_sales']} />,
             children: [{ path: '/drawer/count', element: <CountDrawerPage /> }],
           },
+          // POS-01, SRS 6.1: every role sells. Staff start here.
+          { path: '/sell', element: <SellPage /> },
+          // The staff homes before build step 9, kept for bookmarks and installed apps.
+          { path: '/special-sales', element: <Navigate to="/sell" replace /> },
+          { path: '/sales', element: <Navigate to="/sell" replace /> },
           {
             element: <RequireRole role="special_sales" />,
-            children: [
-              { path: ROLE_HOME.special_sales, element: <HomePage role="special_sales" /> },
-              { path: '/requests', element: <MyRequestsPage /> },
-            ],
-          },
-          {
-            element: <RequireRole role="sales" />,
-            children: [{ path: ROLE_HOME.sales, element: <HomePage role="sales" /> }],
+            children: [{ path: '/requests', element: <MyRequestsPage /> }],
           },
         ],
       },

@@ -15,10 +15,10 @@ function connectionLabels(state: State, pending: number) {
     const changes = pending === 1 ? 'change' : 'changes';
     return { short: `${pending} to sync`, long: `${pending} ${changes} waiting to sync` };
   }
-  // "Offline · working locally" becomes true once checkout queues sales offline (build step 9).
+  // Offline, sales wait in the device outbox (build step 9), so the app keeps working locally.
   return state === 'online'
     ? { short: 'Online', long: 'Online' }
-    : { short: 'Offline', long: 'Offline' };
+    : { short: 'Offline', long: 'Offline · working locally' };
 }
 
 interface ConnectionPillProps {
