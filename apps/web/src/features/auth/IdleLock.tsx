@@ -8,11 +8,19 @@ import { Label } from '@/components/ui/label';
 import type { SessionUser } from '@/stores/session';
 import { describeAuthError, type AuthErrorMessage } from './authErrors';
 import { requestSignOut } from '@/features/outbox/signOut';
+import { useOnline } from '@/hooks/useOnline';
 import { confirmPassword, signOutUser } from './authService';
+import { checkOfflinePassword, hasOfflineUnlock } from './offlineUnlock';
 import { initialsOf, ROLE_LABELS } from './roles';
 import { unlockSchema, type UnlockValues } from './schemas';
 import { unlockIdle } from './useIdleLock';
 import { useTurnstile } from './useTurnstile';
+
+const NEEDS_INTERNET: AuthErrorMessage = {
+  kind: 'offline',
+  title: 'Connect to the internet to unlock.',
+  detail: 'This device can check your password offline only after one online sign-in or unlock.',
+};
 
 interface IdleLockProps {
   user: SessionUser;
@@ -35,14 +43,43 @@ export function IdleLock({ user, minutes }: IdleLockProps) {
     defaultValues: { password: '' },
   });
 
+  const online = useOnline();
+  const offlineReady = hasOfflineUnlock(user.uid);
+
+  // AUTH-05: without internet, the password is checked against the hash kept on this device.
+  const unlockOffline = async (password: string) => {
+    const checked = await checkOfflinePassword(user.uid, password);
+    if (checked.result === 'ok') {
+      unlockIdle();
+    } else if (checked.result === 'none') {
+      setError(NEEDS_INTERNET);
+    } else {
+      setError({
+        kind: 'wrong-credentials',
+        title: 'That password is wrong.',
+        detail:
+          checked.triesLeft > 0
+            ? `${checked.triesLeft} ${checked.triesLeft === 1 ? 'try' : 'tries'} left before this device needs the internet to unlock.`
+            : 'Too many tries. Connect to the internet to unlock.',
+      });
+    }
+  };
+
   const onSubmit = handleSubmit(async ({ password }) => {
     setError(null);
+    if (!navigator.onLine) {
+      await unlockOffline(password);
+      return;
+    }
     try {
       await confirmPassword(password, await getToken());
       unlockIdle();
     } catch (caught) {
       const described = describeAuthError(caught);
-      if (described.kind === 'wrong-credentials') {
+      if (described.kind === 'offline') {
+        // The device says online, but the server or the CAPTCHA could not be reached.
+        await unlockOffline(password);
+      } else if (described.kind === 'wrong-credentials') {
         setError({ ...described, title: 'That password is wrong.', detail: 'Try again.' });
       } else if (described.kind === 'disabled' || described.kind === 'recent-sign-in-needed') {
         await signOutUser();
@@ -77,10 +114,17 @@ export function IdleLock({ user, minutes }: IdleLockProps) {
           {user.displayName} · {ROLE_LABELS[user.role]}
         </div>
 
-        {error && (
-          <Alert variant="danger" className="w-full">
+        {error ? (
+          <Alert variant={error === NEEDS_INTERNET ? 'offline' : 'danger'} className="w-full">
             <b>{error.title}</b> {error.detail}
           </Alert>
+        ) : (
+          !online &&
+          !offlineReady && (
+            <Alert variant="offline" className="w-full">
+              <b>{NEEDS_INTERNET.title}</b> {NEEDS_INTERNET.detail}
+            </Alert>
+          )
         )}
 
         <div className="w-full">
@@ -108,11 +152,10 @@ export function IdleLock({ user, minutes }: IdleLockProps) {
         <div ref={containerRef} className="empty:hidden" />
 
         <Button
-          needsInternet
           type="submit"
           size="lg"
           className="min-h-[54px] justify-between px-[22px] text-[18px]"
-          disabled={isSubmitting}
+          disabled={isSubmitting || (!online && !offlineReady)}
         >
           <span>{isSubmitting ? 'Unlocking…' : 'Unlock'}</span>
           <kbd className="hidden rounded-[8px] bg-bg/22 px-[8px] py-[3px] font-body text-[12px] font-semibold md:inline">

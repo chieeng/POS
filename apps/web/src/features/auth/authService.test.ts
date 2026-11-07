@@ -16,6 +16,10 @@ const mock = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/offlineCache', () => ({ clearOfflineCache: vi.fn(() => Promise.resolve()) }));
+vi.mock('./offlineUnlock', () => ({
+  rememberPassword: vi.fn(() => Promise.resolve()),
+  forgetOfflineUnlock: vi.fn(),
+}));
 
 vi.mock('@/lib/supabase', () => {
   const channel = {
@@ -57,6 +61,9 @@ vi.mock('@/lib/supabase', () => {
         },
         getSession: () => Promise.resolve({ data: { session: null } }),
         signOut: vi.fn(() => Promise.resolve({ error: null })),
+        signInWithPassword: vi.fn(() =>
+          Promise.resolve({ data: { user: { id: 'u2' } }, error: null }),
+        ),
         mfa: {
           getAuthenticatorAssuranceLevel: () =>
             Promise.resolve({ data: { currentLevel: 'aal1', nextLevel: 'aal1' }, error: null }),
@@ -66,7 +73,8 @@ vi.mock('@/lib/supabase', () => {
   };
 });
 
-const { ACCESS_CHECK_MS, startAuthListener } = await import('./authService');
+const { ACCESS_CHECK_MS, signIn, signOutUser, startAuthListener } = await import('./authService');
+const { forgetOfflineUnlock, rememberPassword } = await import('./offlineUnlock');
 
 const ACTIVE = {
   display_name: 'Test Two',
@@ -81,6 +89,20 @@ async function settle() {
     await vi.advanceTimersByTimeAsync(10);
   });
 }
+
+describe('offline unlock check (AUTH-05)', () => {
+  test('an online sign-in keeps the check for this user', async () => {
+    vi.mocked(rememberPassword).mockClear();
+    await signIn('two@tests.pos', 'password12', 'token');
+    expect(rememberPassword).toHaveBeenCalledWith('u2', 'password12');
+  });
+
+  test('signing out forgets it', async () => {
+    vi.mocked(forgetOfflineUnlock).mockClear();
+    await signOutUser();
+    expect(forgetOfflineUnlock).toHaveBeenCalled();
+  });
+});
 
 describe('live sign-out (SEC-04, SEC-13)', () => {
   let stop: () => void;

@@ -10,6 +10,7 @@ import {
 import { useSession, type SessionUser, type SignInNotice } from '@/stores/session';
 import { APP_ERROR, isNetworkError } from './authErrors';
 import { clearIdleState } from './idleStorage';
+import { forgetOfflineUnlock, rememberPassword } from './offlineUnlock';
 import { parseProfileAccess } from './roles';
 
 /** The Owner's pending second step: the enrolled authenticator-app factor to challenge. */
@@ -74,17 +75,22 @@ export async function signIn(
 ): Promise<SignInResult> {
   signingIn = true;
   try {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
       options: { captchaToken },
     });
     if (error) throw error;
+    // AUTH-05: the check for offline unlock, worked out in the background. A second step
+    // that is given up, or any failure below, forgets it again.
+    forgetOfflineUnlock();
+    void rememberPassword(data.user.id, password);
 
     const challenge = await pendingSecondStep();
     if (challenge) return { kind: 'totpRequired', challenge };
   } catch (error) {
     signingIn = false;
+    forgetOfflineUnlock();
     // Never leave a half-made session behind.
     await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
     throw error;
@@ -109,6 +115,7 @@ export async function verifyTotp(challenge: TotpChallenge, code: string): Promis
 /** "Back" on the code screen: the password-only session is dropped. */
 export async function cancelSecondStep(): Promise<void> {
   signingIn = false;
+  forgetOfflineUnlock();
   await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
 }
 
@@ -117,6 +124,7 @@ export async function signOutUser(notice: SignInNotice = null): Promise<void> {
   signingIn = false;
   useSession.getState().setNotice(notice);
   clearIdleState();
+  forgetOfflineUnlock();
   clearCachedSession();
   void clearOfflineCache();
   stopWatchingProfile();
@@ -140,17 +148,19 @@ export async function signOutUser(notice: SignInNotice = null): Promise<void> {
  * ended at once. The signed-in session, and the Owner's second step on it, are untouched.
  */
 export async function confirmPassword(password: string, captchaToken: string): Promise<void> {
-  const email = useSession.getState().user?.email;
-  if (!email) throw noSession();
+  const user = useSession.getState().user;
+  if (!user?.email) throw noSession();
 
   const checker = createThrowawayClient();
   const { error } = await checker.auth.signInWithPassword({
-    email,
+    email: user.email,
     password,
     options: { captchaToken },
   });
   if (error) throw error;
   await checker.auth.signOut({ scope: 'local' }).catch(() => undefined);
+  // AUTH-05: refresh the offline check (and its count of wrong tries).
+  void rememberPassword(user.uid, password);
 }
 
 export interface TotpEnrollment {
@@ -222,8 +232,10 @@ export async function redeemPasswordLink(tokenHash: string): Promise<void> {
 
 /** AUTH-02: the user chooses their own password after opening a one-time link. */
 export async function setNewPassword(password: string): Promise<void> {
-  const { error } = await supabase.auth.updateUser({ password });
+  const { data, error } = await supabase.auth.updateUser({ password });
   if (error) throw error;
+  forgetOfflineUnlock();
+  void rememberPassword(data.user.id, password);
   useSession.getState().setPasswordSetup(false);
   clearIdleState();
   record('auth.passwordSet');
@@ -430,6 +442,7 @@ async function handleAuthChange(event: AuthChangeEvent, session: Session | null)
     }
     stopWatchingProfile();
     clearIdleState();
+    forgetOfflineUnlock();
     // Signed out here, or the session was ended on the server ("sign out everywhere").
     void clearOfflineCache();
     store.setSignedOut();
