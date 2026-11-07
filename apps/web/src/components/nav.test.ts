@@ -13,6 +13,7 @@ describe('navItems', () => {
   it('lists only built screens, in the design order', () => {
     expect(keys(navItems('owner', 0))).toEqual([
       'home',
+      'sell',
       'approvals',
       'products',
       'stockIn',
@@ -28,6 +29,12 @@ describe('navItems', () => {
     ]);
     // SRS 6.1: Sales can view products and stock levels.
     expect(keys(navItems('sales', 0))).toEqual(['sell', 'products', 'drawer']);
+  });
+
+  it('Sell is the same page for every role', () => {
+    for (const role of ['owner', 'special_sales', 'sales'] as const) {
+      expect(navItems(role, 0).find((i) => i.key === 'sell')?.to).toBe('/sell');
+    }
   });
 
   it('puts the pending count on Approvals and My requests', () => {
@@ -69,7 +76,7 @@ describe('phoneNav', () => {
   });
 
   it('fills a priority slot that is not built with the next item in order', () => {
-    // Owner with six screens and no Sell yet.
+    // An Owner with six screens and no Sell.
     const items = allBuilt(['home', 'approvals', 'products', 'stockIn', 'drawer', 'settings']);
     const { bar, more } = phoneNav('owner', items);
     expect(keys(bar)).toEqual(['home', 'approvals', 'products', 'stockIn']);

@@ -9,8 +9,9 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const ROLE_HOME: Record<Role, string> = {
   owner: '/owner',
-  special_sales: '/special-sales',
-  sales: '/sales',
+  // Staff start on Sell (build step 9); the Owner on the dashboard.
+  special_sales: '/sell',
+  sales: '/sell',
 };
 
 export interface Access {

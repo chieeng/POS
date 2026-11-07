@@ -35,6 +35,10 @@ vi.mock('@/features/store/data', async (importOriginal) => ({
   useBranchQuery: () => ({ data: [], loading: false, error: false }),
   usePaymentAccounts: () => ({ data: [], loading: false, error: false }),
 }));
+vi.mock('@/features/drawer/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/drawer/data')>()),
+  useDrawerToday: () => ({ data: null, loading: false, error: false, reload: () => undefined }),
+}));
 vi.mock('@/features/backups/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/backups/data')>()),
   useBackups: () => ({ data: [], loading: false, error: false }),
@@ -86,8 +90,8 @@ test('a signed-out visitor is sent to sign-in', async () => {
 
 test.each([
   ['owner', '/owner', 'Owner home'],
-  ['special_sales', '/special-sales', 'Special Sales home'],
-  ['sales', '/sales', 'Sales home'],
+  ['special_sales', '/sell', 'Cart'],
+  ['sales', '/sell', 'Cart'],
 ] as const)('%s lands on their own home', async (role, path, heading) => {
   useSession.setState({ status: 'signedIn', user: userWith(role) });
   const router = renderAt('/');
@@ -95,10 +99,22 @@ test.each([
   expect(router.state.location.pathname).toBe(path);
 });
 
+test.each(['/sales', '/special-sales'])('the old staff home %s now opens Sell', async (path) => {
+  useSession.setState({ status: 'signedIn', user: userWith('sales') });
+  const router = renderAt(path);
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sell'));
+});
+
+test('the Owner can sell too', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('owner') });
+  renderAt('/sell');
+  expect(await screen.findByRole('heading', { name: 'Cart' })).toBeInTheDocument();
+});
+
 test('a Sales user cannot open the Owner home', async () => {
   useSession.setState({ status: 'signedIn', user: userWith('sales') });
   const router = renderAt('/owner');
-  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sales'));
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sell'));
 });
 
 test('an Owner without the authenticator step can only set it up (SEC-05)', async () => {
@@ -186,7 +202,7 @@ test.each(['/products/new', '/products/categories', '/products/suppliers'])(
   async (path) => {
     useSession.setState({ status: 'signedIn', user: userWith('sales') });
     const router = renderAt(path);
-    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sales'));
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sell'));
   },
 );
 
@@ -211,7 +227,7 @@ test('Special Sales opens My requests; Sales cannot', async () => {
 test('Sales cannot open My requests', async () => {
   useSession.setState({ status: 'signedIn', user: userWith('sales') });
   const router = renderAt('/requests');
-  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sales'));
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sell'));
 });
 
 test.each(['owner', 'special_sales'] as const)('%s opens Stock-in', async (role) => {
@@ -223,5 +239,5 @@ test.each(['owner', 'special_sales'] as const)('%s opens Stock-in', async (role)
 test('Sales cannot open Stock-in', async () => {
   useSession.setState({ status: 'signedIn', user: userWith('sales') });
   const router = renderAt('/stock-in/new');
-  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sales'));
+  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sell'));
 });

@@ -38,11 +38,13 @@ function setWide(wide: boolean) {
 describe('ConnectionPill', () => {
   afterEach(() => setOnline(true));
 
-  it('shows Online, then plain Offline (no "working locally" before the outbox)', () => {
+  it('shows Online, then "Offline · working locally" (sales wait in the outbox)', () => {
     setOnline(true);
-    render(<ConnectionPill variant="sidebar" />);
+    const { rerender } = render(<ConnectionPill variant="sidebar" />);
     expect(screen.getByRole('status')).toHaveTextContent('Online');
     setOnline(false);
+    expect(screen.getByRole('status')).toHaveTextContent(/^Offline · working locally$/);
+    rerender(<ConnectionPill variant="topbar" />);
     expect(screen.getByRole('status')).toHaveTextContent(/^Offline$/);
   });
 
