@@ -278,7 +278,7 @@ async function resolveSession(session: Session): Promise<Resolved | null> {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('display_name, email, role, branch_id, active')
+    .select('display_name, email, role, branch_id, active, user_code')
     .eq('id', session.user.id)
     .maybeSingle();
   if (error) throw error;
@@ -296,6 +296,7 @@ async function resolveSession(session: Session): Promise<Resolved | null> {
       displayName: String(profile.display_name || email || 'User'),
       ...access,
       secondFactor,
+      ...(typeof profile.user_code === 'string' ? { userCode: profile.user_code } : {}),
     },
     owesSecondStep: level.data.nextLevel === 'aal2' && !secondFactor,
   };
@@ -327,8 +328,15 @@ function applyProfile(uid: string, row: Record<string, unknown>) {
     void signOutUser('no-access');
   } else if (access.role !== current.role || access.branchId !== current.branchId) {
     void signOutUser();
-  } else if (typeof row.display_name === 'string' && row.display_name !== current.displayName) {
-    const renamed = { ...current, displayName: row.display_name };
+  } else if (
+    (typeof row.display_name === 'string' && row.display_name !== current.displayName) ||
+    (typeof row.user_code === 'string' && row.user_code !== current.userCode)
+  ) {
+    const renamed = {
+      ...current,
+      ...(typeof row.display_name === 'string' ? { displayName: row.display_name } : {}),
+      ...(typeof row.user_code === 'string' ? { userCode: row.user_code } : {}),
+    };
     cacheSession(renamed);
     useSession.getState().setSignedIn(renamed);
   }
@@ -345,7 +353,7 @@ export async function recheckAccess(): Promise<void> {
   if (!uid || !navigator.onLine) return;
   const { data: row, error } = await supabase
     .from('profiles')
-    .select('display_name, role, branch_id, active')
+    .select('display_name, role, branch_id, active, user_code')
     .eq('id', uid)
     .maybeSingle();
   if (watchedUid !== uid) return;

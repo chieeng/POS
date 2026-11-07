@@ -86,3 +86,10 @@ export function saleTotals(
     problem,
   };
 }
+
+/** Exact, then the next round amounts a customer might hand over: ₱320, ₱350, ₱400, ₱500, ₱1,000. */
+export function quickCash(due: number): number[] {
+  if (due <= 0) return [];
+  const steps = [20, 50, 100, 500, 1000].map((step) => Math.ceil(due / step) * step);
+  return [due, ...[...new Set(steps)].filter((amount) => amount > due)].slice(0, 6);
+}

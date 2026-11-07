@@ -21,6 +21,10 @@ vi.mock('@/features/catalog/data', async (importOriginal) => ({
   useProducts: () => ({ data: state.products, loading: false, error: false }),
   useCategories: () => ({ data: state.categories, loading: false, error: false }),
 }));
+vi.mock('@/features/store/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/store/data')>()),
+  usePaymentAccounts: () => ({ data: [], loading: false, error: false }),
+}));
 vi.mock('@/features/drawer/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/drawer/data')>()),
   useDrawerToday: () => ({ data: state.drawer, loading: false, error: false, reload: () => {} }),
@@ -228,11 +232,11 @@ describe('the cart (POS-02)', () => {
     ).toBeInTheDocument();
   });
 
-  test('the phone bar shows the count and total; Pay waits for the next update', async () => {
+  test('the phone bar shows the count and total; Pay opens the payment', async () => {
     const user = renderSell();
     await user.click(screen.getByRole('button', { name: /Chips Classic/ }));
     expect(screen.getByRole('button', { name: /1 item · ₱45.00/ })).toBeInTheDocument();
-    expect(within(cartPanel()).getByRole('button', { name: 'Pay ₱45.00' })).toBeDisabled();
+    expect(within(cartPanel()).getByRole('button', { name: 'Pay ₱45.00' })).toBeEnabled();
   });
 
   test('the cart belongs to the user who filled it', () => {
