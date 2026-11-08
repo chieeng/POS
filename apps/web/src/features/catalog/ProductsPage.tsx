@@ -28,7 +28,7 @@ export const PRODUCTS_PAGE = 100;
 export function ProductsPage() {
   const role = useSession((s) => s.user?.role);
   const canAdd = role === 'owner' || role === 'special_sales';
-  const products = useProducts();
+  const products = useProducts({ live: true });
   const categories = useCategories();
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);

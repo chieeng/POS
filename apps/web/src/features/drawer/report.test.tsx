@@ -12,6 +12,7 @@ import {
   type DrawerEntryRecord,
   type DrawerEvent,
   type DrawerRecord,
+  type DrawerSales,
 } from './report';
 
 const state = vi.hoisted(() => ({
@@ -19,6 +20,8 @@ const state = vi.hoisted(() => ({
   entries: [] as unknown[],
   events: [] as unknown[],
   latestId: 'd1',
+  sales: null as unknown,
+  salesError: false,
 }));
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
@@ -32,6 +35,11 @@ vi.mock('./report', async (importOriginal) => ({
   useDrawerEntries: () => ({ data: state.entries, loading: false, error: false }),
   useDrawerEvents: () => ({ data: state.events, loading: false, error: false }),
   useLatestDrawer: () => ({ data: [{ id: state.latestId }], loading: false, error: false }),
+  useDrawerSales: () => ({
+    data: state.sales ? [state.sales] : [],
+    loading: false,
+    error: state.salesError,
+  }),
   reopenDrawer: vi.fn(() => Promise.resolve()),
 }));
 
@@ -88,7 +96,131 @@ beforeEach(() => {
   state.entries = ENTRIES;
   state.events = [];
   state.latestId = 'd1';
+  state.sales = NO_SALES;
+  state.salesError = false;
   vi.mocked(reopenDrawer).mockClear();
+});
+
+const NO_SALES: DrawerSales = {
+  count: 0,
+  total: 0,
+  methods: [],
+  salespeople: [],
+  flaggedCount: 0,
+  flagged: [],
+};
+
+/** The step 9 selling test: ₱1,000 opening, ₱318 in cash sales, ₱90 GCash, ₱20 Maya. */
+const SALES: DrawerSales = {
+  count: 6,
+  total: 428,
+  methods: [
+    { method: 'cash', count: 5, amount: 318 },
+    { method: 'gcash', count: 1, amount: 90 },
+    { method: 'maya', count: 1, amount: 20 },
+  ],
+  salespeople: [
+    { name: 'Test Two', count: 5, total: 383 },
+    { name: 'Test Special 5', count: 1, total: 45 },
+  ],
+  flaggedCount: 1,
+  flagged: [
+    {
+      id: 's6',
+      receiptNo: 'TT-20261107-KY96-9',
+      salesperson: 'Test Two',
+      madeAt: new Date('2026-11-07T20:15:00+08:00'),
+      syncedAt: new Date('2026-11-08T08:02:00+08:00'),
+      total: 45,
+      flags: ['late'],
+      madeOffline: true,
+    },
+  ],
+};
+
+const OPEN: DrawerRecord = {
+  ...CLOSED,
+  businessDate: '2026-11-08',
+  status: 'open',
+  openingCash: 1000,
+  prefillCash: null,
+  prefillDifference: null,
+  openingReason: null,
+  closedByName: null,
+  closedAt: null,
+  countedCash: null,
+  expectedCash: null,
+  overShort: null,
+  closingNote: null,
+};
+
+describe('the drawer’s sales (SHIFT-04, POS-14)', () => {
+  it('counts cash sales in the expected cash', () => {
+    expect(expectedFrom(OPEN, [], 318)).toEqual({
+      cashIn: 0,
+      cashOut: 0,
+      cashSales: 318,
+      expected: 1318,
+    });
+  });
+
+  it('shows sales by method and salesperson, and the late sale to check', () => {
+    state.record = OPEN;
+    state.entries = [];
+    state.sales = SALES;
+    renderReport();
+    expect(screen.getAllByText('₱1,318.00').length).toBe(2);
+    expect(screen.getByText('Opening + cash sales + cash in − cash out')).toBeInTheDocument();
+    expect(screen.getByText('Not in the drawer: GCash ₱90.00 · Maya ₱20.00')).toBeInTheDocument();
+    const sales = within(screen.getByRole('region', { name: 'Sales' }));
+    for (const [label, value] of [
+      ['6 sales', '₱428.00'],
+      ['Cash · 5 sales', '₱318.00'],
+      ['GCash · 1 sale', '₱90.00'],
+      ['Maya · 1 sale', '₱20.00'],
+      ['Test Two · 5 sales', '₱383.00'],
+      ['Test Special 5 · 1 sale', '₱45.00'],
+    ]) {
+      expect(sales.getByText(label!).nextSibling).toHaveTextContent(value!);
+    }
+    expect(sales.getByRole('heading', { name: 'Sales to check · 1' })).toBeInTheDocument();
+    expect(sales.getByText('TT-20261107-KY96-9')).toBeInTheDocument();
+    expect(sales.getByText('Late: made on an earlier day')).toBeInTheDocument();
+    expect(
+      sales.getByText(/Test Two · made Nov 7, 8:15 PM offline, reached the store Nov 8, 8:02 AM/),
+    ).toBeInTheDocument();
+  });
+
+  it('shows no expected figure for an open drawer until its sales load', () => {
+    state.record = OPEN;
+    state.entries = [];
+    state.sales = null;
+    state.salesError = true;
+    renderReport();
+    expect(screen.getAllByText('Needs internet').length).toBeGreaterThan(0);
+    expect(screen.getByText('The sales could not be loaded.')).toBeInTheDocument();
+    // Not the opening cash alone, which would look like a shortage of every cash sale.
+    expect(screen.getByText('Expected so far').nextSibling).toHaveTextContent('Needs internet');
+  });
+
+  it('a closed drawer keeps the server’s expected cash', () => {
+    state.sales = null;
+    renderReport();
+    expect(screen.getAllByText('₱1,950.00').length).toBeGreaterThan(0);
+  });
+
+  it('puts the sales in the CSV', () => {
+    const csv = drawerCsv(OPEN, [], [], SALES);
+    expect(csv).toContain('2026-11-08,,Sales,6 sales,,428.00');
+    expect(csv).toContain('2026-11-08,,Cash sales,In the drawer,,318.00');
+    expect(csv).toContain('2026-11-08,,GCash,Not in the drawer,,90.00');
+    expect(csv).toContain('2026-11-08,,Maya,Not in the drawer,,20.00');
+    expect(csv).toContain('2026-11-08,,Sold by Test Two,5 sales,,383.00');
+    expect(csv).toContain(
+      '2026-11-08,,Check TT-20261107-KY96-9,Test Two · Late: made on an earlier day,,45.00',
+    );
+    expect(csv).toContain('2026-11-08,,Expected,So far,,1318.00');
+  });
 });
 
 describe('the day in order (SHIFT-04)', () => {
@@ -101,7 +233,12 @@ describe('the day in order (SHIFT-04)', () => {
       ['Cash in', 'Change fund', 'Liza', 500],
       ['Closed', 'Short ₱20.00 · One coin under the tray', 'Maricel', 1930],
     ]);
-    expect(expectedFrom(CLOSED, ENTRIES)).toEqual({ cashIn: 500, cashOut: 350, expected: 1950 });
+    expect(expectedFrom(CLOSED, ENTRIES)).toEqual({
+      cashIn: 500,
+      cashOut: 350,
+      cashSales: 0,
+      expected: 1950,
+    });
   });
 
   it('marks a drawer nobody counted', () => {

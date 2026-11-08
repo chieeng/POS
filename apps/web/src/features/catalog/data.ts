@@ -185,11 +185,16 @@ const byProductName = (a: Product, b: Product) =>
   a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }) || a.id.localeCompare(b.id);
 
 /**
- * The branch's products, live. Every active user of the branch may read them. Each change is
- * applied to the list rather than loading every product again (SRS 7.1), and the list is
- * saved on the device so it shows, and can be searched, offline (NFR-01, NFR-02).
+ * The branch's products. Every active user of the branch may read them, and the list is saved
+ * on the device so it shows, and can be searched, offline (NFR-01, NFR-02).
+ *
+ * `live: true` (Sell and the Products screens only) keeps the list current from Realtime,
+ * applying each changed row rather than loading every product again (SRS 7.1). Every sale
+ * changes the stock of each product it sells, so every other screen loads the list once when
+ * it opens: each watching screen gets its own copy of every change, and those copies count
+ * toward the Free plan's Realtime messages.
  */
-export function useProducts() {
+export function useProducts({ live = false }: { live?: boolean } = {}) {
   const saved = useSavedCopy<Product>('products');
   return useLiveRows({
     table: 'products',
@@ -198,6 +203,7 @@ export function useProducts() {
     map: toProduct,
     apply: { key: byId, itemKey: itemId, compare: byProductName },
     cache: saved.cache,
+    live,
   });
 }
 

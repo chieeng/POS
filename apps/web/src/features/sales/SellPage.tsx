@@ -53,7 +53,7 @@ const PAGE = 60;
  */
 export function SellPage() {
   const user = useSession((s) => s.user);
-  const products = useProducts();
+  const products = useProducts({ live: true });
   const categories = useCategories();
   const wide = useMediaQuery(WIDE_QUERY);
   const cart = useCart();
