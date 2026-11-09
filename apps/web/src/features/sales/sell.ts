@@ -1,6 +1,6 @@
 import type { Product } from '@/features/catalog/data';
 import { matchesSearch } from '@/features/catalog/helpers';
-import { formatQty, qtyWithUnit } from '@/lib/quantity';
+import { formatQty, isSoldByMeasure, qtyWithUnit } from '@/lib/quantity';
 
 /**
  * POS-01: the products to show for a search and a category. Active products only; a SKU typed
@@ -16,6 +16,20 @@ export function sellResults(products: Product[], search: string, categoryId: str
         matchesSearch(product, search),
     )
     .sort((a, b) => Number(b.sku === term) - Number(a.sku === term));
+}
+
+/**
+ * How many items the cart holds, as the customer counts them: 2 packs of chips are 2 items,
+ * and a line sold by weight or volume (1.25 kg of rice) is 1 item.
+ */
+export function itemCount(
+  lines: { productId: string; qty: number }[],
+  unitOf: (productId: string) => string | undefined,
+): number {
+  return lines.reduce((sum, line) => {
+    const unit = unitOf(line.productId);
+    return sum + (unit === undefined || isSoldByMeasure(unit) ? 1 : line.qty);
+  }, 0);
 }
 
 export type StockState = 'ok' | 'low' | 'out';

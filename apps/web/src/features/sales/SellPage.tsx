@@ -39,7 +39,7 @@ import {
 } from './checkout';
 import { PaymentSheet } from './PaymentSheet';
 import { SaleSlip } from './SaleSlip';
-import { lineWarning, sellResults, stockState, type StockState } from './sell';
+import { itemCount, lineWarning, sellResults, stockState, type StockState } from './sell';
 import { lineTotalCents } from './totals';
 
 // Products drawn at a time; the rest come with "Load more" (SRS 7.2).
@@ -104,7 +104,7 @@ export function SellPage() {
     else cart.add(user.uid, product);
   };
 
-  const count = lines.length;
+  const count = itemCount(lines, (id) => byId.get(id)?.unit);
   const totalCents = lines.reduce((sum, line) => {
     const product = byId.get(line.productId);
     return product ? sum + lineTotalCents(line.qty, product.sellPrice) : sum;

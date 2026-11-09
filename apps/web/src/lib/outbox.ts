@@ -190,6 +190,22 @@ export function watchOutbox(uid: string, onChange: (counts: OutboxCounts) => voi
   return () => subscription.unsubscribe();
 }
 
+/**
+ * One item, live: `null` once it is sent (sent items leave the outbox), else its status and,
+ * when refused, the server's reason. For the slip of a sale made offline.
+ */
+export function watchOutboxItem(
+  id: string,
+  onChange: (item: Pick<OutboxItem, 'status' | 'error'> | null) => void,
+): () => void {
+  if (typeof indexedDB === 'undefined') return () => undefined;
+  const subscription = liveQuery(async () => {
+    const item = await open().items.get(id);
+    return item ? { status: item.status, error: item.error } : null;
+  }).subscribe({ next: onChange, error: () => undefined });
+  return () => subscription.unsubscribe();
+}
+
 /** This user's items not on the server yet: while there are any, they may not sign out. */
 export async function countWaiting(uid: string): Promise<number> {
   if (typeof indexedDB === 'undefined') return 0;
