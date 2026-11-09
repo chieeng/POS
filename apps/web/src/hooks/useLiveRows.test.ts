@@ -60,7 +60,7 @@ function feed() {
 const toItem = (row: Row) => ({ id: String(row.id), name: String(row.name) });
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
 
-function setup(rows: Row[], options: { apply?: boolean; filter?: string } = {}) {
+function setup(rows: Row[], options: { apply?: boolean; filter?: string; live?: boolean } = {}) {
   const load = vi.fn(() => Promise.resolve({ data: [...rows], error: null }));
   const hook = renderHook(() =>
     useLiveRows({
@@ -70,6 +70,7 @@ function setup(rows: Row[], options: { apply?: boolean; filter?: string } = {}) 
       map: toItem,
       filter: options.filter,
       apply: options.apply ? { key: (row) => String(row.id), compare: byName } : undefined,
+      live: options.live,
     }),
   );
   return { load, hook };
@@ -133,6 +134,25 @@ describe('useLiveRows without apply', () => {
   it('asks Realtime only for the rows it shows', () => {
     setup([], { filter: 'product_id=eq.p1' });
     expect(feed().config).toMatchObject({ table: 'products', filter: 'product_id=eq.p1' });
+  });
+});
+
+describe('useLiveRows with live: false (SRS 7.1)', () => {
+  it('loads once when the screen opens and opens no Realtime channel', async () => {
+    const { load, hook } = setup([{ id: 'b', name: 'Bread' }], { apply: true, live: false });
+    await waitFor(() => expect(hook.result.current.loading).toBe(false));
+    expect(hook.result.current.data.map((item) => item.name)).toEqual(['Bread']);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(open()).toHaveLength(0);
+  });
+
+  it('does not add to a channel another screen opened', async () => {
+    const live = setup([{ id: 'b', name: 'Bread' }], { apply: true });
+    const quiet = setup([{ id: 'b', name: 'Bread' }], { apply: true, live: false });
+    await waitFor(() => expect(quiet.hook.result.current.loading).toBe(false));
+    act(() => feed().onChange({ eventType: 'UPDATE', new: { id: 'b', name: 'Bun' }, old: {} }));
+    expect(live.hook.result.current.data[0]?.name).toBe('Bun');
+    expect(quiet.hook.result.current.data[0]?.name).toBe('Bread');
   });
 });
 

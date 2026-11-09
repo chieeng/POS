@@ -167,11 +167,113 @@ export function useDrawerEvents(sessionId: string | undefined) {
   });
 }
 
-/** Opening + cash in − cash out: what the drawer should hold (sales come with checkout). */
-export function expectedFrom(record: DrawerRecord, entries: DrawerEntryRecord[]) {
+export type SaleFlag =
+  | 'price_changed'
+  | 'settings_changed'
+  | 'product_inactive'
+  | 'stock_negative'
+  | 'duplicate_reference'
+  | 'late'
+  | 'clock_ahead';
+
+/** What each flag tells the Owner (POS-09, POS-13, POS-14). */
+export const FLAG_LABELS: Record<SaleFlag, string> = {
+  late: 'Late: made on an earlier day',
+  price_changed: "Price differed from the store's",
+  settings_changed: 'Rounding or VAT setting differed',
+  product_inactive: 'Product was turned off',
+  stock_negative: 'Stock went below zero',
+  duplicate_reference: 'Reference used on another sale',
+  clock_ahead: "Phone's clock was ahead",
+};
+
+export interface FlaggedSale {
+  id: string;
+  receiptNo: string;
+  salesperson: string;
+  /** By the phone's clock. */
+  madeAt: Date;
+  /** When the store got it. */
+  syncedAt: Date;
+  total: number;
+  flags: SaleFlag[];
+  madeOffline: boolean;
+}
+
+/** SHIFT-04: one drawer's sales, summed on the server (the Owner only). */
+export interface DrawerSales {
+  count: number;
+  total: number;
+  /** Cash is what went into the drawer; a split sale counts under each of its methods. */
+  methods: { method: 'cash' | 'gcash' | 'maya'; count: number; amount: number }[];
+  salespeople: { name: string; count: number; total: number }[];
+  flaggedCount: number;
+  /** The first 200 flagged sales, oldest first. */
+  flagged: FlaggedSale[];
+}
+
+const toDrawerSales = (row: Row): DrawerSales => ({
+  count: Number(row.count ?? 0),
+  total: Number(row.total ?? 0),
+  methods: ((row.methods ?? []) as Row[]).map((m) => ({
+    method: m.method as DrawerSales['methods'][number]['method'],
+    count: Number(m.count ?? 0),
+    amount: Number(m.amount ?? 0),
+  })),
+  salespeople: ((row.salespeople ?? []) as Row[]).map((p) => ({
+    name: String(p.name ?? ''),
+    count: Number(p.count ?? 0),
+    total: Number(p.total ?? 0),
+  })),
+  flaggedCount: Number(row.flaggedCount ?? 0),
+  flagged: ((row.flagged ?? []) as Row[]).map((f) => ({
+    id: String(f.id),
+    receiptNo: String(f.receiptNo ?? ''),
+    salesperson: String(f.salesperson ?? ''),
+    madeAt: new Date(String(f.madeAt)),
+    syncedAt: new Date(String(f.syncedAt)),
+    total: Number(f.total ?? 0),
+    flags: (f.flags ?? []) as SaleFlag[],
+    madeOffline: f.madeOffline === true,
+  })),
+});
+
+/** The amount paid by one method, 0 when none. */
+export const paidBy = (sales: DrawerSales | null, method: 'cash' | 'gcash' | 'maya') =>
+  sales?.methods.find((m) => m.method === method)?.amount ?? 0;
+
+/**
+ * One drawer's sales summary, loaded again whenever one of its sales arrives or changes (a sale
+ * made offline joins when it syncs). One small answer from `drawer_sales`, not every sale.
+ */
+export function useDrawerSales(sessionId: string | undefined) {
+  return useLiveRows({
+    table: 'sales',
+    queryKey: sessionId ?? '',
+    load: () =>
+      sessionId
+        ? supabase
+            .rpc('drawer_sales', { p_session_id: sessionId })
+            .then(({ data, error }) => ({ data: data ? [data as Row] : null, error }))
+        : Promise.resolve({ data: [], error: null }),
+    map: toDrawerSales,
+    filter: sessionId ? `session_id=eq.${sessionId}` : undefined,
+  });
+}
+
+/**
+ * Opening + cash sales + cash in − cash out: what the drawer should hold, as the server works
+ * it out (refunds and utang payments join later).
+ */
+export function expectedFrom(record: DrawerRecord, entries: DrawerEntryRecord[], cashSales = 0) {
   const cashIn = entries.filter((e) => e.type === 'cash_in').reduce((s, e) => s + e.amount, 0);
   const cashOut = entries.filter((e) => e.type === 'cash_out').reduce((s, e) => s + e.amount, 0);
-  return { cashIn, cashOut, expected: record.openingCash + cashIn - cashOut };
+  return {
+    cashIn,
+    cashOut,
+    cashSales,
+    expected: record.openingCash + cashSales + cashIn - cashOut,
+  };
 }
 
 /** The Owner only, with a reason: the latest drawer opens again (SHIFT-01). */
@@ -290,13 +392,38 @@ export function drawerSummary(
   record: DrawerRecord,
   entries: DrawerEntryRecord[],
   events: DrawerEvent[] = [],
+  sales: DrawerSales | null = null,
 ): { type: string; note: string; amount: number | null }[] {
-  const expected = record.expectedCash ?? expectedFrom(record, entries).expected;
+  const expected =
+    record.expectedCash ?? expectedFrom(record, entries, paidBy(sales, 'cash')).expected;
   const counted = record.status === 'closed' ? record.countedCash : null;
   const overShort = record.status === 'closed' ? record.overShort : null;
   const missing =
     record.status === 'not_counted' ? 'Not counted' : record.status === 'open' ? 'Still open' : '';
+  const salesLines = sales
+    ? [
+        {
+          type: 'Sales',
+          note: `${sales.count} ${sales.count === 1 ? 'sale' : 'sales'}`,
+          amount: sales.total,
+        },
+        { type: 'Cash sales', note: 'In the drawer', amount: paidBy(sales, 'cash') },
+        { type: 'GCash', note: 'Not in the drawer', amount: paidBy(sales, 'gcash') },
+        { type: 'Maya', note: 'Not in the drawer', amount: paidBy(sales, 'maya') },
+        ...sales.salespeople.map((person) => ({
+          type: `Sold by ${person.name}`,
+          note: `${person.count} ${person.count === 1 ? 'sale' : 'sales'}`,
+          amount: person.total,
+        })),
+        ...sales.flagged.map((sale) => ({
+          type: `Check ${sale.receiptNo}`,
+          note: noteOf(sale.salesperson, sale.flags.map((flag) => FLAG_LABELS[flag]).join(', ')),
+          amount: sale.total,
+        })),
+      ]
+    : [];
   return [
+    ...salesLines,
     { type: 'Expected', note: record.status === 'open' ? 'So far' : '', amount: expected },
     { type: 'Counted', note: counted === null ? missing : '', amount: counted },
     {
@@ -319,8 +446,9 @@ export function drawerCsv(
   record: DrawerRecord,
   entries: DrawerEntryRecord[],
   events: DrawerEvent[] = [],
+  sales: DrawerSales | null = null,
 ): string {
-  const summary = drawerSummary(record, entries, events).map((line) =>
+  const summary = drawerSummary(record, entries, events, sales).map((line) =>
     [
       csvCell(record.businessDate),
       '',

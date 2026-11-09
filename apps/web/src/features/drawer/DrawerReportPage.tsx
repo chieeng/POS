@@ -45,15 +45,19 @@ import {
   drawerCsv,
   earlierCount,
   expectedFrom,
+  FLAG_LABELS,
   movements,
+  paidBy,
   reopenDrawer,
   useDrawerDay,
   useDrawerEntries,
   useDrawerEvents,
+  useDrawerSales,
   useLatestDrawer,
   type DrawerEntryRecord,
   type DrawerEvent,
   type DrawerRecord,
+  type DrawerSales,
   type Movement,
 } from './report';
 
@@ -85,6 +89,8 @@ export function DrawerReportPage() {
   const record = drawer.data[0] ?? null;
   const entries = useDrawerEntries(record?.id);
   const events = useDrawerEvents(record?.id);
+  const sales = useDrawerSales(record?.id);
+  const salesData = sales.data[0] ?? null;
   const latest = useLatestDrawer();
   const [reopening, setReopening] = useState(false);
 
@@ -112,7 +118,8 @@ export function DrawerReportPage() {
           className="min-h-[40px]"
           disabled={!record}
           onClick={() =>
-            record && download(`drawer-${day}.csv`, drawerCsv(record, entries.data, events.data))
+            record &&
+            download(`drawer-${day}.csv`, drawerCsv(record, entries.data, events.data, salesData))
           }
         >
           <Download size={15} strokeWidth={ICON_STROKE} aria-hidden />
@@ -135,6 +142,8 @@ export function DrawerReportPage() {
           record={record}
           entries={entries.data}
           events={events.data}
+          sales={salesData}
+          salesFailed={sales.error}
           canReopen={canReopen}
           onReopen={() => setReopening(true)}
         />
@@ -156,17 +165,29 @@ function Report({
   record,
   entries,
   events,
+  sales,
+  salesFailed,
   canReopen,
   onReopen,
 }: {
   record: DrawerRecord;
   entries: DrawerEntryRecord[];
   events: DrawerEvent[];
+  /** Null while it loads, or if it could not be loaded. */
+  sales: DrawerSales | null;
+  salesFailed: boolean;
   canReopen: boolean;
   onReopen: () => void;
 }) {
-  const { cashIn, cashOut, expected: expectedNow } = expectedFrom(record, entries);
-  const expected = record.expectedCash ?? expectedNow;
+  const {
+    cashIn,
+    cashOut,
+    cashSales,
+    expected: expectedNow,
+  } = expectedFrom(record, entries, paidBy(sales, 'cash'));
+  // A closed drawer keeps the server's figure; an open one waits for its sales.
+  const expected = record.expectedCash ?? (sales ? expectedNow : null);
+  const pending = salesFailed ? 'Needs internet' : '…';
   const difference = record.prefillDifference ?? 0;
   const rows = movements(record, entries, events);
   const countedBefore = events.some((event) => event.kind === 'closed');
@@ -191,8 +212,8 @@ function Report({
         <SummaryCard
           icon={Calculator}
           label={record.status === 'open' ? 'Expected so far' : 'Expected'}
-          value={formatPeso(expected)}
-          sub="Opening + cash in − cash out"
+          value={expected === null ? pending : formatPeso(expected)}
+          sub="Opening + cash sales + cash in − cash out"
         />
         <SummaryCard
           icon={HandCoins}
@@ -277,11 +298,14 @@ function Report({
         <div className="flex flex-col gap-[8px] rounded-[30px] bg-neutral-100 p-[22px] text-[14.5px]">
           <h2 className="mb-[4px] text-[20px]">Expected cash</h2>
           <Line label="Opening cash" value={formatPeso(record.openingCash)} />
+          <Line label="Cash sales" value={sales ? formatPeso(cashSales) : pending} />
           <Line label="Cash in" value={formatPeso(cashIn)} />
           <Line label="Cash out" value={`−${formatPeso(cashOut)}`} negative={cashOut > 0} />
           <div className="flex justify-between border-t border-divider pt-[8px] font-bold">
             <span>Expected</span>
-            <span className="tabular-nums">{formatPeso(expected)}</span>
+            <span className="tabular-nums">
+              {expected === null ? pending : formatPeso(expected)}
+            </span>
           </div>
           {record.countedCash !== null && (
             <div className="flex justify-between font-bold">
@@ -300,8 +324,14 @@ function Report({
           {record.closingNote && (
             <p className="text-[13px] text-neutral-700">Note at closing: {record.closingNote}</p>
           )}
-          <p className="mt-[6px] text-[13px] text-neutral-700">
-            Cash sales, refunds and utang payments join this list with checkout.
+          {sales && (
+            <p className="mt-[6px] text-[13px] text-neutral-700">
+              Not in the drawer: GCash {formatPeso(paidBy(sales, 'gcash'))} · Maya{' '}
+              {formatPeso(paidBy(sales, 'maya'))}
+            </p>
+          )}
+          <p className="text-[13px] text-neutral-700">
+            Refunds and utang payments join this list in later updates.
           </p>
           {canReopen && (
             <Button
@@ -317,7 +347,116 @@ function Report({
           )}
         </div>
       </div>
+
+      {sales ? (
+        <SalesSection sales={sales} />
+      ) : (
+        salesFailed && (
+          <Alert variant="danger">
+            <b>The sales could not be loaded.</b> Connect and try again.
+          </Alert>
+        )
+      )}
     </>
+  );
+}
+
+const METHOD_LABELS = { cash: 'Cash', gcash: 'GCash', maya: 'Maya' } as const;
+
+const madeLabel = (date: Date) =>
+  date.toLocaleString('en-PH', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+/**
+ * SHIFT-04: the drawer's sales by payment method and by salesperson, and the sales the Owner
+ * should check (POS-14: late, price or settings changed, stock below zero, reused reference).
+ * The design has no such section; it follows the report's own cards and lists.
+ */
+function SalesSection({ sales }: { sales: DrawerSales }) {
+  return (
+    <section aria-label="Sales" className="grid gap-[16px] xl:grid-cols-[1fr_1fr_1.6fr]">
+      <div className="flex flex-col gap-[8px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+        <h2 className="mb-[4px] text-[20px]">Sales</h2>
+        <Line
+          label={`${sales.count} ${sales.count === 1 ? 'sale' : 'sales'}`}
+          value={formatPeso(sales.total)}
+        />
+        {sales.methods.map((m) => (
+          <Line
+            key={m.method}
+            label={`${METHOD_LABELS[m.method]} · ${m.count} ${m.count === 1 ? 'sale' : 'sales'}`}
+            value={formatPeso(m.amount)}
+          />
+        ))}
+        {sales.methods.length > 1 && (
+          <p className="text-[12.5px] text-neutral-700">
+            A sale paid two ways counts under each. Cash is what stayed in the drawer.
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-[8px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+        <h2 className="mb-[4px] text-[20px]">By salesperson</h2>
+        {sales.salespeople.length === 0 ? (
+          <p className="text-neutral-700">No sales in this drawer yet.</p>
+        ) : (
+          sales.salespeople.map((person) => (
+            <Line
+              key={person.name}
+              label={`${person.name} · ${person.count} ${person.count === 1 ? 'sale' : 'sales'}`}
+              value={formatPeso(person.total)}
+            />
+          ))
+        )}
+      </div>
+
+      <div className="flex flex-col gap-[10px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+        <h2 className="mb-[4px] text-[20px]">
+          Sales to check{sales.flaggedCount > 0 ? ` · ${sales.flaggedCount}` : ''}
+        </h2>
+        {sales.flagged.length === 0 ? (
+          <p className="text-neutral-700">Nothing to check.</p>
+        ) : (
+          <ul className="flex flex-col gap-[10px]">
+            {sales.flagged.map((sale) => (
+              <li key={sale.id} className="flex flex-col gap-[4px] rounded-[20px] bg-bg p-[12px]">
+                <div className="flex items-baseline justify-between gap-[8px]">
+                  <span className="font-semibold break-all">{sale.receiptNo}</span>
+                  <span className="font-bold tabular-nums">{formatPeso(sale.total)}</span>
+                </div>
+                <div className="text-[12.5px] text-neutral-700">
+                  {sale.salesperson} · made {madeLabel(sale.madeAt)}
+                  {sale.madeOffline
+                    ? ` offline, reached the store ${madeLabel(sale.syncedAt)}`
+                    : ''}
+                </div>
+                <div className="flex flex-wrap gap-[6px]">
+                  {sale.flags.map((flag) => (
+                    <span
+                      key={flag}
+                      className="inline-flex items-center gap-[4px] rounded-full bg-warn-bg px-[10px] py-[3px] text-[12px] font-semibold text-warn-fg"
+                    >
+                      <TriangleAlert size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                      {FLAG_LABELS[flag]}
+                    </span>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {sales.flaggedCount > sales.flagged.length && (
+          <p className="text-[12.5px] text-neutral-700">
+            Showing {sales.flagged.length} of {sales.flaggedCount}.
+          </p>
+        )}
+      </div>
+    </section>
   );
 }
 

@@ -46,6 +46,11 @@ interface LiveRowsOptions<T> {
   };
   /** Shows the saved copy first and keeps it current. Needs `apply.itemKey`. */
   cache?: LiveRowsCache<T>;
+  /**
+   * false: load once when the screen opens, with no Realtime subscription. For screens that
+   * don't need every change as it happens; each subscription costs Realtime messages (SRS 7.1).
+   */
+  live?: boolean;
 }
 
 interface Entry<T> {
@@ -67,6 +72,7 @@ export function useLiveRows<T>({
   filter,
   apply,
   cache,
+  live = true,
 }: LiveRowsOptions<T>): QueryState<T> {
   const [state, setState] = useState<QueryState<T>>({ data: [], loading: true, error: false });
 
@@ -150,14 +156,16 @@ export function useLiveRows<T>({
       });
     }
     refresh();
-    const stop = watchTable(table, filter, { change: applyChange, resync: refresh });
+    const stop = live
+      ? watchTable(table, filter, { change: applyChange, resync: refresh })
+      : () => undefined;
     return () => {
       cancelled = true;
       stop();
     };
     // `load`, `map`, `apply` and `cache` are expected to be stable for a given `queryKey`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table, queryKey, filter]);
+  }, [table, queryKey, filter, live]);
 
   return state;
 }

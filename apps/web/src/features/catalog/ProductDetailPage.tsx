@@ -54,7 +54,7 @@ const SOURCE_LABELS: Record<string, string> = {
  */
 export function ProductDetailPage() {
   const { productId = '' } = useParams();
-  const products = useProducts();
+  const products = useProducts({ live: true });
   const product = products.data.find((row) => row.id === productId);
 
   return (
