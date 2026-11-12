@@ -11,6 +11,8 @@ import { isSoldByMeasure, MAX_QTY } from '@/lib/quantity';
 export interface CartLine {
   productId: string;
   qty: number;
+  /** POS-03: the preset discount staff picked for this line, if any. */
+  discountId?: string;
 }
 
 interface CartState {
@@ -20,6 +22,8 @@ interface CartState {
   add: (uid: string, product: { id: string; unit: string }, qty?: number) => void;
   setQty: (productId: string, qty: number) => void;
   remove: (productId: string) => void;
+  /** Picks a preset for the line, or none. */
+  setDiscount: (productId: string, discountId: string | null) => void;
   clear: () => void;
 }
 
@@ -59,6 +63,14 @@ export const useCart = create<CartState>()(
         })),
       remove: (productId) =>
         set((state) => ({ lines: state.lines.filter((line) => line.productId !== productId) })),
+      setDiscount: (productId, discountId) =>
+        set((state) => ({
+          lines: state.lines.map((line) => {
+            if (line.productId !== productId) return line;
+            const rest = { productId: line.productId, qty: line.qty };
+            return discountId ? { ...rest, discountId } : rest;
+          }),
+        })),
       clear: () => set({ lines: [] }),
     }),
     {

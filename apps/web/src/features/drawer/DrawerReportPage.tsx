@@ -393,6 +393,9 @@ function SalesSection({ sales }: { sales: DrawerSales }) {
             value={formatPeso(m.amount)}
           />
         ))}
+        {sales.discounts > 0 && (
+          <Line label="Discounts given" value={`−${formatPeso(sales.discounts)}`} />
+        )}
         {sales.methods.length > 1 && (
           <p className="text-[12.5px] text-neutral-700">
             A sale paid two ways counts under each. Cash is what stayed in the drawer.

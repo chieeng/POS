@@ -2,6 +2,7 @@ import {
   ChevronUp,
   CircleAlert,
   Minus,
+  Percent,
   Plus,
   Scale,
   Search,
@@ -29,6 +30,14 @@ import { formatQty, isSoldByMeasure, MAX_QTY, minQty, parseQty, qtyWithUnit } fr
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 import { useBranch, usePaymentAccounts } from '@/features/store/data';
+import { useDiscounts } from '@/features/discounts/data';
+import {
+  discountCents,
+  lineDiscount,
+  ruleAmount,
+  rulesFor,
+  type DiscountRule,
+} from '@/features/discounts/rules';
 import { cartLinesFor, useCart, type CartLine } from './cart';
 import {
   rememberedSettings,
@@ -68,6 +77,7 @@ export function SellPage() {
   const [slip, setSlip] = useState<Slip | null>(null);
   const { branch } = useBranch();
   const accounts = usePaymentAccounts();
+  const discounts = useDiscounts();
 
   // A new search or category starts again from the top.
   const changeSearch = (value: string) => {
@@ -105,28 +115,43 @@ export function SellPage() {
   };
 
   const count = itemCount(lines, (id) => byId.get(id)?.unit);
-  const totalCents = lines.reduce((sum, line) => {
-    const product = byId.get(line.productId);
-    return product ? sum + lineTotalCents(line.qty, product.sellPrice) : sum;
-  }, 0);
 
-  // POS-04, POS-07: the store's settings and accounts, live while online and remembered on the
-  // device for offline sales.
+  // POS-03, POS-04, POS-07: the store's settings, accounts and preset discounts, live while
+  // online and remembered on the device for offline sales.
+  const live =
+    branch && !accounts.loading && !accounts.error && !discounts.loading && !discounts.error;
   const settings = useMemo(
-    () =>
-      branch && !accounts.loading && !accounts.error
-        ? settingsFrom(branch, accounts.data)
-        : rememberedSettings(),
-    [branch, accounts.loading, accounts.error, accounts.data],
+    () => (live ? settingsFrom(branch, accounts.data, discounts.data) : rememberedSettings()),
+    [live, branch, accounts.data, discounts.data],
   );
   useEffect(() => {
-    if (branch && !accounts.loading && !accounts.error) rememberSettings(settings);
-  }, [branch, accounts.loading, accounts.error, settings]);
+    if (live) rememberSettings(settings);
+  }, [live, settings]);
 
   const sold: SoldLine[] = lines.flatMap((line) => {
     const product = byId.get(line.productId);
-    return product ? [{ product, qty: line.qty }] : [];
+    if (!product) return [];
+    const discount = lineDiscount(settings.discounts, line, product);
+    return [{ product, qty: line.qty, ...(discount ? { discount } : {}) }];
   });
+  const subtotalCents = sold.reduce(
+    (sum, line) => sum + lineTotalCents(line.qty, line.product.sellPrice),
+    0,
+  );
+  const discountCentsTotal = sold.reduce(
+    (sum, line) => sum + Math.round((line.discount?.amount ?? 0) * 100),
+    0,
+  );
+  const totalCents = subtotalCents - discountCentsTotal;
+  const cartProps = {
+    lines,
+    byId,
+    rules: settings.discounts,
+    subtotalCents,
+    discountCents: discountCentsTotal,
+    totalCents,
+    onPay: () => startPayment(),
+  };
   const startPayment = () => {
     setCartOpen(false);
     setPaying(true);
@@ -225,7 +250,7 @@ export function SellPage() {
         className="sticky top-0 hidden h-dvh w-[360px] flex-none flex-col gap-[10px] bg-neutral-100 px-[16px] pt-[16px] pb-[18px] md:flex xl:w-[400px] xl:px-[20px] xl:pt-[20px]"
       >
         <h2 className="font-heading text-[22px]">Cart{count > 0 ? ` · ${count}` : ''}</h2>
-        <CartContents lines={lines} byId={byId} totalCents={totalCents} onPay={startPayment} />
+        <CartContents {...cartProps} />
       </aside>
 
       {/* Phone: a bar above the tabs that opens the cart as a sheet. */}
@@ -254,7 +279,7 @@ export function SellPage() {
             <SheetTitle>
               Cart · {count} {count === 1 ? 'item' : 'items'}
             </SheetTitle>
-            <CartContents lines={lines} byId={byId} totalCents={totalCents} onPay={startPayment} />
+            <CartContents {...cartProps} />
           </SheetContent>
         </Sheet>
       )}
@@ -367,17 +392,26 @@ function StockNote({ product, state }: { product: Product; state: StockState }) 
 function CartContents({
   lines,
   byId,
+  rules,
+  subtotalCents,
+  discountCents,
   totalCents,
   onPay,
 }: {
   lines: CartLine[];
   byId: Map<string, Product>;
+  rules: DiscountRule[];
+  subtotalCents: number;
+  discountCents: number;
   totalCents: number;
   onPay: () => void;
 }) {
   const user = useSession((s) => s.user);
   const cart = useCart();
   const [weighing, setWeighing] = useState<Product | null>(null);
+  const [discounting, setDiscounting] = useState<string | null>(null);
+  const discountingLine = lines.find((line) => line.productId === discounting);
+  const discountingProduct = discounting ? byId.get(discounting) : undefined;
 
   if (lines.length === 0) {
     return (
@@ -398,6 +432,9 @@ function CartContents({
           if (!product) return null;
           const weighed = isSoldByMeasure(product.unit);
           const warning = lineWarning(product, line.qty);
+          const offers = rulesFor(rules, product);
+          const discount = lineDiscount(rules, line, product);
+          const gross = lineTotalCents(line.qty, product.sellPrice);
           return (
             <li
               key={line.productId}
@@ -413,8 +450,15 @@ function CartContents({
                     {formatPeso(product.sellPrice)} {weighed ? `per ${product.unit}` : 'each'}
                   </div>
                 </div>
-                <div className="text-[15px] font-bold md:text-[14px]">
-                  {formatPeso(lineTotalCents(line.qty, product.sellPrice) / 100)}
+                <div className="text-right">
+                  <div className="text-[15px] font-bold md:text-[14px]">
+                    {formatPeso((gross - Math.round((discount?.amount ?? 0) * 100)) / 100)}
+                  </div>
+                  {discount && (
+                    <div className="text-[12.5px] font-semibold text-accent-2-700">
+                      −{formatPeso(discount.amount)} · {discount.name}
+                    </div>
+                  )}
                 </div>
               </div>
               {warning && (
@@ -476,6 +520,17 @@ function CartContents({
                   </>
                 )}
                 <span className="flex-1" />
+                {offers.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    className="min-h-[44px] px-[10px] font-body text-[13.5px] font-semibold text-accent-700"
+                    aria-label={`Discount for ${product.name}`}
+                    onClick={() => setDiscounting(product.id)}
+                  >
+                    <Percent size={15} strokeWidth={ICON_STROKE} aria-hidden />
+                    Discount
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -491,6 +546,18 @@ function CartContents({
         })}
       </ul>
       <div className="flex flex-col gap-[6px] pt-[6px]">
+        {discountCents > 0 && (
+          <>
+            <div className="flex justify-between text-[14px]">
+              <span>Subtotal</span>
+              <span className="tabular-nums">{formatPeso(subtotalCents / 100)}</span>
+            </div>
+            <div className="flex justify-between text-[14px] text-accent-2-700">
+              <span>Discount</span>
+              <span className="tabular-nums">−{formatPeso(discountCents / 100)}</span>
+            </div>
+          </>
+        )}
         <div className="flex items-baseline justify-between">
           <span className="text-[16px] font-bold">Total</span>
           <span className="font-heading text-[30px] md:text-[28px] xl:text-[32px]">
@@ -513,7 +580,80 @@ function CartContents({
           }}
         />
       )}
+      {discountingLine && discountingProduct && (
+        <DiscountPicker
+          product={discountingProduct}
+          line={discountingLine}
+          rules={rulesFor(rules, discountingProduct)}
+          onPick={(id) => {
+            cart.setDiscount(discountingProduct.id, id);
+            setDiscounting(null);
+          }}
+          onClose={() => setDiscounting(null)}
+        />
+      )}
     </>
+  );
+}
+
+/**
+ * POS-03: staff pick one of the Owner's presets for a line, or none. Only the presets that fit
+ * this product are offered; nothing is typed.
+ */
+function DiscountPicker({
+  product,
+  line,
+  rules,
+  onPick,
+  onClose,
+}: {
+  product: Product;
+  line: CartLine;
+  rules: DiscountRule[];
+  onPick: (id: string | null) => void;
+  onClose: () => void;
+}) {
+  const current = lineDiscount(rules, line, product)?.id ?? null;
+  const option = (id: string | null, title: string, detail: string, off: string | null) => (
+    <button
+      key={id ?? 'none'}
+      type="button"
+      role="radio"
+      aria-checked={current === id}
+      onClick={() => onPick(id)}
+      className={cn(
+        'flex min-h-[56px] w-full items-center gap-[12px] rounded-[20px] px-[16px] py-[10px] text-left',
+        current === id ? 'bg-accent-100 ring-[1.5px] ring-accent' : 'bg-surface hover:bg-text/5',
+      )}
+    >
+      <span className="min-w-0 flex-1">
+        <b className="block text-[15px]">{title}</b>
+        <span className="block text-[13px] text-neutral-700">{detail}</span>
+      </span>
+      {off && <span className="font-bold whitespace-nowrap text-accent-2-700">{off}</span>}
+    </button>
+  );
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogTitle>Discount for {product.name}</DialogTitle>
+        <DialogDescription>
+          {qtyWithUnit(line.qty, product.unit)} ·{' '}
+          {formatPeso(lineTotalCents(line.qty, product.sellPrice) / 100)} before any discount
+        </DialogDescription>
+        <div role="radiogroup" aria-label="Discounts" className="flex flex-col gap-[8px]">
+          {option(null, 'No discount', 'The regular price', null)}
+          {rules.map((rule) =>
+            option(
+              rule.id,
+              rule.name,
+              ruleAmount(rule, product.unit),
+              `−${formatPeso(discountCents(rule, line.qty, product.sellPrice) / 100)}`,
+            ),
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

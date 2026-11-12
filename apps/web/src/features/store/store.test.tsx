@@ -28,6 +28,10 @@ vi.mock('./data', async (importOriginal) => ({
   createPaymentAccount: vi.fn(),
   updatePaymentAccount: vi.fn(),
 }));
+vi.mock('@/features/discounts/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/discounts/data')>()),
+  useDiscounts: () => ({ data: [], loading: false, error: false }),
+}));
 
 const BRANCH: BranchSettings = {
   id: 'main',

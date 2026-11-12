@@ -1,4 +1,5 @@
 import type { Product } from '@/features/catalog/data';
+import type { DiscountRule } from '@/features/discounts/rules';
 import type { BranchSettings, PaymentAccount, PaymentProvider } from '@/features/store/data';
 import { addToOutbox, sendFailure } from '@/lib/outbox';
 import { vatPart } from '@/lib/money';
@@ -25,9 +26,14 @@ export interface CheckoutSettings {
   /** null when not VAT registered. */
   vatRate: number | null;
   accounts: Pick<PaymentAccount, 'id' | 'provider' | 'label' | 'number'>[];
+  /** POS-03: the presets switched on, so staff can pick them offline too. */
+  discounts: DiscountRule[];
 }
 
-/** Safe defaults for a device that has never been online: round cash, no VAT, no accounts. */
+/**
+ * Safe defaults for a device that has never been online: round cash, no VAT, no accounts and
+ * no discounts.
+ */
 export const DEFAULT_SETTINGS: CheckoutSettings = {
   name: 'Store',
   address: null,
@@ -37,9 +43,14 @@ export const DEFAULT_SETTINGS: CheckoutSettings = {
   roundCash: true,
   vatRate: null,
   accounts: [],
+  discounts: [],
 };
 
-export function settingsFrom(branch: BranchSettings, accounts: PaymentAccount[]): CheckoutSettings {
+export function settingsFrom(
+  branch: BranchSettings,
+  accounts: PaymentAccount[],
+  discounts: DiscountRule[] = [],
+): CheckoutSettings {
   return {
     name: branch.name,
     address: branch.address,
@@ -51,6 +62,7 @@ export function settingsFrom(branch: BranchSettings, accounts: PaymentAccount[])
     accounts: accounts
       .filter((account) => account.active)
       .map(({ id, provider, label, number }) => ({ id, provider, label, number })),
+    discounts: discounts.filter((rule) => rule.active),
   };
 }
 
@@ -67,7 +79,11 @@ export function rememberedSettings(): CheckoutSettings {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null') as CheckoutSettings | null;
     return saved && typeof saved.roundCash === 'boolean'
-      ? { ...DEFAULT_SETTINGS, ...saved }
+      ? {
+          ...DEFAULT_SETTINGS,
+          ...saved,
+          discounts: Array.isArray(saved.discounts) ? saved.discounts : [],
+        }
       : DEFAULT_SETTINGS;
   } catch {
     return DEFAULT_SETTINGS;
@@ -132,7 +148,17 @@ export type PaymentEntry =
 export interface SoldLine {
   product: Pick<Product, 'id' | 'name' | 'unit' | 'sellPrice'>;
   qty: number;
+  /** POS-03: the preset picked for the line and what it takes off, in pesos. */
+  discount?: { id: string; name: string; amount: number };
 }
+
+/** The lines as the totals take them. */
+export const totalsLines = (lines: SoldLine[]) =>
+  lines.map((line) => ({
+    qty: line.qty,
+    unitPrice: line.product.sellPrice,
+    discount: line.discount?.amount ?? 0,
+  }));
 
 /** Everything the slip shows (POS-07). */
 export interface Slip {
@@ -141,8 +167,18 @@ export interface Slip {
   madeAt: Date;
   store: Pick<CheckoutSettings, 'name' | 'address' | 'contact' | 'tin' | 'receiptFooter'>;
   salesperson: string;
-  lines: { name: string; qty: number; unit: string; unitPrice: number; total: number }[];
+  lines: {
+    name: string;
+    qty: number;
+    unit: string;
+    unitPrice: number;
+    /** After its discount. */
+    total: number;
+    discount?: { name: string; amount: number };
+  }[];
+  /** Before discounts. */
   subtotal: number;
+  discountTotal: number;
   rounding: number;
   total: number;
   vatRate: number | null;
@@ -189,7 +225,7 @@ export async function checkout(input: {
   const now = input.now ?? new Date();
   const { settings } = input;
   const totals = saleTotals(
-    input.lines.map((line) => ({ qty: line.qty, unitPrice: line.product.sellPrice })),
+    totalsLines(input.lines),
     input.payments as SalePaymentInput[],
     settings.roundCash,
   );
@@ -206,6 +242,7 @@ export async function checkout(input: {
       product_id: line.product.id,
       qty: line.qty,
       unit_price: line.product.sellPrice,
+      ...(line.discount ? { discount_id: line.discount.id, discount: line.discount.amount } : {}),
     })),
     payments: input.payments.map((payment) =>
       payment.method === 'cash'
@@ -233,18 +270,30 @@ export async function checkout(input: {
       receiptFooter: settings.receiptFooter,
     },
     salesperson: input.salesperson,
-    lines: input.lines.map((line) => ({
-      name: line.product.name,
-      qty: line.qty,
-      unit: line.product.unit,
-      unitPrice: line.product.sellPrice,
-      total: lineTotalCents(line.qty, line.product.sellPrice) / 100,
-    })),
+    lines: input.lines.map((line) => {
+      const gross = lineTotalCents(line.qty, line.product.sellPrice);
+      const off = Math.round((line.discount?.amount ?? 0) * 100);
+      return {
+        name: line.product.name,
+        qty: line.qty,
+        unit: line.product.unit,
+        unitPrice: line.product.sellPrice,
+        total: (gross - off) / 100,
+        ...(line.discount
+          ? { discount: { name: line.discount.name, amount: line.discount.amount } }
+          : {}),
+      };
+    }),
     subtotal: totals.subtotal,
+    discountTotal: totals.discountTotal,
     rounding: totals.rounding,
     total: totals.total,
     vatRate: settings.vatRate,
-    vatAmount: settings.vatRate === null ? null : vatPart(totals.subtotal, settings.vatRate),
+    // POS-07: the VAT part of what the customer pays for the goods, after discounts.
+    vatAmount:
+      settings.vatRate === null
+        ? null
+        : vatPart(totals.subtotal - totals.discountTotal, settings.vatRate),
     payments: input.payments.map((payment) =>
       payment.method === 'cash'
         ? { method: 'cash', amount: totals.cashDue }
