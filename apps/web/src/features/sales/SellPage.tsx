@@ -7,6 +7,7 @@ import {
   Scale,
   Search,
   ShoppingBasket,
+  Tags,
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
@@ -30,6 +31,8 @@ import { formatQty, isSoldByMeasure, MAX_QTY, minQty, parseQty, qtyWithUnit } fr
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 import { useBranch, usePaymentAccounts } from '@/features/store/data';
+import { useDeals } from '@/features/deals/data';
+import { dealSummary, inDeal, type DealRule } from '@/features/deals/rules';
 import { useDiscounts } from '@/features/discounts/data';
 import {
   discountCents,
@@ -47,6 +50,7 @@ import {
   type SoldLine,
 } from './checkout';
 import { PaymentSheet } from './PaymentSheet';
+import { priceCart, type Pricing } from './pricing';
 import { SaleSlip } from './SaleSlip';
 import { itemCount, lineWarning, sellResults, stockState, type StockState } from './sell';
 import { lineTotalCents } from './totals';
@@ -78,6 +82,7 @@ export function SellPage() {
   const { branch } = useBranch();
   const accounts = usePaymentAccounts();
   const discounts = useDiscounts();
+  const deals = useDeals();
 
   // A new search or category starts again from the top.
   const changeSearch = (value: string) => {
@@ -116,39 +121,38 @@ export function SellPage() {
 
   const count = itemCount(lines, (id) => byId.get(id)?.unit);
 
-  // POS-03, POS-04, POS-07: the store's settings, accounts and preset discounts, live while
-  // online and remembered on the device for offline sales.
+  // POS-03, POS-04, POS-07: the store's settings, accounts, preset discounts and deals, live
+  // while online and remembered on the device for offline sales.
   const live =
-    branch && !accounts.loading && !accounts.error && !discounts.loading && !discounts.error;
+    branch &&
+    !accounts.loading &&
+    !accounts.error &&
+    !discounts.loading &&
+    !discounts.error &&
+    !deals.loading &&
+    !deals.error;
   const settings = useMemo(
-    () => (live ? settingsFrom(branch, accounts.data, discounts.data) : rememberedSettings()),
-    [live, branch, accounts.data, discounts.data],
+    () =>
+      live ? settingsFrom(branch, accounts.data, discounts.data, deals.data) : rememberedSettings(),
+    [live, branch, accounts.data, discounts.data, deals.data],
   );
   useEffect(() => {
     if (live) rememberSettings(settings);
   }, [live, settings]);
 
+  const pricing = priceCart(lines, byId, settings.discounts, settings.deals);
   const sold: SoldLine[] = lines.flatMap((line) => {
     const product = byId.get(line.productId);
     if (!product) return [];
-    const discount = lineDiscount(settings.discounts, line, product);
+    const discount = pricing.perLine.get(line.productId);
     return [{ product, qty: line.qty, ...(discount ? { discount } : {}) }];
   });
-  const subtotalCents = sold.reduce(
-    (sum, line) => sum + lineTotalCents(line.qty, line.product.sellPrice),
-    0,
-  );
-  const discountCentsTotal = sold.reduce(
-    (sum, line) => sum + Math.round((line.discount?.amount ?? 0) * 100),
-    0,
-  );
-  const totalCents = subtotalCents - discountCentsTotal;
+  const totalCents = pricing.subtotalCents - pricing.discountCents;
   const cartProps = {
     lines,
     byId,
     rules: settings.discounts,
-    subtotalCents,
-    discountCents: discountCentsTotal,
+    pricing,
     totalCents,
     onPay: () => startPayment(),
   };
@@ -393,19 +397,31 @@ function CartContents({
   lines,
   byId,
   rules,
-  subtotalCents,
-  discountCents,
+  pricing,
   totalCents,
   onPay,
 }: {
   lines: CartLine[];
   byId: Map<string, Product>;
   rules: DiscountRule[];
-  subtotalCents: number;
-  discountCents: number;
+  pricing: Pricing;
   totalCents: number;
   onPay: () => void;
 }) {
+  const { subtotalCents, discountCents } = pricing;
+  // POS-03: staff apply a deal the cart offers; the app never adds one by itself.
+  const applyDeal = (rule: DealRule) =>
+    cart.applyDeal(
+      rule.id,
+      lines.flatMap((line) => {
+        const product = byId.get(line.productId);
+        return product &&
+          inDeal(rule, product) &&
+          pricing.perLine.get(line.productId)?.kind !== 'deal'
+          ? [line.productId]
+          : [];
+      }),
+    );
   const user = useSession((s) => s.user);
   const cart = useCart();
   const [weighing, setWeighing] = useState<Product | null>(null);
@@ -433,7 +449,7 @@ function CartContents({
           const weighed = isSoldByMeasure(product.unit);
           const warning = lineWarning(product, line.qty);
           const offers = rulesFor(rules, product);
-          const discount = lineDiscount(rules, line, product);
+          const discount = pricing.perLine.get(line.productId);
           const gross = lineTotalCents(line.qty, product.sellPrice);
           return (
             <li
@@ -454,9 +470,14 @@ function CartContents({
                   <div className="text-[15px] font-bold md:text-[14px]">
                     {formatPeso((gross - Math.round((discount?.amount ?? 0) * 100)) / 100)}
                   </div>
-                  {discount && (
+                  {discount && discount.amount > 0 && (
                     <div className="text-[12.5px] font-semibold text-accent-2-700">
                       −{formatPeso(discount.amount)} · {discount.name}
+                    </div>
+                  )}
+                  {discount && discount.amount === 0 && (
+                    <div className="text-[12.5px] text-neutral-700">
+                      In {discount.name}, regular price
                     </div>
                   )}
                 </div>
@@ -545,6 +566,52 @@ function CartContents({
           );
         })}
       </ul>
+      {(pricing.applied.length > 0 || pricing.offers.length > 0) && (
+        <section aria-label="Deals" className="flex flex-col gap-[6px]">
+          {pricing.applied.map(({ rule, sets, saving }) => (
+            <div
+              key={rule.id}
+              className="flex items-center gap-[10px] rounded-[18px] bg-accent-2-100 px-[14px] py-[8px] text-accent-2-800"
+            >
+              <Tags size={16} strokeWidth={ICON_STROKE} aria-hidden />
+              <span className="min-w-0 flex-1 text-[13.5px] leading-[1.3]">
+                <b>{rule.name}</b>
+                <br />
+                {sets} {sets === 1 ? 'set' : 'sets'} · −{formatPeso(saving)}
+              </span>
+              <Button
+                variant="ghost"
+                className="min-h-[44px] px-[10px] font-body text-[13.5px] font-semibold"
+                aria-label={`Remove ${rule.name}`}
+                onClick={() => cart.removeDeal(rule.id)}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+          {pricing.offers.map(({ rule, saving }) => (
+            <div
+              key={rule.id}
+              className="flex items-center gap-[10px] rounded-[18px] bg-accent-100 px-[14px] py-[8px]"
+            >
+              <Tags size={16} strokeWidth={ICON_STROKE} className="text-accent-700" aria-hidden />
+              <span className="min-w-0 flex-1 text-[13.5px] leading-[1.3]">
+                <b>Deal: {rule.name}</b>
+                <br />
+                {dealSummary(rule, (id) => byId.get(id)?.name)} · save {formatPeso(saving)}
+              </span>
+              <Button
+                variant="secondary"
+                className="min-h-[44px] px-[14px]"
+                aria-label={`Apply ${rule.name}`}
+                onClick={() => applyDeal(rule)}
+              >
+                Apply
+              </Button>
+            </div>
+          ))}
+        </section>
+      )}
       <div className="flex flex-col gap-[6px] pt-[6px]">
         {discountCents > 0 && (
           <>

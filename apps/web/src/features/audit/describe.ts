@@ -74,7 +74,15 @@ export const ACTION_LABELS: Record<string, string> = {
   'payment.accountUpdate': 'GCash/Maya account changes',
   'discount.create': 'Discounts added',
   'discount.update': 'Discount changes',
+  'deal.create': 'Deals added',
+  'deal.update': 'Deal changes',
 };
+
+/** "3 for ₱100.00", "a bundle of 2 items for ₱20.00", from an audit line. */
+const dealText = (kind: unknown, setSize: unknown, productIds: unknown, price: unknown) =>
+  kind === 'bundle'
+    ? `a bundle of ${Array.isArray(productIds) ? productIds.length : 0} items for ${formatPeso(Number(price))}`
+    : `${Number(setSize)} for ${formatPeso(Number(price))}`;
 
 /** "10% off" or "₱5.00 off each", from an audit line's kind and value. */
 const discountAmount = (kind: unknown, value: unknown) =>
@@ -550,6 +558,33 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
             ? [status === 'deactivated' ? 'Deactivated' : 'Reactivated']
             : []),
         ].join(' · '),
+      };
+    }
+    case 'deal.create':
+      return {
+        icon: Tags,
+        what: `added deal “${text(after.name)}”`,
+        change: dealText(after.kind, after.setSize, after.productIds, after.price),
+      };
+    case 'deal.update': {
+      const name = text(before.name);
+      const fields = Object.keys(after).filter((key) => key !== 'active');
+      const status =
+        after.active === false ? 'switched off' : after.active === true ? 'switched on' : '';
+      const parts: string[] = [];
+      if ('name' in after) parts.push(`Name: ${text(before.name)} → ${text(after.name)}`);
+      if ('price' in after)
+        parts.push(
+          `Price: ${formatPeso(Number(before.price))} → ${formatPeso(Number(after.price))}`,
+        );
+      if ('setSize' in after) parts.push(`Set: ${text(before.setSize)} → ${text(after.setSize)}`);
+      if ('productIds' in after || 'qtys' in after) parts.push('Products changed');
+      if (status && fields.length > 0)
+        parts.push(status === 'switched off' ? 'Switched off' : 'Switched on');
+      return {
+        icon: Tags,
+        what: status && fields.length === 0 ? `${status} deal “${name}”` : `changed deal “${name}”`,
+        change: parts.join(' · '),
       };
     }
     case 'discount.create':

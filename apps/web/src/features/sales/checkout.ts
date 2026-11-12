@@ -1,4 +1,5 @@
 import type { Product } from '@/features/catalog/data';
+import type { DealRule } from '@/features/deals/rules';
 import type { DiscountRule } from '@/features/discounts/rules';
 import type { BranchSettings, PaymentAccount, PaymentProvider } from '@/features/store/data';
 import { addToOutbox, sendFailure } from '@/lib/outbox';
@@ -28,11 +29,13 @@ export interface CheckoutSettings {
   accounts: Pick<PaymentAccount, 'id' | 'provider' | 'label' | 'number'>[];
   /** POS-03: the presets switched on, so staff can pick them offline too. */
   discounts: DiscountRule[];
+  /** POS-03: the package deals switched on, likewise. */
+  deals: DealRule[];
 }
 
 /**
  * Safe defaults for a device that has never been online: round cash, no VAT, no accounts and
- * no discounts.
+ * no discounts or deals.
  */
 export const DEFAULT_SETTINGS: CheckoutSettings = {
   name: 'Store',
@@ -44,12 +47,14 @@ export const DEFAULT_SETTINGS: CheckoutSettings = {
   vatRate: null,
   accounts: [],
   discounts: [],
+  deals: [],
 };
 
 export function settingsFrom(
   branch: BranchSettings,
   accounts: PaymentAccount[],
   discounts: DiscountRule[] = [],
+  deals: DealRule[] = [],
 ): CheckoutSettings {
   return {
     name: branch.name,
@@ -63,6 +68,7 @@ export function settingsFrom(
       .filter((account) => account.active)
       .map(({ id, provider, label, number }) => ({ id, provider, label, number })),
     discounts: discounts.filter((rule) => rule.active),
+    deals: deals.filter((rule) => rule.active),
   };
 }
 
@@ -83,6 +89,7 @@ export function rememberedSettings(): CheckoutSettings {
           ...DEFAULT_SETTINGS,
           ...saved,
           discounts: Array.isArray(saved.discounts) ? saved.discounts : [],
+          deals: Array.isArray(saved.deals) ? saved.deals : [],
         }
       : DEFAULT_SETTINGS;
   } catch {
@@ -149,7 +156,7 @@ export interface SoldLine {
   product: Pick<Product, 'id' | 'name' | 'unit' | 'sellPrice'>;
   qty: number;
   /** POS-03: the preset picked for the line and what it takes off, in pesos. */
-  discount?: { id: string; name: string; amount: number };
+  discount?: { kind: 'preset' | 'deal'; id: string; name: string; amount: number };
 }
 
 /** The lines as the totals take them. */
@@ -242,7 +249,11 @@ export async function checkout(input: {
       product_id: line.product.id,
       qty: line.qty,
       unit_price: line.product.sellPrice,
-      ...(line.discount ? { discount_id: line.discount.id, discount: line.discount.amount } : {}),
+      ...(line.discount?.kind === 'preset'
+        ? { discount_id: line.discount.id, discount: line.discount.amount }
+        : line.discount?.kind === 'deal'
+          ? { deal_id: line.discount.id, discount: line.discount.amount }
+          : {}),
     })),
     payments: input.payments.map((payment) =>
       payment.method === 'cash'
@@ -279,7 +290,7 @@ export async function checkout(input: {
         unit: line.product.unit,
         unitPrice: line.product.sellPrice,
         total: (gross - off) / 100,
-        ...(line.discount
+        ...(line.discount && line.discount.amount > 0
           ? { discount: { name: line.discount.name, amount: line.discount.amount } }
           : {}),
       };
