@@ -13,6 +13,8 @@ export interface CartLine {
   qty: number;
   /** POS-03: the preset discount staff picked for this line, if any. */
   discountId?: string;
+  /** POS-03: the package deal staff applied to this line, if any. Never with a preset. */
+  dealId?: string;
 }
 
 interface CartState {
@@ -24,6 +26,10 @@ interface CartState {
   remove: (productId: string) => void;
   /** Picks a preset for the line, or none. */
   setDiscount: (productId: string, discountId: string | null) => void;
+  /** Puts these lines in the deal (taking any preset or other deal off them). */
+  applyDeal: (dealId: string, productIds: string[]) => void;
+  /** Takes the deal off every line. */
+  removeDeal: (dealId: string) => void;
   clear: () => void;
 }
 
@@ -70,6 +76,20 @@ export const useCart = create<CartState>()(
             const rest = { productId: line.productId, qty: line.qty };
             return discountId ? { ...rest, discountId } : rest;
           }),
+        })),
+      applyDeal: (dealId, productIds) =>
+        set((state) => ({
+          lines: state.lines.map((line) =>
+            productIds.includes(line.productId)
+              ? { productId: line.productId, qty: line.qty, dealId }
+              : line,
+          ),
+        })),
+      removeDeal: (dealId) =>
+        set((state) => ({
+          lines: state.lines.map((line) =>
+            line.dealId === dealId ? { productId: line.productId, qty: line.qty } : line,
+          ),
         })),
       clear: () => set({ lines: [] }),
     }),

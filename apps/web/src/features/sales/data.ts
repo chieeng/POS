@@ -25,6 +25,7 @@ export interface SalePayload {
     qty: number;
     unit_price: number;
     discount_id?: string;
+    deal_id?: string;
     discount?: number;
   }[];
   payments: (
@@ -38,6 +39,7 @@ export type SaleFlag =
   | 'settings_changed'
   | 'product_inactive'
   | 'discount_changed'
+  | 'deal_changed'
   | 'stock_negative'
   | 'duplicate_reference'
   | 'late'

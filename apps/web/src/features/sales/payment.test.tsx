@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Product } from '@/features/catalog/data';
+import type { DealRule } from '@/features/deals/rules';
 import type { DiscountRule } from '@/features/discounts/rules';
 import type { BranchSettings, PaymentAccount } from '@/features/store/data';
 import { BranchContext } from '@/features/store/data';
@@ -27,6 +28,7 @@ const state = vi.hoisted(() => ({
   products: [] as Product[],
   accounts: [] as PaymentAccount[],
   discounts: [] as DiscountRule[],
+  deals: [] as DealRule[],
 }));
 
 vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
@@ -48,6 +50,10 @@ vi.mock('@/features/catalog/data', async (importOriginal) => ({
 vi.mock('@/features/store/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/store/data')>()),
   usePaymentAccounts: () => ({ data: state.accounts, loading: false, error: false }),
+}));
+vi.mock('@/features/deals/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/deals/data')>()),
+  useDeals: () => ({ data: state.deals, loading: false, error: false }),
 }));
 vi.mock('@/features/discounts/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/discounts/data')>()),
@@ -141,6 +147,7 @@ beforeEach(() => {
   state.products = [RICE, CHIPS];
   state.accounts = [];
   state.discounts = [];
+  state.deals = [];
   setOnline(true);
   vi.mocked(completeSale).mockResolvedValue({} as never);
   vi.mocked(addToOutbox).mockResolvedValue();
@@ -464,6 +471,86 @@ describe('preset discounts (POS-03)', () => {
     state.discounts = [SUKI, { ...GRAINS, active: false }];
     renderSell();
     expect(rememberedSettings().discounts.map((rule) => rule.name)).toEqual(['Suki 10%']);
+  });
+});
+
+describe('package deals (POS-03)', () => {
+  const DEAL: DealRule = {
+    id: 'q1',
+    name: 'Chips 3 for ₱100',
+    kind: 'quantity',
+    price: 100,
+    setSize: 3,
+    productIds: ['p1'],
+    qtys: [],
+    active: true,
+  };
+
+  test('the cart offers a deal at a full set; staff apply it; it goes to the server and slip', async () => {
+    state.deals = [DEAL];
+    act(() => useCart.getState().add('u1', CHIPS, 1));
+    act(() => useCart.getState().setQty('p1', 4));
+    const user = renderSell();
+    const cart = within(await screen.findByRole('complementary', { name: 'Cart' }));
+    const deals = within(cart.getByRole('region', { name: 'Deals' }));
+    expect(deals.getByText('Deal: Chips 3 for ₱100')).toBeInTheDocument();
+    expect(deals.getByText('3 for ₱100.00 · save ₱35.00')).toBeInTheDocument();
+    // Never applied by itself.
+    expect(cart.getByRole('button', { name: 'Pay ₱180.00' })).toBeInTheDocument();
+
+    await user.click(deals.getByRole('button', { name: 'Apply Chips 3 for ₱100' }));
+    expect(deals.getByText('1 set · −₱35.00')).toBeInTheDocument();
+    expect(cart.getByText('−₱35.00 · Chips 3 for ₱100')).toBeInTheDocument();
+    // 4 packs: one set of 3 for ₱100 and one at ₱45.
+    await user.click(cart.getByRole('button', { name: 'Pay ₱145.00' }));
+    const sheet = within(screen.getByRole('dialog'));
+    await user.click(sheet.getByRole('button', { name: 'Exact' }));
+    await user.click(sheet.getByRole('button', { name: 'Complete sale' }));
+    expect(completeSale).toHaveBeenCalledWith(
+      expect.objectContaining({
+        total: 145,
+        lines: [{ product_id: 'p1', qty: 4, unit_price: 45, deal_id: 'q1', discount: 35 }],
+      }),
+    );
+    const slip = within(await screen.findByRole('article', { name: /^Slip TT-/ }));
+    expect(slip.getByText(/4 × ₱45.00 · Chips 3 for ₱100 −₱35.00/)).toBeInTheDocument();
+    expect(slip.getByText('Discount').nextSibling).toHaveTextContent('−₱35.00');
+  });
+
+  test('Remove takes the deal off; a preset on the line takes it off that line', async () => {
+    state.deals = [DEAL];
+    state.discounts = [
+      {
+        id: 'd1',
+        name: 'Suki 10%',
+        kind: 'percent',
+        value: 10,
+        appliesTo: 'all',
+        categoryIds: [],
+        productIds: [],
+        active: true,
+      },
+    ];
+    act(() => useCart.getState().add('u1', CHIPS, 1));
+    act(() => useCart.getState().setQty('p1', 3));
+    act(() => useCart.getState().applyDeal('q1', ['p1']));
+    const user = renderSell();
+    const cart = within(await screen.findByRole('complementary', { name: 'Cart' }));
+    expect(cart.getByRole('button', { name: 'Pay ₱100.00' })).toBeInTheDocument();
+    await user.click(cart.getByRole('button', { name: 'Remove Chips 3 for ₱100' }));
+    expect(cart.getByRole('button', { name: 'Pay ₱135.00' })).toBeInTheDocument();
+
+    act(() => useCart.getState().applyDeal('q1', ['p1']));
+    await user.click(cart.getByRole('button', { name: 'Discount for Chips Classic' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('radio', { name: /Suki 10%/ }));
+    expect(useCart.getState().lines[0]).toEqual({ productId: 'p1', qty: 3, discountId: 'd1' });
+    expect(cart.getByRole('button', { name: 'Pay ₱121.50' })).toBeInTheDocument();
+  });
+
+  test('a deal is remembered for offline sales', () => {
+    state.deals = [DEAL, { ...DEAL, id: 'q2', name: 'Old', active: false }];
+    renderSell();
+    expect(rememberedSettings().deals.map((rule) => rule.name)).toEqual(['Chips 3 for ₱100']);
   });
 });
 

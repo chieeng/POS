@@ -12,6 +12,7 @@ import { formatPeso, vatPart } from '@/lib/money';
 import { ICON_STROKE } from '@/lib/utils';
 import { PaymentAccountsSection } from './PaymentAccountsSection';
 import { DiscountsSection } from '@/features/discounts/DiscountsSection';
+import { DealsSection } from '@/features/deals/DealsSection';
 import { describeSaveError, updateBranchSettings, useBranch, type BranchSettings } from './data';
 import {
   currentLocation,
@@ -119,6 +120,7 @@ export function StoreSettingsPage() {
           <CheckoutForm branch={branch} />
           <PaymentAccountsSection />
           <DiscountsSection />
+          <DealsSection />
           <StoreLocationForm branch={branch} />
         </>
       )}

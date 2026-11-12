@@ -219,7 +219,7 @@ describe('the drawer’s sales (SHIFT-04, POS-14)', () => {
     const sales = within(screen.getByRole('region', { name: 'Sales' }));
     expect(sales.getByText('Discounts given').nextSibling).toHaveTextContent('−₱13.50');
     expect(drawerCsv(OPEN, [], [], { ...SALES, discounts: 13.5 })).toContain(
-      '2026-11-08,,Discounts given,Preset discounts,,13.50',
+      '2026-11-08,,Discounts given,Preset discounts and deals,,13.50',
     );
     expect(drawerCsv(OPEN, [], [], SALES)).not.toContain('Discounts given');
   });

@@ -172,6 +172,7 @@ export type SaleFlag =
   | 'settings_changed'
   | 'product_inactive'
   | 'discount_changed'
+  | 'deal_changed'
   | 'stock_negative'
   | 'duplicate_reference'
   | 'late'
@@ -184,6 +185,7 @@ export const FLAG_LABELS: Record<SaleFlag, string> = {
   settings_changed: 'Rounding or VAT setting differed',
   product_inactive: 'Product was turned off',
   discount_changed: 'Discount differed from the preset',
+  deal_changed: 'Deal no longer added up',
   stock_negative: 'Stock went below zero',
   duplicate_reference: 'Reference used on another sale',
   clock_ahead: "Phone's clock was ahead",
@@ -413,7 +415,13 @@ export function drawerSummary(
           amount: sales.total,
         },
         ...(sales.discounts > 0
-          ? [{ type: 'Discounts given', note: 'Preset discounts', amount: sales.discounts }]
+          ? [
+              {
+                type: 'Discounts given',
+                note: 'Preset discounts and deals',
+                amount: sales.discounts,
+              },
+            ]
           : []),
         { type: 'Cash sales', note: 'In the drawer', amount: paidBy(sales, 'cash') },
         { type: 'GCash', note: 'Not in the drawer', amount: paidBy(sales, 'gcash') },
