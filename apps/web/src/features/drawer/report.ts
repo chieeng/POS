@@ -171,6 +171,7 @@ export type SaleFlag =
   | 'price_changed'
   | 'settings_changed'
   | 'product_inactive'
+  | 'discount_changed'
   | 'stock_negative'
   | 'duplicate_reference'
   | 'late'
@@ -182,6 +183,7 @@ export const FLAG_LABELS: Record<SaleFlag, string> = {
   price_changed: "Price differed from the store's",
   settings_changed: 'Rounding or VAT setting differed',
   product_inactive: 'Product was turned off',
+  discount_changed: 'Discount differed from the preset',
   stock_negative: 'Stock went below zero',
   duplicate_reference: 'Reference used on another sale',
   clock_ahead: "Phone's clock was ahead",
@@ -204,6 +206,8 @@ export interface FlaggedSale {
 export interface DrawerSales {
   count: number;
   total: number;
+  /** What the preset discounts took off (POS-03). */
+  discounts: number;
   /** Cash is what went into the drawer; a split sale counts under each of its methods. */
   methods: { method: 'cash' | 'gcash' | 'maya'; count: number; amount: number }[];
   salespeople: { name: string; count: number; total: number }[];
@@ -215,6 +219,7 @@ export interface DrawerSales {
 const toDrawerSales = (row: Row): DrawerSales => ({
   count: Number(row.count ?? 0),
   total: Number(row.total ?? 0),
+  discounts: Number(row.discounts ?? 0),
   methods: ((row.methods ?? []) as Row[]).map((m) => ({
     method: m.method as DrawerSales['methods'][number]['method'],
     count: Number(m.count ?? 0),
@@ -407,6 +412,9 @@ export function drawerSummary(
           note: `${sales.count} ${sales.count === 1 ? 'sale' : 'sales'}`,
           amount: sales.total,
         },
+        ...(sales.discounts > 0
+          ? [{ type: 'Discounts given', note: 'Preset discounts', amount: sales.discounts }]
+          : []),
         { type: 'Cash sales', note: 'In the drawer', amount: paidBy(sales, 'cash') },
         { type: 'GCash', note: 'Not in the drawer', amount: paidBy(sales, 'gcash') },
         { type: 'Maya', note: 'Not in the drawer', amount: paidBy(sales, 'maya') },

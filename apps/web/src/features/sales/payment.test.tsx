@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import type { Product } from '@/features/catalog/data';
+import type { DiscountRule } from '@/features/discounts/rules';
 import type { BranchSettings, PaymentAccount } from '@/features/store/data';
 import { BranchContext } from '@/features/store/data';
 import { addToOutbox, watchOutboxItem } from '@/lib/outbox';
@@ -25,6 +26,7 @@ import { quickCash } from './totals';
 const state = vi.hoisted(() => ({
   products: [] as Product[],
   accounts: [] as PaymentAccount[],
+  discounts: [] as DiscountRule[],
 }));
 
 vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {} }));
@@ -46,6 +48,10 @@ vi.mock('@/features/catalog/data', async (importOriginal) => ({
 vi.mock('@/features/store/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/store/data')>()),
   usePaymentAccounts: () => ({ data: state.accounts, loading: false, error: false }),
+}));
+vi.mock('@/features/discounts/data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/discounts/data')>()),
+  useDiscounts: () => ({ data: state.discounts, loading: false, error: false }),
 }));
 vi.mock('@/features/drawer/data', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/features/drawer/data')>()),
@@ -134,6 +140,7 @@ beforeEach(() => {
   useCart.setState({ uid: null, lines: [] });
   state.products = [RICE, CHIPS];
   state.accounts = [];
+  state.discounts = [];
   setOnline(true);
   vi.mocked(completeSale).mockResolvedValue({} as never);
   vi.mocked(addToOutbox).mockResolvedValue();
@@ -337,6 +344,126 @@ describe('split (POS-04)', () => {
         ],
       }),
     );
+  });
+});
+
+describe('preset discounts (POS-03)', () => {
+  const SUKI: DiscountRule = {
+    id: 'd1',
+    name: 'Suki 10%',
+    kind: 'percent',
+    value: 10,
+    appliesTo: 'all',
+    categoryIds: [],
+    productIds: [],
+    active: true,
+  };
+  const GRAINS: DiscountRule = {
+    ...SUKI,
+    id: 'd2',
+    name: 'Grains ₱10/kg',
+    kind: 'fixed',
+    value: 10,
+    appliesTo: 'products',
+    productIds: ['p2'],
+  };
+
+  async function chipsInCart() {
+    act(() => useCart.getState().add('u1', CHIPS, 1));
+    act(() => useCart.getState().setQty('p1', 3));
+    return within(await screen.findByRole('complementary', { name: 'Cart' }));
+  }
+
+  test('no presets for a product: no Discount button', async () => {
+    state.discounts = [GRAINS];
+    renderSell();
+    const cart = await chipsInCart();
+    expect(cart.queryByRole('button', { name: /Discount for/ })).toBeNull();
+  });
+
+  test('staff pick a preset; the cart shows subtotal, discount and total', async () => {
+    state.discounts = [SUKI, GRAINS];
+    const user = renderSell();
+    const cart = await chipsInCart();
+    await user.click(cart.getByRole('button', { name: 'Discount for Chips Classic' }));
+    const picker = within(screen.getByRole('dialog'));
+    expect(picker.getByText('3 pack · ₱135.00 before any discount')).toBeInTheDocument();
+    // Only the presets that fit chips: not the rice one.
+    expect(picker.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'No discountThe regular price',
+      'Suki 10%10% off−₱13.50',
+    ]);
+    await user.click(picker.getByRole('radio', { name: /Suki 10%/ }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(cart.getByText('−₱13.50 · Suki 10%')).toBeInTheDocument();
+    expect(cart.getByText('Subtotal').nextSibling).toHaveTextContent('₱135.00');
+    expect(cart.getByText('Discount', { selector: 'span' }).nextSibling).toHaveTextContent(
+      '−₱13.50',
+    );
+    expect(cart.getByRole('button', { name: 'Pay ₱121.50' })).toBeInTheDocument();
+
+    // "No discount" takes it off again.
+    await user.click(cart.getByRole('button', { name: 'Discount for Chips Classic' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('radio', { name: /No discount/ }),
+    );
+    expect(cart.getByRole('button', { name: 'Pay ₱135.00' })).toBeInTheDocument();
+  });
+
+  test('the sale carries the preset; cash rounds after the discount; the slip shows it', async () => {
+    state.discounts = [SUKI];
+    act(() => useCart.getState().add('u1', CHIPS, 1));
+    act(() => useCart.getState().setQty('p1', 3));
+    act(() => useCart.getState().setDiscount('p1', 'd1'));
+    const user = renderSell();
+    await user.click(screen.getByRole('button', { name: 'Pay ₱121.50' }));
+    const sheet = within(screen.getByRole('dialog'));
+    expect(sheet.getByLabelText('Total to pay ₱122.00')).toBeInTheDocument();
+    await user.click(sheet.getByRole('button', { name: 'Exact' }));
+    await user.click(sheet.getByRole('button', { name: 'Complete sale' }));
+
+    expect(completeSale).toHaveBeenCalledWith(
+      expect.objectContaining({
+        total: 122,
+        lines: [{ product_id: 'p1', qty: 3, unit_price: 45, discount_id: 'd1', discount: 13.5 }],
+        payments: [{ method: 'cash', amount: 122 }],
+      }),
+    );
+    const slip = within(await screen.findByRole('article', { name: /^Slip TT-/ }));
+    expect(slip.getByText(/3 × ₱45.00 · Suki 10% −₱13.50/)).toBeInTheDocument();
+    expect(slip.getByText('Subtotal').nextSibling).toHaveTextContent('₱135.00');
+    expect(slip.getByText('Discount').nextSibling).toHaveTextContent('−₱13.50');
+    expect(slip.getByText('Rounding').nextSibling).toHaveTextContent('+₱0.50');
+    expect(slip.getByText('Total').nextSibling).toHaveTextContent('₱122.00');
+  });
+
+  test('VAT is of what the customer pays for the goods, after the discount', async () => {
+    state.discounts = [SUKI];
+    act(() => useCart.getState().add('u1', CHIPS, 1));
+    act(() => useCart.getState().setQty('p1', 2));
+    act(() => useCart.getState().setDiscount('p1', 'd1'));
+    const user = renderSell({ ...BRANCH, vatRegistered: true, roundCash: false });
+    await user.click(screen.getByRole('button', { name: 'Pay ₱81.00' }));
+    const sheet = within(screen.getByRole('dialog'));
+    await user.click(sheet.getByRole('button', { name: 'Exact' }));
+    await user.click(sheet.getByRole('button', { name: 'Complete sale' }));
+    const slip = within(await screen.findByRole('article', { name: /^Slip TT-/ }));
+    // ₱81.00 × 12 ÷ 112 = ₱8.68
+    expect(slip.getByText('VAT 12% included').nextSibling).toHaveTextContent('₱8.68');
+  });
+
+  test('a preset switched off meanwhile drops off the line', async () => {
+    state.discounts = [{ ...SUKI, active: false }];
+    act(() => useCart.getState().add('u1', CHIPS, 1));
+    act(() => useCart.getState().setDiscount('p1', 'd1'));
+    renderSell();
+    expect(await screen.findByRole('button', { name: 'Pay ₱45.00' })).toBeInTheDocument();
+  });
+
+  test('the presets are remembered for offline sales', () => {
+    state.discounts = [SUKI, { ...GRAINS, active: false }];
+    renderSell();
+    expect(rememberedSettings().discounts.map((rule) => rule.name)).toEqual(['Suki 10%']);
   });
 });
 

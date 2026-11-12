@@ -19,7 +19,14 @@ export interface SalePayload {
   vat_rate: number | null;
   /** What the device showed the customer; the server refuses a sale that adds up otherwise. */
   total: number;
-  lines: { product_id: string; qty: number; unit_price: number }[];
+  /** discount_id and discount: the preset picked and what this device took off (POS-03). */
+  lines: {
+    product_id: string;
+    qty: number;
+    unit_price: number;
+    discount_id?: string;
+    discount?: number;
+  }[];
   payments: (
     | { method: 'cash'; amount: number }
     | { method: 'gcash' | 'maya'; amount: number; reference: string; account_id?: string | null }
@@ -30,6 +37,7 @@ export type SaleFlag =
   | 'price_changed'
   | 'settings_changed'
   | 'product_inactive'
+  | 'discount_changed'
   | 'stock_negative'
   | 'duplicate_reference'
   | 'late'

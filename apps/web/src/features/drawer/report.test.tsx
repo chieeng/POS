@@ -104,6 +104,7 @@ beforeEach(() => {
 const NO_SALES: DrawerSales = {
   count: 0,
   total: 0,
+  discounts: 0,
   methods: [],
   salespeople: [],
   flaggedCount: 0,
@@ -114,6 +115,7 @@ const NO_SALES: DrawerSales = {
 const SALES: DrawerSales = {
   count: 6,
   total: 428,
+  discounts: 0,
   methods: [
     { method: 'cash', count: 5, amount: 318 },
     { method: 'gcash', count: 1, amount: 90 },
@@ -207,6 +209,19 @@ describe('the drawer’s sales (SHIFT-04, POS-14)', () => {
     state.sales = null;
     renderReport();
     expect(screen.getAllByText('₱1,950.00').length).toBeGreaterThan(0);
+  });
+
+  it('shows the discounts given, and lists them in the CSV (POS-03)', () => {
+    state.record = OPEN;
+    state.entries = [];
+    state.sales = { ...SALES, discounts: 13.5 };
+    renderReport();
+    const sales = within(screen.getByRole('region', { name: 'Sales' }));
+    expect(sales.getByText('Discounts given').nextSibling).toHaveTextContent('−₱13.50');
+    expect(drawerCsv(OPEN, [], [], { ...SALES, discounts: 13.5 })).toContain(
+      '2026-11-08,,Discounts given,Preset discounts,,13.50',
+    );
+    expect(drawerCsv(OPEN, [], [], SALES)).not.toContain('Discounts given');
   });
 
   it('puts the sales in the CSV', () => {

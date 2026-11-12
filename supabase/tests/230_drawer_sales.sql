@@ -71,7 +71,7 @@ select is(
 -- ---- An empty drawer -------------------------------------------------------------------------
 select is(
   pg_temp.report(pg_temp.session()),
-  '{"count": 0, "total": 0, "flagged": [], "methods": [], "salespeople": [], "flaggedCount": 0}'::jsonb,
+  '{"count": 0, "total": 0, "discounts": 0, "flagged": [], "methods": [], "salespeople": [], "flaggedCount": 0}'::jsonb,
   'a drawer with no sales yet: zeros and empty lists'
 );
 
@@ -101,7 +101,7 @@ select is(
 );
 select is(
   pg_temp.report(pg_temp.session()) -> 'salespeople',
-  '[{"name": "Sales", "count": 3, "total": 180.00}, {"name": "Special", "count": 1, "total": 45.00}]'::jsonb,
+  '[{"name": "Sales", "count": 3, "total": 180.00, "discounts": 0.00}, {"name": "Special", "count": 1, "total": 45.00, "discounts": 0.00}]'::jsonb,
   'by salesperson, the biggest first'
 );
 select is(

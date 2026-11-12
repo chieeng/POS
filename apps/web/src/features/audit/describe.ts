@@ -11,6 +11,7 @@ import {
   Package,
   PackagePlus,
   ShieldPlus,
+  Percent,
   Smartphone,
   Tags,
   Truck,
@@ -71,6 +72,26 @@ export const ACTION_LABELS: Record<string, string> = {
   'drawer.cashOut': 'Cash taken out of the drawer',
   'payment.accountCreate': 'GCash/Maya accounts added',
   'payment.accountUpdate': 'GCash/Maya account changes',
+  'discount.create': 'Discounts added',
+  'discount.update': 'Discount changes',
+};
+
+/** "10% off" or "₱5.00 off each", from an audit line's kind and value. */
+const discountAmount = (kind: unknown, value: unknown) =>
+  kind === 'fixed' ? `${formatPeso(Number(value))} off each` : `${Number(value)}% off`;
+
+/** "Every product", "2 categories", "5 products". */
+const discountTarget = (appliesTo: unknown, categoryIds: unknown, productIds: unknown) => {
+  const count = (ids: unknown) => (Array.isArray(ids) ? ids.length : 0);
+  if (appliesTo === 'categories') {
+    const n = count(categoryIds);
+    return `${n} ${n === 1 ? 'category' : 'categories'}`;
+  }
+  if (appliesTo === 'products') {
+    const n = count(productIds);
+    return `${n} ${n === 1 ? 'product' : 'products'}`;
+  }
+  return 'Every product';
 };
 
 /** "GCash", "Maya". */
@@ -529,6 +550,40 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
             ? [status === 'deactivated' ? 'Deactivated' : 'Reactivated']
             : []),
         ].join(' · '),
+      };
+    }
+    case 'discount.create':
+      return {
+        icon: Percent,
+        what: `added discount “${text(after.name)}”`,
+        change: `${discountAmount(after.kind, after.value)} · ${discountTarget(after.appliesTo, after.categoryIds, after.productIds)}`,
+      };
+    case 'discount.update': {
+      const name = text(before.name);
+      const fields = Object.keys(after).filter((key) => key !== 'active');
+      const status =
+        after.active === false ? 'switched off' : after.active === true ? 'switched on' : '';
+      const parts: string[] = [];
+      if ('name' in after) parts.push(`Name: ${text(before.name)} → ${text(after.name)}`);
+      if ('kind' in after || 'value' in after) {
+        parts.push(
+          `Amount: ${discountAmount(before.kind ?? after.kind, before.value ?? after.value)} → ${discountAmount(after.kind ?? before.kind, after.value ?? before.value)}`,
+        );
+      }
+      if ('appliesTo' in after || 'categoryIds' in after || 'productIds' in after) {
+        parts.push(
+          `Applies to: ${discountTarget(after.appliesTo ?? before.appliesTo, after.categoryIds ?? before.categoryIds, after.productIds ?? before.productIds)}`,
+        );
+      }
+      if (status && fields.length > 0)
+        parts.push(status === 'switched off' ? 'Switched off' : 'Switched on');
+      return {
+        icon: Percent,
+        what:
+          status && fields.length === 0
+            ? `${status} discount “${name}”`
+            : `changed discount “${name}”`,
+        change: parts.join(' · '),
       };
     }
     case 'category.update':

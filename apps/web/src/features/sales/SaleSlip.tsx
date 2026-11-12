@@ -98,6 +98,7 @@ export function SaleSlip({ slip, onNewSale }: { slip: Slip; onNewSale: () => voi
                 <span className="text-[12px] text-neutral-700">
                   {formatQty(line.qty)}
                   {isSoldByMeasure(line.unit) ? ` ${line.unit}` : ''} × {formatPeso(line.unitPrice)}
+                  {line.discount && ` · ${line.discount.name} −${formatPeso(line.discount.amount)}`}
                 </span>
               </span>
               <span>{formatPeso(line.total)}</span>
@@ -107,6 +108,9 @@ export function SaleSlip({ slip, onNewSale }: { slip: Slip; onNewSale: () => voi
 
         <dl className="flex flex-col gap-[3px] text-[13.5px]">
           <Row label="Subtotal" value={formatPeso(slip.subtotal)} />
+          {slip.discountTotal > 0 && (
+            <Row label="Discount" value={`−${formatPeso(slip.discountTotal)}`} />
+          )}
           {slip.rounding !== 0 && <Row label="Rounding" value={signed(slip.rounding)} />}
           <Row label="Total" value={formatPeso(slip.total)} strong />
           {slip.vatRate !== null && slip.vatAmount !== null && (

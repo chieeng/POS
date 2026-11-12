@@ -28,6 +28,7 @@ import {
   referenceUsedOnDevice,
   type CheckoutSettings,
   type PaymentEntry,
+  totalsLines,
   type Slip,
   type SoldLine,
 } from './checkout';
@@ -91,11 +92,7 @@ export function PaymentSheet({
     return list.length === 1 ? list[0]!.id : null;
   };
 
-  const exact = saleTotals(
-    lines.map((line) => ({ qty: line.qty, unitPrice: line.product.sellPrice })),
-    [],
-    false,
-  ).subtotal;
+  const exact = saleTotals(totalsLines(lines), [], false).subtotal;
 
   const payments: PaymentEntry[] =
     method === 'cash'
@@ -114,7 +111,7 @@ export function PaymentSheet({
         : [{ method, amount: exact, reference, accountId }];
 
   const totals = saleTotals(
-    lines.map((line) => ({ qty: line.qty, unitPrice: line.product.sellPrice })),
+    totalsLines(lines),
     payments.filter((payment) => payment.amount > 0) as SalePaymentInput[],
     settings.roundCash,
   );
