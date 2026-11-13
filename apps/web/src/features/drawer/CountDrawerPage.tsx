@@ -26,7 +26,7 @@ import {
   type CloseResult,
   type Counts,
 } from './data';
-import { timeLabel } from './format';
+import { shortDay, timeLabel } from './format';
 
 const billLabel = (bill: number) => `₱${bill.toLocaleString('en-PH')}`;
 
@@ -45,19 +45,31 @@ export function CountDrawerPage() {
   const [result, setResult] = useState<CloseResult | null>(null);
   const session = drawer.data?.session ?? null;
   const counted = countedTotal(counts);
+  // Today's open drawer; or, before today's opens, an earlier one never closed (the owner's
+  // decision of Nov 13, 2026).
+  const stale = !session ? (drawer.data?.stale ?? null) : null;
+  const target =
+    session?.status === 'open'
+      ? { id: session.id, day: 'today’s', opened: session }
+      : stale
+        ? { id: stale.id, day: `${shortDay(stale.businessDate)}’s`, opened: null }
+        : null;
 
   const close = async () => {
+    if (!target) return;
     setBusy(true);
     setError(null);
     try {
-      setResult(await closeDrawer(counts, note.trim() || null));
+      setResult(await closeDrawer(counts, note.trim() || null, target.id));
       setConfirming(false);
     } catch (caught) {
       const { message } = (caught ?? {}) as { message?: unknown };
       setError(
-        message === 'drawer_not_open'
-          ? 'No drawer is open any more: someone may have closed it already.'
-          : describeDrawerError(caught),
+        message !== 'drawer_not_open'
+          ? describeDrawerError(caught)
+          : stale
+            ? `Today’s drawer was opened meanwhile, so ${shortDay(stale.businessDate)}’s was closed as not counted.`
+            : 'No drawer is open any more: someone may have closed it already.',
       );
       setConfirming(false);
       drawer.reload();
@@ -80,7 +92,7 @@ export function CountDrawerPage() {
         </p>
       ) : result ? (
         <Revealed result={result} />
-      ) : !session || session.status !== 'open' ? (
+      ) : !target ? (
         <>
           {error && <Alert variant="danger">{error}</Alert>}
           <p className="px-[4px] text-neutral-700">
@@ -120,11 +132,23 @@ export function CountDrawerPage() {
           </ul>
 
           <div className="flex flex-col gap-[10px] md:rounded-[30px] md:bg-neutral-100 md:p-[20px]">
-            <h2 className="hidden text-[20px] md:block">Today’s drawer</h2>
-            <p className="hidden text-[14px] text-neutral-700 md:block">
-              Opened at {timeLabel(session.openedAt)} by {session.openedByName}, with{' '}
-              {formatPeso(session.openingCash)}.
-            </p>
+            <h2 className="hidden text-[20px] md:block first-letter:uppercase">
+              {target.day} drawer
+            </h2>
+            {target.opened ? (
+              <p className="hidden text-[14px] text-neutral-700 md:block">
+                Opened at {timeLabel(target.opened.openedAt)} by {target.opened.openedByName}, with{' '}
+                {formatPeso(target.opened.openingCash)}.
+              </p>
+            ) : (
+              stale && (
+                <Alert variant="info">
+                  The {target.day} drawer was never closed (opened by {stale.openedByName} with{' '}
+                  {formatPeso(stale.openingCash)}). Count it before today’s drawer opens. Sales made
+                  this morning wait for today’s drawer, so keep their cash apart.
+                </Alert>
+              )
+            )}
             <div className="flex justify-between text-[16px] font-bold md:border-t md:border-divider md:pt-[8px]">
               <span>Counted</span>
               <span className="tabular-nums">{formatPeso(counted)}</span>
@@ -161,9 +185,13 @@ export function CountDrawerPage() {
 
       <Dialog open={confirming} onOpenChange={(open) => !open && !busy && setConfirming(false)}>
         <DialogContent>
-          <DialogTitle>Close today’s drawer with {formatPeso(counted)} counted?</DialogTitle>
+          <DialogTitle>
+            Close {target?.day} drawer with {formatPeso(counted)} counted?
+          </DialogTitle>
           <DialogDescription>
-            The count can’t be changed after closing. Later sales go to tomorrow’s drawer.
+            {target?.opened
+              ? 'The count can’t be changed after closing. Later sales go to tomorrow’s drawer.'
+              : 'The count can’t be changed after closing. Then open today’s drawer as usual.'}
           </DialogDescription>
           <DialogActions>
             <DialogClose asChild>
@@ -188,13 +216,13 @@ export function CountDrawerPage() {
 
 /** After closing: what was expected, what was counted, and the exact difference. */
 function Revealed({ result }: { result: CloseResult }) {
-  const { expected, counted, overShort } = result;
+  const { expected, counted, overShort, late, waitingCash } = result;
   const short = overShort < 0;
   const Icon = overShort === 0 ? CircleCheck : short ? CircleMinus : CirclePlus;
   return (
     <div className="flex max-w-[480px] flex-col gap-[8px] text-[15px]">
       <p role="status" className="px-[4px] text-neutral-800">
-        The drawer is closed.
+        {late ? 'The earlier drawer is closed. Open today’s drawer next.' : 'The drawer is closed.'}
       </p>
       <div className="flex justify-between px-[4px]">
         <span>Expected</span>
@@ -220,6 +248,12 @@ function Revealed({ result }: { result: CloseResult }) {
             : `${short ? '−' : '+'}${formatPeso(Math.abs(overShort))}`}
         </span>
       </div>
+      {late && waitingCash > 0 && (
+        <Alert variant="info">
+          {formatPeso(waitingCash)} in cash sales were made today before this count. If that cash is
+          in the drawer, it explains an overage.
+        </Alert>
+      )}
       <Button asChild variant="secondary" size="md" className="mt-[8px] self-start">
         <Link to="/drawer">Done</Link>
       </Button>

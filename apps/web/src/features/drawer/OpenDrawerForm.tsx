@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { formatPeso } from '@/lib/money';
+import { useSession } from '@/stores/session';
 import { describeDrawerError, openDrawer, parsePeso, type DrawerToday } from './data';
 import { dayBefore, shortDay, timeLabel } from './format';
 import { PesoInput } from './PesoInput';
@@ -21,6 +23,9 @@ export function OpenDrawerForm({
   drawer: DrawerToday;
   onOpened: () => void;
 }) {
+  const role = useSession((s) => s.user?.role);
+  // SHIFT-03: only the Owner and Special Sales count a drawer.
+  const canCount = role === 'owner' || role === 'special_sales';
   const last = drawer.lastCount;
   const [amount, setAmount] = useState(last ? plain(last.amount) : '');
   const [reason, setReason] = useState('');
@@ -63,12 +68,25 @@ export function OpenDrawerForm({
         void submit();
       }}
     >
-      {drawer.staleOpen && (
-        <Alert variant="info">
-          An earlier drawer was never counted. Opening today’s closes it as “not counted”, and the
-          Owner sees it on the drawer report.
-        </Alert>
-      )}
+      {drawer.staleOpen &&
+        (drawer.stale && canCount ? (
+          // The owner's decision of Nov 13, 2026: count it first, before today's opens.
+          <Alert variant="warn">
+            <b>{shortDay(drawer.stale.businessDate)}’s drawer was never closed.</b> Count and close
+            it first, before any of today’s cash goes in. If you open today’s drawer now instead, it
+            is closed as “not counted”.
+            <Button asChild variant="secondary" size="md" className="mt-[8px]">
+              <Link to="/drawer/count">
+                Count and close {shortDay(drawer.stale.businessDate)}’s drawer
+              </Link>
+            </Button>
+          </Alert>
+        ) : (
+          <Alert variant="info">
+            An earlier drawer was never counted. Ask the Owner or Special Sales to count it first;
+            opening today’s closes it as “not counted”, and the Owner sees it on the drawer report.
+          </Alert>
+        ))}
       <div className="flex flex-col gap-[6px]">
         <Label htmlFor="opening-cash" className="text-[13px]">
           Opening cash

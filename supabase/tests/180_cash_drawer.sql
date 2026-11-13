@@ -192,7 +192,7 @@ from (
 select tests.as('special');
 select is(
   public.close_drawer('{"1000": 2, "100": 1, "20": 2}', 'Counted twice', 'C3D4'),
-  '{"expected": 2150.00, "counted": 2140.00, "overShort": -10.00}'::jsonb,
+  '{"expected": 2150.00, "counted": 2140.00, "overShort": -10.00, "late": false, "waitingCash": 0.00}'::jsonb,
   'Special Sales counts by denomination; expected and the exact over/short show only now'
 );
 select tests.as_admin();

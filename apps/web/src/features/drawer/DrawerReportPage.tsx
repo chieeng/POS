@@ -42,6 +42,7 @@ import { cn, ICON_STROKE } from '@/lib/utils';
 import { describeDrawerError } from './data';
 import { shortDay, timeLabel } from './format';
 import {
+  countedLater,
   drawerCsv,
   earlierCount,
   expectedFrom,
@@ -221,7 +222,7 @@ function Report({
           value={record.countedCash === null ? '—' : formatPeso(record.countedCash)}
           sub={
             record.status === 'closed'
-              ? `Closed ${record.closedAt ? timeLabel(record.closedAt) : ''} by ${record.closedByName ?? ''}`
+              ? `${countedLater(record.businessDate, record.closedAt) ?? 'Closed'} ${record.closedAt ? timeLabel(record.closedAt) : ''} by ${record.closedByName ?? ''}`
               : record.status === 'not_counted'
                 ? countedBefore
                   ? 'Not counted again after the reopen'

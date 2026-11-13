@@ -4,6 +4,7 @@ import { getDeviceTag } from '@/lib/device';
 import { formatPeso } from '@/lib/money';
 import { supabase } from '@/lib/supabase';
 import { REASON_LABELS, type EntryReason, type EntryType } from './data';
+import { shortDay } from './format';
 
 /** SHIFT-04: one day's drawer, as the Owner reads it (Row Level Security: the Owner only). */
 export interface DrawerRecord {
@@ -323,6 +324,18 @@ export function earlierCount(record: DrawerRecord, events: DrawerEvent[]): strin
 
 const noteOf = (...parts: (string | null)[]) => parts.filter(Boolean).join(' · ');
 
+const manilaDay = (at: Date) => at.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+
+/**
+ * "Counted the next morning (Nov 13)": a drawer counted on a later day than its own, before
+ * that day's drawer opened (the owner's decision of Nov 13, 2026). Null otherwise.
+ */
+export function countedLater(businessDate: string, at: Date | null): string | null {
+  if (!at) return null;
+  const day = manilaDay(at);
+  return day > businessDate ? `Counted the next morning (${shortDay(day)})` : null;
+}
+
 /** "Closed when Test Special 5 opened Nov 13's drawer": who closed it, without counting it. */
 function notCountedNote(record: DrawerRecord): string {
   if (!record.closedByName) return 'Closed when the next drawer opened';
@@ -378,7 +391,11 @@ export function movements(
             at: event.at,
             kind: event.kind,
             type: 'Closed',
-            note: noteOf(closeResult(event.overShort), event.note),
+            note: noteOf(
+              closeResult(event.overShort),
+              countedLater(record.businessDate, event.at),
+              event.note,
+            ),
             by: event.by,
             amount: event.counted,
           },
@@ -390,7 +407,11 @@ export function movements(
       at: record.closedAt,
       kind: 'closed',
       type: 'Closed',
-      note: noteOf(closeResult(record.overShort), record.closingNote),
+      note: noteOf(
+        closeResult(record.overShort),
+        countedLater(record.businessDate, record.closedAt),
+        record.closingNote,
+      ),
       by: record.closedByName ?? '',
       amount: record.countedCash,
     });
