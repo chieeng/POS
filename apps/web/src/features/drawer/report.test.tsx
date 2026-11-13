@@ -281,6 +281,10 @@ describe('the day in order (SHIFT-04)', () => {
       overShort: null,
       closedByName: null,
     };
+    // The By column stays empty: the closing name only opened the next drawer.
+    expect(drawerCsv({ ...notCounted, closedByName: 'Test Special 5' }, ENTRIES)).toContain(
+      "8:06 PM,Not counted,Closed when Test Special 5 opened Nov 1's drawer,,\r\n",
+    );
     expect(drawerCsv(notCounted, ENTRIES)).toMatch(
       /Expected,,,1950\.00\r\n2026-11-01,,Counted,Not counted,,\r\n2026-11-01,,Over\/short,Not counted,,\r\n$/,
     );
@@ -323,7 +327,8 @@ describe('a drawer that was reopened (SHIFT-04)', () => {
       ['Opened', 'Ice before opening', 'Jun', 1800],
       ['Closed', 'Short ₱10.00', 'Maricel', 1140],
       ['Reopened', 'Reason: test reopen', 'Rosario', null],
-      ['Not counted', 'Closed when the next drawer opened', 'Jun', null],
+      // Jun only opened Nov 2's drawer; nobody counted this one (reviewer, Nov 13).
+      ['Not counted', "Closed when Jun opened Nov 2's drawer", '', null],
     ]);
     const csv = drawerCsv(REOPENED, [], EVENTS);
     expect(csv).toContain('2026-11-01,7:33 PM,Closed,Short ₱10.00,Maricel,1140.00');

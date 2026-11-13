@@ -323,6 +323,21 @@ export function earlierCount(record: DrawerRecord, events: DrawerEvent[]): strin
 
 const noteOf = (...parts: (string | null)[]) => parts.filter(Boolean).join(' · ');
 
+/** "Closed when Test Special 5 opened Nov 13's drawer": who closed it, without counting it. */
+function notCountedNote(record: DrawerRecord): string {
+  if (!record.closedByName) return 'Closed when the next drawer opened';
+  const day = record.closedAt
+    ? record.closedAt.toLocaleDateString('en-PH', {
+        timeZone: 'Asia/Manila',
+        month: 'short',
+        day: 'numeric',
+      })
+    : null;
+  return day
+    ? `Closed when ${record.closedByName} opened ${day}'s drawer`
+    : `Closed when ${record.closedByName} opened the next drawer`;
+}
+
 /**
  * The day in time order, as the report's table and the CSV show it: every close and reopen
  * included, so a count that a reopen set aside stays visible.
@@ -384,8 +399,9 @@ export function movements(
       at: record.closedAt,
       kind: 'not_counted',
       type: 'Not counted',
-      note: 'Closed when the next drawer opened',
-      by: record.closedByName ?? '',
+      // Nobody counted it: the person named here only opened the next day's drawer.
+      note: notCountedNote(record),
+      by: '',
       amount: null,
     });
   }
