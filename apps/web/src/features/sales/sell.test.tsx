@@ -86,6 +86,7 @@ const OPEN: DrawerToday = {
   },
   lastCount: null,
   staleOpen: false,
+  stale: null,
 };
 
 function signInAs(uid = 'u1') {

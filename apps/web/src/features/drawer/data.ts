@@ -29,6 +29,11 @@ export interface DrawerToday {
   lastCount: LastCount | null;
   /** A drawer from an earlier day is still open; opening today's closes it as not counted. */
   staleOpen: boolean;
+  /**
+   * That earlier drawer: the Owner or Special Sales may count and close it before today's opens
+   * (the owner's decision of Nov 13, 2026).
+   */
+  stale: { id: string; businessDate: string; openedByName: string; openingCash: number } | null;
 }
 
 type Json = Record<string, unknown>;
@@ -40,6 +45,7 @@ export function toDrawerToday(raw: unknown): DrawerToday {
   const data = asObject(raw) ?? {};
   const session = asObject(data.session);
   const last = asObject(data.lastCount);
+  const stale = asObject(data.stale);
   return {
     today: String(data.today ?? ''),
     session: session
@@ -62,6 +68,14 @@ export function toDrawerToday(raw: unknown): DrawerToday {
         }
       : null,
     staleOpen: data.staleOpen === true,
+    stale: stale
+      ? {
+          id: String(stale.id),
+          businessDate: String(stale.business_date),
+          openedByName: String(stale.opened_by_name ?? ''),
+          openingCash: Number(stale.opening_cash ?? 0),
+        }
+      : null,
   };
 }
 
@@ -198,20 +212,32 @@ export interface CloseResult {
   expected: number;
   counted: number;
   overShort: number;
+  /** Counted on a later day than the drawer's own (an overnight count). */
+  late: boolean;
+  /** Today's cash sales made before that count, waiting for today's drawer. */
+  waitingCash: number;
 }
 
 /**
- * SHIFT-03: the Owner or Special Sales closes today's drawer with the count. Expected cash
- * and the over/short come back only now: the count is blind.
+ * SHIFT-03: the Owner or Special Sales closes a drawer with the count: today's, or an earlier
+ * one still open (sessionId), which the server refuses once it is no longer open. Expected
+ * cash and the over/short come back only now: the count is blind.
  */
-export async function closeDrawer(counts: Counts, note: string | null): Promise<CloseResult> {
+export async function closeDrawer(
+  counts: Counts,
+  note: string | null,
+  sessionId: string,
+): Promise<CloseResult> {
   const result = await call<Json>('close_drawer', {
     p_counts: Object.fromEntries(DENOMINATIONS.map((bill) => [String(bill), counts[bill]])),
     p_note: note,
+    p_session_id: sessionId,
   });
   return {
     expected: Number(result.expected),
     counted: Number(result.counted),
     overShort: Number(result.overShort),
+    late: result.late === true,
+    waitingCash: Number(result.waitingCash ?? 0),
   };
 }

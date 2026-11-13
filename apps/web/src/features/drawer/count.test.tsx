@@ -67,6 +67,7 @@ beforeEach(() => {
     },
     lastCount: null,
     staleOpen: false,
+    stale: null,
   };
   signInAs('special_sales');
 });
@@ -121,6 +122,7 @@ describe('counting by denomination, blind (SHIFT-03)', () => {
     expect(called('close_drawer')[0]?.args).toEqual({
       p_counts: { 1000: 2, 500: 0, 200: 0, 100: 1, 50: 0, 20: 2, 10: 0, 5: 0, 1: 0 },
       p_note: 'Counted twice',
+      p_session_id: 'd1',
       p_device_tag: 'C3D4',
     });
     expect(await screen.findByText('The drawer is closed.')).toBeInTheDocument();
@@ -156,5 +158,68 @@ describe('counting by denomination, blind (SHIFT-03)', () => {
     server.today = { ...server.today, session: null };
     renderAt(<CountDrawerPage />);
     expect(await screen.findByText(/There is no open drawer to count/)).toBeInTheDocument();
+  });
+});
+
+describe('a drawer left open overnight (the owner’s decision, Nov 13, 2026)', () => {
+  const STALE = {
+    id: 'd0',
+    business_date: '2026-10-31',
+    opened_by_name: 'Jun Reyes',
+    opening_cash: 1000,
+  };
+
+  beforeEach(() => {
+    server.today = { ...server.today, session: null, staleOpen: true, stale: STALE };
+  });
+
+  it('Special Sales may count it before today’s opens', async () => {
+    renderAt(<DrawerPage />);
+    expect(await screen.findByText('Oct 31’s drawer was never closed.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Count and close Oct 31’s drawer' })).toHaveAttribute(
+      'href',
+      '/drawer/count',
+    );
+  });
+
+  it('Sales are told to ask the Owner or Special Sales', async () => {
+    signInAs('sales');
+    renderAt(<DrawerPage />);
+    expect(
+      await screen.findByText(/Ask the Owner or Special Sales to count it first/),
+    ).toBeVisible();
+    expect(screen.queryByRole('link', { name: /Count and close/ })).toBeNull();
+  });
+
+  it('counts that drawer by its id, then names this morning’s waiting cash', async () => {
+    server.close = { expected: 1000, counted: 1045, overShort: 45, late: true, waitingCash: 45 };
+    const user = renderAt(<CountDrawerPage />);
+    expect(await screen.findByText(/The Oct 31’s drawer was never closed/)).toBeInTheDocument();
+    await user.type(screen.getByRole('spinbutton', { name: 'Number of ₱1,000' }), '1');
+    await user.click(screen.getByRole('button', { name: 'Close drawer' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText('Close Oct 31’s drawer with ₱1,000.00 counted?')).toBeInTheDocument();
+    await user.click(dialog.getByRole('button', { name: 'Close drawer' }));
+    expect(called('close_drawer')[0]?.args).toMatchObject({ p_session_id: 'd0' });
+    expect(
+      await screen.findByText('The earlier drawer is closed. Open today’s drawer next.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/₱45.00 in cash sales were made today before this count/),
+    ).toBeInTheDocument();
+  });
+
+  it('explains when today’s drawer was opened meanwhile', async () => {
+    server.failWith = 'drawer_not_open';
+    const user = renderAt(<CountDrawerPage />);
+    await user.click(await screen.findByRole('button', { name: 'Close drawer' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: 'Close drawer' }),
+    );
+    expect(
+      await screen.findByText(
+        'Today’s drawer was opened meanwhile, so Oct 31’s was closed as not counted.',
+      ),
+    ).toBeInTheDocument();
   });
 });

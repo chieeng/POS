@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DrawerReportPage } from './DrawerReportPage';
 import {
+  countedLater,
   drawerCsv,
   earlierCount,
   expectedFrom,
@@ -254,6 +255,15 @@ describe('the day in order (SHIFT-04)', () => {
       cashSales: 0,
       expected: 1950,
     });
+  });
+
+  it('says when a drawer was counted the next morning (Nov 13)', () => {
+    const late = { ...CLOSED, closedAt: new Date('2026-11-02T07:40:00+08:00') };
+    expect(movements(late, []).at(-1)).toMatchObject({
+      type: 'Closed',
+      note: 'Short ₱20.00 · Counted the next morning (Nov 2) · One coin under the tray',
+    });
+    expect(countedLater('2026-11-01', new Date('2026-11-01T20:06:00+08:00'))).toBeNull();
   });
 
   it('marks a drawer nobody counted', () => {
