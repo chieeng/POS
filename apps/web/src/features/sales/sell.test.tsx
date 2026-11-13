@@ -247,6 +247,19 @@ describe('the cart (POS-02)', () => {
     expect(within(cartPanel()).getByRole('button', { name: 'Pay ₱45.00' })).toBeEnabled();
   });
 
+  test('after the cart is emptied, the first tap only adds; the sheet stays shut (reviewer, Nov 13)', async () => {
+    const user = renderSell();
+    await user.click(screen.getByRole('button', { name: /Chips Classic/ }));
+    await user.click(screen.getByRole('button', { name: /1 item · ₱45.00/ }));
+    const sheet = within(screen.getByRole('dialog'));
+    await user.click(sheet.getByRole('button', { name: 'Remove Chips Classic' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /Chips Classic/ }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('button', { name: /1 item · ₱45.00/ })).toBeInTheDocument();
+  });
+
   test('the count is items, not lines: 2 packs are 2 items (reviewer, Nov 8)', async () => {
     const user = renderSell();
     await user.click(screen.getByRole('button', { name: /Chips Classic/ }));

@@ -115,6 +115,9 @@ export function SellPage() {
 
   const tap = (product: Product) => {
     if (!user) return;
+    // The first item of a new cart only adds; the cart sheet stays shut until staff open it
+    // (it may still be marked open from the last cart, emptied or paid from the sheet).
+    if (lines.length === 0) setCartOpen(false);
     if (isSoldByMeasure(product.unit)) setWeighing(product);
     else cart.add(user.uid, product);
   };
@@ -167,6 +170,7 @@ export function SellPage() {
         slip={slip}
         onNewSale={() => {
           setSlip(null);
+          setCartOpen(false);
           changeSearch('');
         }}
       />
