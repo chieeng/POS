@@ -206,6 +206,20 @@ export function watchOutboxItem(
   return () => subscription.unsubscribe();
 }
 
+/**
+ * This user's sales still on this device (waiting, or refused for good), live, oldest first:
+ * sales history shows them until the server has them.
+ */
+export function watchOutboxSales(uid: string, onChange: (items: OutboxItem[]) => void): () => void {
+  if (typeof indexedDB === 'undefined') return () => undefined;
+  const subscription = liveQuery(async () =>
+    (await open().items.where('uid').equals(uid).sortBy('madeAt')).filter(
+      (item) => item.kind === 'sale',
+    ),
+  ).subscribe({ next: onChange, error: () => undefined });
+  return () => subscription.unsubscribe();
+}
+
 /** This user's items not on the server yet: while there are any, they may not sign out. */
 export async function countWaiting(uid: string): Promise<number> {
   if (typeof indexedDB === 'undefined') return 0;

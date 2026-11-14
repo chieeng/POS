@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Package,
   PackagePlus,
+  ReceiptText,
   Send,
   Settings,
   ShoppingCart,
@@ -86,6 +87,13 @@ export function navItems(role: Role, pending: number): NavItem[] {
   const built: Partial<Record<NavKey, Omit<NavItem, 'key'>>> = {
     home: { to: ROLE_HOME.owner, label: 'Dashboard', short: 'Home', icon: LayoutDashboard },
     sell: { to: '/sell', label: 'Sell', short: 'Sell', icon: ShoppingCart },
+    // Staff see their own sales of the last 30 days; the Owner sees everyone's.
+    sales: {
+      to: '/sales',
+      label: role === 'owner' ? 'Sales history' : 'My sales',
+      short: 'Sales',
+      icon: ReceiptText,
+    },
     approvals: {
       to: '/approvals',
       label: 'Approvals',
@@ -106,9 +114,9 @@ export function navItems(role: Role, pending: number): NavItem[] {
     settings: { to: '/settings', label: 'Settings', short: 'Settings', icon: Settings },
   };
   const available: Record<Role, readonly NavKey[]> = {
-    owner: ['home', 'sell', 'approvals', 'products', 'stockIn', 'drawer', 'settings'],
-    special_sales: ['sell', 'products', 'stockIn', 'drawer', 'requests'],
-    sales: ['sell', 'products', 'drawer'],
+    owner: ['home', 'sell', 'sales', 'approvals', 'products', 'stockIn', 'drawer', 'settings'],
+    special_sales: ['sell', 'sales', 'products', 'stockIn', 'drawer', 'requests'],
+    sales: ['sell', 'sales', 'products', 'drawer'],
   };
   return NAV_ORDER[role]
     .filter((key) => available[role].includes(key) && built[key])

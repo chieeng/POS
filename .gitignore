@@ -42,3 +42,6 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Local copy of the design files (never committed)
+.design-local/
