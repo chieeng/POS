@@ -28,6 +28,8 @@ describe('design tokens', () => {
   it('lime is the money color in both themes, and only money buttons use it', () => {
     const css = readFileSync(join(SRC, 'styles', 'index.css'), 'utf8');
     expect(css.match(/--color-money: #c6f03a;/g)).toHaveLength(3);
+    // Nothing else in the theme is lime: the accent scale is grey-to-ink.
+    expect(css.match(/#c6f03a/g)).toHaveLength(3);
     const users = sourceFiles(SRC)
       .filter((file) => /bg-money\b|variant="money"/.test(readFileSync(file, 'utf8')))
       .map((file) => file.slice(SRC.length + 1).replaceAll('\\', '/'))
