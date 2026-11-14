@@ -104,8 +104,18 @@ laptops. Roles: owner, special_sales, sales.
   No secrets, passwords, one-time links, design link or project ID in the block. At the end of
   a step, the hand-off includes the full "Test hand-off" checklist.
 
-- Pace: don't start a new PR while 2 or more of Claude's PRs are waiting to be merged. Stop,
-  give the reviewer hand-off, and wait for the owner.
+- Every hand-off (Test, Re-test, Reviewer) is written as ONE paste-ready prompt addressed to
+  the reviewer: who they are and their job ("You are reviewing… guide me, the owner…"), the
+  background, the PRs, the steps in order, the checks with expected results, what is known
+  and expected, and what to report back (pass or fail per check, plus a short message for the
+  developer). One prompt may carry both the reviewer and the test parts.
+- Two Claude sessions work on this repo: the "POS project continuation" session builds the
+  system (the build order, features, database, behaviour); the design session does design
+  changes and design fixes only (tokens, components' look, restyling screens to their canvas
+  boards). Each keeps to its own part, works in its own git worktree, and branches from
+  `origin/dev`.
+- Pace: don't start a new PR while 2 or more of Claude's PRs (from either session) are waiting
+  to be merged. Stop, give the reviewer hand-off, and wait for the owner.
 - On this Windows setup long Bash heredocs break: write long files with the Write tool, and
   check that a failed command left no partial changes.
 
