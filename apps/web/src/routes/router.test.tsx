@@ -107,10 +107,19 @@ test.each([
   expect(router.state.location.pathname).toBe(path);
 });
 
-test.each(['/sales', '/special-sales'])('the old staff home %s now opens Sell', async (path) => {
+test('the old staff home /special-sales now opens Sell', async () => {
   useSession.setState({ status: 'signedIn', user: userWith('sales') });
-  const router = renderAt(path);
+  const router = renderAt('/special-sales');
   await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sell'));
+});
+
+test.each([
+  ['sales', 'My sales'],
+  ['owner', 'Sales history'],
+] as const)('/sales opens sales history for %s', async (role, heading) => {
+  useSession.setState({ status: 'signedIn', user: userWith(role) });
+  renderAt('/sales');
+  expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
 });
 
 test('the Owner can sell too', async () => {

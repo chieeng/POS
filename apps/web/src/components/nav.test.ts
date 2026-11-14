@@ -14,6 +14,7 @@ describe('navItems', () => {
     expect(keys(navItems('owner', 0))).toEqual([
       'home',
       'sell',
+      'sales',
       'approvals',
       'products',
       'stockIn',
@@ -22,13 +23,23 @@ describe('navItems', () => {
     ]);
     expect(keys(navItems('special_sales', 0))).toEqual([
       'sell',
+      'sales',
       'products',
       'stockIn',
       'drawer',
       'requests',
     ]);
     // SRS 6.1: Sales can view products and stock levels.
-    expect(keys(navItems('sales', 0))).toEqual(['sell', 'products', 'drawer']);
+    expect(keys(navItems('sales', 0))).toEqual(['sell', 'sales', 'products', 'drawer']);
+  });
+
+  it('names sales history by role: everyone’s for the Owner, their own for staff', () => {
+    expect(navItems('owner', 0).find((i) => i.key === 'sales')).toMatchObject({
+      to: '/sales',
+      label: 'Sales history',
+    });
+    expect(navItems('sales', 0).find((i) => i.key === 'sales')?.label).toBe('My sales');
+    expect(navItems('special_sales', 0).find((i) => i.key === 'sales')?.label).toBe('My sales');
   });
 
   it('Sell is the same page for every role', () => {
@@ -45,11 +56,13 @@ describe('navItems', () => {
 
 describe('phoneNav', () => {
   it('shows every item and no More while five fit', () => {
-    // The Owner has six with the drawer: see the next tests.
-    for (const role of ['special_sales', 'sales'] as const) {
-      const items = navItems(role, 0);
-      expect(phoneNav(role, items)).toEqual({ bar: items, more: [] });
-    }
+    // Sales has four; the Owner and Special Sales have more: see the next tests.
+    const items = navItems('sales', 0);
+    expect(phoneNav('sales', items)).toEqual({ bar: items, more: [] });
+    // Special Sales' six: the design's priority (Sell, Products, Sales), then Stock-in, and More.
+    const special = phoneNav('special_sales', navItems('special_sales', 0));
+    expect(keys(special.bar)).toEqual(['sell', 'products', 'sales', 'stockIn']);
+    expect(keys(special.more)).toEqual(['drawer', 'requests']);
   });
 
   it('keeps the design priority four plus More past five items', () => {

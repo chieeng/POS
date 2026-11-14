@@ -22,6 +22,8 @@ import { CountDrawerPage } from '@/features/drawer/CountDrawerPage';
 import { DrawerPage } from '@/features/drawer/DrawerPage';
 import { DrawerReportPage } from '@/features/drawer/DrawerReportPage';
 import { HomePage } from '@/features/home/HomePage';
+import { SaleDetailPage } from '@/features/sales/SaleDetailPage';
+import { SalesHistoryPage } from '@/features/sales/SalesHistoryPage';
 import { SellPage } from '@/features/sales/SellPage';
 import { SettingsLayout } from '@/features/settings/SettingsLayout';
 import { AddUserPage } from '@/features/users/AddUserPage';
@@ -104,7 +106,8 @@ export const routes: RouteObject[] = [
           { path: '/sell', element: <SellPage /> },
           // The staff homes before build step 9, kept for bookmarks and installed apps.
           { path: '/special-sales', element: <Navigate to="/sell" replace /> },
-          { path: '/sales', element: <Navigate to="/sell" replace /> },
+          { path: '/sales', element: <SalesHistoryPage /> },
+          { path: '/sales/:saleId', element: <SaleDetailPage /> },
           {
             element: <RequireRole role="special_sales" />,
             children: [{ path: '/requests', element: <MyRequestsPage /> }],
