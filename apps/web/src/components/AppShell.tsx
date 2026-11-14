@@ -224,7 +224,7 @@ export function AppShell() {
                     count={badge}
                     className={cn(
                       'hidden h-[22px] min-w-[22px] px-[7px] text-[12px] xl:grid',
-                      isActive && 'bg-bg text-accent-800',
+                      isActive && 'bg-bg text-text',
                     )}
                   />
                 </>
@@ -307,7 +307,7 @@ export function AppShell() {
 function tabClass(active: boolean) {
   return cn(
     'flex flex-1 flex-col items-center justify-center gap-[3px] text-[11.5px] no-underline',
-    active ? 'font-bold text-accent-800' : 'text-neutral-800',
+    active ? 'font-bold text-text' : 'text-neutral-800',
   );
 }
 
@@ -326,8 +326,8 @@ function TabContent({
     <>
       <span
         className={cn(
-          'relative grid h-[30px] w-[56px] place-items-center rounded-full',
-          active && 'bg-accent-200',
+          'relative grid h-[30px] w-[56px] place-items-center rounded-[9px]',
+          active && 'bg-text text-bg',
         )}
       >
         <Icon size={19} strokeWidth={ICON_STROKE} aria-hidden />

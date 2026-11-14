@@ -4,8 +4,8 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 
-// The light theme's background (src/styles/index.css).
-const BG = '#f5ead8';
+// The light theme's page colour (src/styles/index.css), used for the installed app's bars.
+const BG = '#eef0eb';
 
 export default defineConfig({
   plugins: [

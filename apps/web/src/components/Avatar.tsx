@@ -6,7 +6,7 @@ export function Avatar({ name, className }: { name: string; className?: string }
     <span
       aria-hidden
       className={cn(
-        'grid size-[36px] flex-none place-items-center rounded-full bg-accent-2-300 text-[13px] font-bold text-accent-2-900',
+        'grid size-[36px] flex-none place-items-center rounded-full bg-neutral-300 text-[13px] font-bold text-text',
         className,
       )}
     >

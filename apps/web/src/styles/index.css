@@ -2,7 +2,7 @@
  * "Price card and peso note" tokens: the look the owner approved on Nov 13, 2026 (SRS 7.2).
  * Token names are kept from the first (Organic) theme so every screen follows without edits:
  *   --color-accent      the ink used for primary actions, selection and focus
- *   --color-accent-*    the lime "price card" family (tints, link text)
+ *   --color-accent-*    grey-to-ink tints (selected states, link text); never lime
  *   --color-accent-2-*  the green used for good states (online, saved, approved)
  *   --color-money       lime, only on actions that move money (Pay, Complete sale, Open drawer,
  *                       Close drawer); see the `money` Button variant
@@ -31,15 +31,15 @@
   --color-neutral-800: #343a33;
   --color-neutral-900: #1f231f;
 
-  --color-accent-100: #f4fcd9;
-  --color-accent-200: #e8f8b4;
-  --color-accent-300: #d6f37a;
-  --color-accent-400: #c6f03a;
-  --color-accent-500: #a8d11f;
-  --color-accent-600: #7fa112;
-  --color-accent-700: #3e5a00;
-  --color-accent-800: #2e4300;
-  --color-accent-900: #1f2d00;
+  --color-accent-100: #eceee9;
+  --color-accent-200: #dfe2db;
+  --color-accent-300: #c9cec5;
+  --color-accent-400: #9ea69b;
+  --color-accent-500: #6f776d;
+  --color-accent-600: #4a5249;
+  --color-accent-700: #2b302a;
+  --color-accent-800: #1f231f;
+  --color-accent-900: #121412;
 
   --color-accent-2-100: #e1f4c3;
   --color-accent-2-200: #cde9a3;
@@ -142,15 +142,15 @@
     --color-neutral-700: #a3aca1;
     --color-neutral-800: #c9d0c6;
     --color-neutral-900: #e3e8e0;
-    --color-accent-100: #1f2d00;
-    --color-accent-200: #2e4300;
-    --color-accent-300: #3e5a00;
-    --color-accent-400: #7fa112;
-    --color-accent-500: #a8d11f;
-    --color-accent-600: #c6f03a;
-    --color-accent-700: #d6f37a;
-    --color-accent-800: #e8f8b4;
-    --color-accent-900: #f4fcd9;
+    --color-accent-100: #1f231f;
+    --color-accent-200: #2a2f2a;
+    --color-accent-300: #3f463f;
+    --color-accent-400: #5e665d;
+    --color-accent-500: #7f887e;
+    --color-accent-600: #a3aca1;
+    --color-accent-700: #c9d0c6;
+    --color-accent-800: #e3e8e0;
+    --color-accent-900: #f2f5ef;
     --color-accent-2-100: #24330c;
     --color-accent-2-200: #2f4512;
     --color-accent-2-300: #44641a;
@@ -193,15 +193,15 @@
   --color-neutral-700: #a3aca1;
   --color-neutral-800: #c9d0c6;
   --color-neutral-900: #e3e8e0;
-  --color-accent-100: #1f2d00;
-  --color-accent-200: #2e4300;
-  --color-accent-300: #3e5a00;
-  --color-accent-400: #7fa112;
-  --color-accent-500: #a8d11f;
-  --color-accent-600: #c6f03a;
-  --color-accent-700: #d6f37a;
-  --color-accent-800: #e8f8b4;
-  --color-accent-900: #f4fcd9;
+  --color-accent-100: #1f231f;
+  --color-accent-200: #2a2f2a;
+  --color-accent-300: #3f463f;
+  --color-accent-400: #5e665d;
+  --color-accent-500: #7f887e;
+  --color-accent-600: #a3aca1;
+  --color-accent-700: #c9d0c6;
+  --color-accent-800: #e3e8e0;
+  --color-accent-900: #f2f5ef;
   --color-accent-2-100: #24330c;
   --color-accent-2-200: #2f4512;
   --color-accent-2-300: #44641a;
