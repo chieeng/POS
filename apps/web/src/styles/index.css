@@ -3,7 +3,8 @@
  * Token names are kept from the first (Organic) theme so every screen follows without edits:
  *   --color-accent      the ink used for primary actions, selection and focus
  *   --color-accent-*    grey-to-ink tints (selected states, link text); never lime
- *   --color-accent-2-*  the green used for good states (online, saved, approved)
+ *   --color-accent-2-*  the status green for good states (online, saved, approved): a true
+ *                       green, kept clearly apart from the lime money colour
  *   --color-money       lime, only on actions that move money (Pay, Complete sale, Open drawer,
  *                       Close drawer); see the `money` Button variant
  * The same variables drive the Tailwind theme, so `bg-accent-200` is var(--color-accent-200).
@@ -18,7 +19,7 @@
   --color-surface: #ffffff;
   --color-text: #121412;
   --color-accent: #121412;
-  --color-accent-2: #5c8a1e;
+  --color-accent-2: #2f8745;
   --color-divider: color-mix(in srgb, #121412 13%, transparent);
 
   --color-neutral-100: #f6f7f4;
@@ -41,15 +42,15 @@
   --color-accent-800: #1f231f;
   --color-accent-900: #121412;
 
-  --color-accent-2-100: #e1f4c3;
-  --color-accent-2-200: #cde9a3;
-  --color-accent-2-300: #b3d97a;
-  --color-accent-2-400: #93c24f;
-  --color-accent-2-500: #74a52e;
-  --color-accent-2-600: #5c8a1e;
-  --color-accent-2-700: #446a12;
-  --color-accent-2-800: #2f4a00;
-  --color-accent-2-900: #1e3000;
+  --color-accent-2-100: #ddf3e1;
+  --color-accent-2-200: #c3e8ca;
+  --color-accent-2-300: #9dd6a8;
+  --color-accent-2-400: #6fbf7f;
+  --color-accent-2-500: #45a35a;
+  --color-accent-2-600: #2f8745;
+  --color-accent-2-700: #226a35;
+  --color-accent-2-800: #174f27;
+  --color-accent-2-900: #0e331a;
 
   /* Lime is for money actions only. */
   --color-money: #c6f03a;
@@ -131,7 +132,7 @@
     --color-surface: #181b18;
     --color-text: #edf1e9;
     --color-accent: #edf1e9;
-    --color-accent-2: #93c24f;
+    --color-accent-2: #5baa70;
     --color-divider: rgba(237, 241, 233, 0.13);
     --color-neutral-100: #141714;
     --color-neutral-200: #1f231f;
@@ -151,15 +152,15 @@
     --color-accent-700: #c9d0c6;
     --color-accent-800: #e3e8e0;
     --color-accent-900: #f2f5ef;
-    --color-accent-2-100: #24330c;
-    --color-accent-2-200: #2f4512;
-    --color-accent-2-300: #44641a;
-    --color-accent-2-400: #5c8a1e;
-    --color-accent-2-500: #74a52e;
-    --color-accent-2-600: #93c24f;
-    --color-accent-2-700: #b3d97a;
-    --color-accent-2-800: #d2f28a;
-    --color-accent-2-900: #eaf8cc;
+    --color-accent-2-100: #13281a;
+    --color-accent-2-200: #1a3a24;
+    --color-accent-2-300: #245032;
+    --color-accent-2-400: #2f6b42;
+    --color-accent-2-500: #3f8a55;
+    --color-accent-2-600: #5baa70;
+    --color-accent-2-700: #84c796;
+    --color-accent-2-800: #a9ddb6;
+    --color-accent-2-900: #d3f0da;
     --color-money: #c6f03a;
     --color-on-money: #0e100e;
     --color-danger: #ff6a52;
@@ -182,7 +183,7 @@
   --color-surface: #181b18;
   --color-text: #edf1e9;
   --color-accent: #edf1e9;
-  --color-accent-2: #93c24f;
+  --color-accent-2: #5baa70;
   --color-divider: rgba(237, 241, 233, 0.13);
   --color-neutral-100: #141714;
   --color-neutral-200: #1f231f;
@@ -202,15 +203,15 @@
   --color-accent-700: #c9d0c6;
   --color-accent-800: #e3e8e0;
   --color-accent-900: #f2f5ef;
-  --color-accent-2-100: #24330c;
-  --color-accent-2-200: #2f4512;
-  --color-accent-2-300: #44641a;
-  --color-accent-2-400: #5c8a1e;
-  --color-accent-2-500: #74a52e;
-  --color-accent-2-600: #93c24f;
-  --color-accent-2-700: #b3d97a;
-  --color-accent-2-800: #d2f28a;
-  --color-accent-2-900: #eaf8cc;
+  --color-accent-2-100: #13281a;
+  --color-accent-2-200: #1a3a24;
+  --color-accent-2-300: #245032;
+  --color-accent-2-400: #2f6b42;
+  --color-accent-2-500: #3f8a55;
+  --color-accent-2-600: #5baa70;
+  --color-accent-2-700: #84c796;
+  --color-accent-2-800: #a9ddb6;
+  --color-accent-2-900: #d3f0da;
   --color-money: #c6f03a;
   --color-on-money: #0e100e;
   --color-danger: #ff6a52;

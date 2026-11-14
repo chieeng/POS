@@ -4,8 +4,11 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 
-// The light theme's page colour (src/styles/index.css), used for the installed app's bars.
-const BG = '#eef0eb';
+// The installed app's own colour. Android paints the strip under the bottom menu (the gesture
+// bar) from it, and a manifest holds one colour for both themes, so it is the dark page colour
+// (src/styles/index.css): it matches dark mode and reads as the usual black gesture bar in light
+// mode. The status bar at the top follows the page through the theme-color tags in index.html.
+const BG = '#0e100e';
 
 export default defineConfig({
   plugins: [
