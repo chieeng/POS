@@ -635,7 +635,7 @@ function CartContents({
             {formatPeso(totalCents / 100)}
           </span>
         </div>
-        <Button className="min-h-[56px] w-full text-[20px]" onClick={onPay}>
+        <Button variant="money" className="min-h-[56px] w-full text-[20px]" onClick={onPay}>
           Pay {formatPeso(totalCents / 100)}
         </Button>
       </div>

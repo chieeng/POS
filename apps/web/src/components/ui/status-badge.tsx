@@ -6,7 +6,7 @@ import { cn, ICON_STROKE } from '@/lib/utils';
 export type StatusTone = 'ok' | 'warn' | 'danger' | 'pending' | 'accent';
 
 const badgeVariants = cva(
-  'inline-flex items-center gap-[5px] rounded-full px-[10px] py-[3px] text-[12px] font-bold whitespace-nowrap',
+  'inline-flex items-center gap-[5px] rounded-[6px] px-[10px] py-[3px] text-[12px] font-bold whitespace-nowrap',
   {
     variants: {
       tone: {

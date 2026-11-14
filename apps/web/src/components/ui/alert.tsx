@@ -5,7 +5,7 @@ import * as React from 'react';
 import { cn, ICON_STROKE } from '@/lib/utils';
 
 const alertVariants = cva(
-  'flex items-start gap-[10px] rounded-[20px] px-4 py-3 text-[14px] leading-[1.4]',
+  'flex items-start gap-[10px] rounded-[12px] px-4 py-3 text-[14px] leading-[1.4]',
   {
     variants: {
       variant: {
@@ -13,7 +13,7 @@ const alertVariants = cva(
         warn: 'bg-warn-bg text-warn-fg',
         offline: 'bg-pending-bg text-pending-fg',
         // A neutral notice, e.g. "This will be sent to the Owner for approval."
-        info: 'rounded-[22px] bg-neutral-200 text-text',
+        info: 'bg-neutral-200 text-text',
       },
     },
     defaultVariants: { variant: 'danger' },
@@ -60,7 +60,7 @@ export function AlertAction({
     <Comp
       type={asChild ? undefined : type}
       className={cn(
-        'inline-flex min-h-11 items-center gap-1.5 rounded-full border border-current px-4 font-body text-[14px] font-bold text-current no-underline hover:bg-text/7 disabled:cursor-not-allowed disabled:opacity-45',
+        'inline-flex min-h-11 items-center gap-1.5 rounded-[12px] border border-current px-4 font-body text-[14px] font-bold text-current no-underline hover:bg-text/7 disabled:cursor-not-allowed disabled:opacity-45',
         className,
       )}
       {...props}

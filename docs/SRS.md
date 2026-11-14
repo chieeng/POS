@@ -367,7 +367,7 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 | Layer | Choice |
 | --- | --- |
 | Frontend | React 18 + TypeScript, Vite, React Router |
-| UI | React + Tailwind v4 + shadcn/ui-style Radix components, themed to the Organic design system (lucide-react, strokeWidth 2.75); responsive layouts for phone, tablet and laptop |
+| UI | React + Tailwind v4 + shadcn/ui-style Radix components, themed to the approved "price card and peso note" look (7.2; lucide-react, strokeWidth 2.75); responsive layouts for phone, tablet and laptop |
 | Data | `supabase-js` through a small live-list hook (`useLiveRows`: load the rows, then load them again when Supabase Realtime reports a change) for live stock and approvals; Zustand for cart and session |
 | Forms | React Hook Form + Zod |
 | Offline / install | `vite-plugin-pwa`; IndexedDB (Dexie) for the cached product list and the outbox of sales and clock-ins. The cached product and category lists belong to the signed-in user and are cleared on sign-out, deactivation and "sign out everywhere" (never cost prices) |
@@ -388,14 +388,16 @@ A React PWA talks to Supabase through `supabase-js`. Reads go through RLS; anyth
 
 ### 7.2 UI design
 
-The UI reference is the Claude Design project **POS checkout and navigation design** (in the developer's Claude Design account; the link is not published here because the repository is public), built on the design system **Organic**. UI stack: React + Tailwind v4 + shadcn/ui-style Radix components, themed to the Organic design system (lucide-react, strokeWidth 2.75). The app ports the design's tokens and rebuilds its components; it never loads the design's `_ds_bundle.js` or its CSS classes.
+The UI reference is the design canvas **POS redesign proposal** (a private claude.ai artifact in the developer's account; the link is not published here because the repository is public). The owner approved its look on Nov 13, 2026; it replaces the first look, the **Organic** design system of the Claude Design project **POS checkout and navigation design**, which stays only as the record of what each screen holds. UI stack: React + Tailwind v4 + shadcn/ui-style Radix components, themed with the tokens in `apps/web/src/styles/index.css` (lucide-react, strokeWidth 2.75). The app ports the canvas's tokens and rebuilds its components; it never loads the canvas's files.
+
+**The look, "price card and peso note".** A cool shelf-grey page, black ink and white panels; one lime "price card" colour, used only for actions that move money (Pay, Complete sale, Open drawer, Close drawer: the `money` button); peso-bill colours (₱1000 blue, ₱500 yellow, ₱200 green, ₱100 mauve, ₱50 red, ₱20 orange) only where cash is counted or handed over; one typeface, Archivo (bundled), wide and heavy for headings and amounts; corners of 6 to 12 px instead of pills; light for the shop floor, dark for evenings.
 
 **Rule.** This SRS and the build order decide *what* the app does; the design decides *how it looks*. Where a design shows different behavior, the app follows the SRS and styles it with the design.
 
 - **Design-only features are not built** unless the developer adds them to this SRS: email two-step codes and "trust this device", staff PIN unlock, approving from the notification, the live attendance map, photos on adjustment requests, drawer over/short tolerance, a default credit limit, signing out one device, keyboard shortcuts, the Light/Dark/Auto setting, offline stock-ins, the tablet rail's "expand menu" toggle, the Notifications settings tab and the "Date received" field on stock-in.
 - **What the app has and the design lacks is kept:** backups, add user, password reset link, the stock-in list, receipt, corrections and history, the photo panel, CSV export, product edit, withdrawing a request, and Sign out in the menu.
 - Product list rows show the product photo when there is one, otherwise the category icon. Every list loads in pages and ends with "Load more" and "Showing N of M" (the count comes with the first page; a slow list such as stock history may use an estimated count).
-- Order: the build order above. Every screen built or changed from step 6 on follows its design file; existing screens are restyled when a step touches them, and the rest in step 15.
+- Order: the build order above. The shared tokens and components took the new look in one change (Nov 2026); each screen is then restyled to its canvas board when a step touches it, and the rest in step 15.
 - Navigation: items a role can't use, or that aren't built yet, are hidden. On phones the bottom bar shows up to five items; past five it keeps the role's four most-used (Owner: Home, Sell, Approvals, Inventory; Special Sales: Sell, Inventory, Sales, Customers; Sales: Sell, Sales, Customers, Drawer) plus More, which holds the rest and Sign out. Products and Stock-in stay separate menu items until the Inventory screens are restyled, then become one Inventory item. Sales keeps Products in the menu (6.1: Sales views products and stock), although the design hides it.
 - The connection indicator shows Online, Offline, or the number of changes waiting to sync. "Working locally" wording waits for the offline outbox (the first part of build step 9).
 
@@ -403,19 +405,22 @@ The UI reference is the Claude Design project **POS checkout and navigation desi
 
 | Item | Standard |
 | --- | --- |
-| Dialogs and sheets | Page background (`--color-bg`), not surface; scrim black at 55% in both themes; dialog radius 32.2 px, bottom sheet top radius 32 px |
+| Dialogs and sheets | Page background (`--color-bg`), not surface; scrim black at 55% in both themes; dialog radius 12 px, bottom sheet top radius 20 px |
 | Field labels | 13 px |
-| Inputs on phone and tablet forms | 48 px tall, 15 px text |
-| Buttons | 44 px for row and toolbar actions, 56 px for the main action at the bottom of a phone screen |
-| Filter chips | 40 px |
-| Status badges | 12 px bold, 3 × 10 px padding, icon and words together; pending is neutral-300 / 900 |
-| Tags (role, Draft) | 11 px bold |
-| Cards | 24 px radius for list cards, 32.2 px for panels and tables |
+| Inputs on phone and tablet forms | 48 px tall, 15 px text, 12 px radius |
+| Buttons | 44 px for row and toolbar actions, 56 px for the main action at the bottom of a phone screen; 12 px radius; the main action is ink, except money actions, which are lime |
+| Filter chips | 40 px, 10 px radius; the chosen chip is ink |
+| Status badges | 12 px bold, 3 × 10 px padding, 6 px radius, icon and words together; pending is pending-bg / pending-fg |
+| Tags (role, Draft) | 11 px bold, 6 px radius |
+| Cards | 12 px radius for list cards, panels and tables |
+| Amounts | Archivo wide and heavy (`font-heading`), tabular figures |
 | Empty and error states | 110 px icon circle on a full page, 96 px inside a panel |
 | Loading placeholders | Static bars: neutral-300 and neutral-200 on cards, surface and neutral-200 on the page |
-| Dark mode | The design's shared dark palette (already in `index.css`); the different neutrals in two checkout mock-ups are ignored |
+| Dark mode | The canvas's dark palette (in `index.css`), following the device setting |
 
-Its screen files and the build step each belongs to:
+The canvas boards, by screen: Sell, cart, payment and slip (phone and laptop); cash drawer (open, blind count, result, laptop); dashboard; phone navigation by role and the More sheet; sign-in and the Owner's code; my sales and sale detail; inventory and the product page; customers and the ledger; approvals; reports; settings (discounts and deals). Each is drawn light and dark. Not drawn yet: utang payment, stock-in, attendance and clock-in, payroll, users and devices; until they are, those screens follow the drawn ones.
+
+The first look's screen files (Organic) and the build step each belongs to, kept as the record of what each screen holds:
 
 | Screen file | Build step |
 | --- | --- |

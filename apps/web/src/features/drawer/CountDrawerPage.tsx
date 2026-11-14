@@ -173,6 +173,7 @@ export function CountDrawerPage() {
             {error && <Alert variant="danger">{error}</Alert>}
             <Button
               needsInternet
+              variant="money"
               className="min-h-[54px] w-full text-[18px]"
               disabled={busy}
               onClick={() => setConfirming(true)}
@@ -201,6 +202,7 @@ export function CountDrawerPage() {
             </DialogClose>
             <Button
               needsInternet
+              variant="money"
               className="min-h-[46px] px-[22px]"
               disabled={busy}
               onClick={() => void close()}

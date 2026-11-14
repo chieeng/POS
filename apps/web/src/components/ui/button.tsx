@@ -5,11 +5,13 @@ import { useOnline } from '@/hooks/useOnline';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-1.5 rounded-full border border-transparent font-heading text-[14px] leading-[1.2] text-text no-underline disabled:cursor-not-allowed disabled:opacity-45',
+  'inline-flex items-center justify-center gap-1.5 rounded-[12px] border border-transparent font-body text-[14px] font-bold leading-[1.2] text-text no-underline disabled:cursor-not-allowed disabled:opacity-45',
   {
     variants: {
       variant: {
-        primary: 'bg-accent text-bg hover:bg-accent-600 active:bg-accent-700',
+        primary: 'bg-accent text-bg hover:bg-accent/88 active:bg-accent/78',
+        // Lime, only for actions that move money: Pay, Complete sale, Open and Close drawer.
+        money: 'bg-money text-on-money font-extrabold hover:brightness-95 active:brightness-90',
         secondary: 'border-divider hover:bg-text/7 active:bg-text/14',
         ghost: 'text-accent hover:bg-accent/10 active:bg-accent/18',
         // Secondary with red text, for Reject. Quiet buttons take `text-danger-fg` instead.

@@ -515,6 +515,7 @@ export function PaymentSheet({
           </Alert>
         )}
         <Button
+          variant="money"
           className="min-h-[58px] w-full text-[20px]"
           disabled={busy || lines.length === 0}
           onClick={() => void complete()}

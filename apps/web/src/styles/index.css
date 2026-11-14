@@ -1,76 +1,91 @@
 /*
- * Organic design system tokens, ported from the design project's styles.css.
- * Token names match the design (--color-*, --font-*, --radius-*, --shadow-*), and the
- * same variables drive the Tailwind theme, so `bg-accent-200` is var(--color-accent-200).
+ * "Price card and peso note" tokens: the look the owner approved on Nov 13, 2026 (SRS 7.2).
+ * Token names are kept from the first (Organic) theme so every screen follows without edits:
+ *   --color-accent      the ink used for primary actions, selection and focus
+ *   --color-accent-*    the lime "price card" family (tints, link text)
+ *   --color-accent-2-*  the green used for good states (online, saved, approved)
+ *   --color-money       lime, only on actions that move money (Pay, Complete sale, Open drawer,
+ *                       Close drawer); see the `money` Button variant
+ * The same variables drive the Tailwind theme, so `bg-accent-200` is var(--color-accent-200).
  */
 @import 'tailwindcss';
 
 @theme static {
-  /* Only the design's palette exists; Tailwind's default colors are removed. */
+  /* Only this palette exists; Tailwind's default colors are removed. */
   --color-*: initial;
 
-  --color-bg: #f5ead8;
-  --color-surface: #ebddc5;
-  --color-text: #201e1d;
-  --color-accent: #c67139;
-  --color-accent-2: #7a8a5e;
-  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+  --color-bg: #eef0eb;
+  --color-surface: #ffffff;
+  --color-text: #121412;
+  --color-accent: #121412;
+  --color-accent-2: #5c8a1e;
+  --color-divider: color-mix(in srgb, #121412 13%, transparent);
 
-  --color-neutral-100: #f9f4ed;
-  --color-neutral-200: #eee7db;
-  --color-neutral-300: #dcd3c4;
-  --color-neutral-400: #c0b6a5;
-  --color-neutral-500: #a19786;
-  --color-neutral-600: #82796a;
-  --color-neutral-700: #645c50;
-  --color-neutral-800: #474238;
-  --color-neutral-900: #2e2b25;
+  --color-neutral-100: #f6f7f4;
+  --color-neutral-200: #e9ece6;
+  --color-neutral-300: #dce0d8;
+  --color-neutral-400: #c3c9bf;
+  --color-neutral-500: #9ea69b;
+  --color-neutral-600: #7a8277;
+  --color-neutral-700: #4a5249;
+  --color-neutral-800: #343a33;
+  --color-neutral-900: #1f231f;
 
-  --color-accent-100: #fff2eb;
-  --color-accent-200: #ffe1d0;
-  --color-accent-300: #ffc6a5;
-  --color-accent-400: #f6a06b;
-  --color-accent-500: #d67f48;
-  --color-accent-600: #b2622d;
-  --color-accent-700: #8c491a;
-  --color-accent-800: #643312;
-  --color-accent-900: #402310;
+  --color-accent-100: #f4fcd9;
+  --color-accent-200: #e8f8b4;
+  --color-accent-300: #d6f37a;
+  --color-accent-400: #c6f03a;
+  --color-accent-500: #a8d11f;
+  --color-accent-600: #7fa112;
+  --color-accent-700: #3e5a00;
+  --color-accent-800: #2e4300;
+  --color-accent-900: #1f2d00;
 
-  --color-accent-2-100: #f0fae1;
-  --color-accent-2-200: #e1eecc;
-  --color-accent-2-300: #ccdbb2;
-  --color-accent-2-400: #aebf92;
-  --color-accent-2-500: #8fa073;
-  --color-accent-2-600: #728157;
-  --color-accent-2-700: #56633f;
-  --color-accent-2-800: #3d472b;
-  --color-accent-2-900: #272e1b;
+  --color-accent-2-100: #e1f4c3;
+  --color-accent-2-200: #cde9a3;
+  --color-accent-2-300: #b3d97a;
+  --color-accent-2-400: #93c24f;
+  --color-accent-2-500: #74a52e;
+  --color-accent-2-600: #5c8a1e;
+  --color-accent-2-700: #446a12;
+  --color-accent-2-800: #2f4a00;
+  --color-accent-2-900: #1e3000;
 
-  /* Status colors used by the screens (the design names them --danger, --warn-bg, ...). */
-  --color-danger: #b23a28;
-  --color-danger-bg: #f6d6cc;
-  --color-danger-fg: #8e2a1c;
-  --color-warn-bg: #f8e6bf;
-  --color-warn-fg: #5e410a;
-  --color-pending-bg: #dcd3c4;
-  --color-pending-fg: #2e2b25;
+  /* Lime is for money actions only. */
+  --color-money: #c6f03a;
+  --color-on-money: #121412;
 
-  --font-heading: 'Caprasimo', system-ui, sans-serif;
-  --font-body: 'Figtree', system-ui, sans-serif;
-  --font-sans: 'Figtree', system-ui, sans-serif;
+  /* Status colors used by the screens. */
+  --color-danger: #c2321c;
+  --color-danger-bg: #fde0d9;
+  --color-danger-fg: #8c1d0e;
+  --color-warn-bg: #ffedc2;
+  --color-warn-fg: #6a4600;
+  --color-pending-bg: #dfe2db;
+  --color-pending-fg: #2b302a;
+
+  /* One family: Archivo. Headings and amounts use it wide and heavy. */
+  --font-heading: 'Archivo Variable', system-ui, sans-serif;
+  --font-heading--font-variation-settings: 'wdth' 125, 'wght' 800;
+  --font-body: 'Archivo Variable', system-ui, sans-serif;
+  --font-sans: 'Archivo Variable', system-ui, sans-serif;
 
   /* Density 1.10x: p-1 = 4.4px, p-2 = 8.8px, p-4 = 17.6px, matching --space-1..8. */
   --spacing: 4.4px;
 
-  --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 28px;
-  /* Cards and dialogs: calc(var(--radius-lg) * 1.15). */
-  --radius-card: 32.2px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  /* Cards, panels and dialogs. */
+  --radius-card: 12px;
 
-  --shadow-sm: 0 1px 2px color-mix(in srgb, #2e2b25 14%, transparent);
-  --shadow-md: 0 3px 10px color-mix(in srgb, #2e2b25 16%, transparent);
-  --shadow-lg: 0 12px 32px color-mix(in srgb, #2e2b25 22%, transparent);
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #121412 10%, transparent);
+  --shadow-md:
+    0 2px 4px color-mix(in srgb, #121412 8%, transparent),
+    0 6px 16px color-mix(in srgb, #121412 10%, transparent);
+  --shadow-lg:
+    0 2px 4px color-mix(in srgb, #121412 8%, transparent),
+    0 12px 32px color-mix(in srgb, #121412 16%, transparent);
 
   /* Behind dialogs and sheets: black at 55% in both themes (SRS 7.2). */
   --color-scrim: rgb(0 0 0 / 0.55);
@@ -79,8 +94,8 @@
   --color-overlay-edge: transparent;
 }
 
-/* shadcn/ui semantic names, mapped onto the design tokens. Note that `accent` here is the
-   design's terracotta brand color, not shadcn's hover tint. */
+/* shadcn/ui semantic names, mapped onto the tokens. `accent` here is the ink of primary
+   actions, not shadcn's hover tint. */
 @theme inline {
   --color-background: var(--color-bg);
   --color-foreground: var(--color-text);
@@ -106,105 +121,109 @@
 }
 
 /*
- * Dark mode. Follows the device setting unless data-theme is set on <html>.
+ * Dark mode, for evenings. Follows the device setting unless data-theme is set on <html>.
  * The two blocks below must stay identical.
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --color-bg: #1c1a17;
-    --color-surface: #2a2722;
-    --color-text: #f2e8d8;
-    --color-accent: #d67f48;
-    --color-accent-2: #8fa073;
-    --color-divider: rgba(242, 232, 216, 0.14);
-    --color-neutral-100: #24211d;
-    --color-neutral-200: #2f2b26;
-    --color-neutral-300: #3a362f;
-    --color-neutral-400: #645c50;
-    --color-neutral-500: #82796a;
-    --color-neutral-600: #a19786;
-    --color-neutral-700: #c0b6a5;
-    --color-neutral-800: #dcd3c4;
-    --color-neutral-900: #eee7db;
-    --color-accent-100: #402310;
-    --color-accent-200: #643312;
-    --color-accent-300: #8c491a;
-    --color-accent-400: #b2622d;
-    --color-accent-500: #d67f48;
-    --color-accent-600: #f6a06b;
-    --color-accent-700: #ffc6a5;
-    --color-accent-800: #ffe1d0;
-    --color-accent-900: #fff2eb;
-    --color-accent-2-100: #272e1b;
-    --color-accent-2-200: #3d472b;
-    --color-accent-2-300: #56633f;
-    --color-accent-2-400: #728157;
-    --color-accent-2-500: #8fa073;
-    --color-accent-2-600: #aebf92;
-    --color-accent-2-700: #ccdbb2;
-    --color-accent-2-800: #e1eecc;
-    --color-accent-2-900: #f0fae1;
-    --color-danger: #e0694f;
-    --color-danger-bg: #4d1d15;
-    --color-danger-fg: #f4b3a3;
-    --color-warn-bg: #4a3610;
-    --color-warn-fg: #f6d58a;
-    --color-pending-bg: #3a362f;
-    --color-pending-fg: #eee7db;
-    --shadow-sm: 0 0 0 1px rgba(242, 232, 216, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 0 0 1px rgba(242, 232, 216, 0.06), 0 4px 12px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 0 0 1px rgba(242, 232, 216, 0.08), 0 14px 36px rgba(0, 0, 0, 0.6);
-    --color-overlay-edge: rgba(242, 232, 216, 0.22);
+    --color-bg: #0e100e;
+    --color-surface: #181b18;
+    --color-text: #edf1e9;
+    --color-accent: #edf1e9;
+    --color-accent-2: #93c24f;
+    --color-divider: rgba(237, 241, 233, 0.13);
+    --color-neutral-100: #141714;
+    --color-neutral-200: #1f231f;
+    --color-neutral-300: #2a2f2a;
+    --color-neutral-400: #3f463f;
+    --color-neutral-500: #5e665d;
+    --color-neutral-600: #7f887e;
+    --color-neutral-700: #a3aca1;
+    --color-neutral-800: #c9d0c6;
+    --color-neutral-900: #e3e8e0;
+    --color-accent-100: #1f2d00;
+    --color-accent-200: #2e4300;
+    --color-accent-300: #3e5a00;
+    --color-accent-400: #7fa112;
+    --color-accent-500: #a8d11f;
+    --color-accent-600: #c6f03a;
+    --color-accent-700: #d6f37a;
+    --color-accent-800: #e8f8b4;
+    --color-accent-900: #f4fcd9;
+    --color-accent-2-100: #24330c;
+    --color-accent-2-200: #2f4512;
+    --color-accent-2-300: #44641a;
+    --color-accent-2-400: #5c8a1e;
+    --color-accent-2-500: #74a52e;
+    --color-accent-2-600: #93c24f;
+    --color-accent-2-700: #b3d97a;
+    --color-accent-2-800: #d2f28a;
+    --color-accent-2-900: #eaf8cc;
+    --color-money: #c6f03a;
+    --color-on-money: #0e100e;
+    --color-danger: #ff6a52;
+    --color-danger-bg: #3e140d;
+    --color-danger-fg: #ffb2a3;
+    --color-warn-bg: #3a2b06;
+    --color-warn-fg: #ffd47a;
+    --color-pending-bg: #2c312b;
+    --color-pending-fg: #dde3d8;
+    --shadow-sm: 0 0 0 1px rgba(237, 241, 233, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 0 0 1px rgba(237, 241, 233, 0.06), 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 0 0 1px rgba(237, 241, 233, 0.08), 0 14px 36px rgba(0, 0, 0, 0.6);
+    --color-overlay-edge: rgba(237, 241, 233, 0.2);
   }
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --color-bg: #1c1a17;
-  --color-surface: #2a2722;
-  --color-text: #f2e8d8;
-  --color-accent: #d67f48;
-  --color-accent-2: #8fa073;
-  --color-divider: rgba(242, 232, 216, 0.14);
-  --color-neutral-100: #24211d;
-  --color-neutral-200: #2f2b26;
-  --color-neutral-300: #3a362f;
-  --color-neutral-400: #645c50;
-  --color-neutral-500: #82796a;
-  --color-neutral-600: #a19786;
-  --color-neutral-700: #c0b6a5;
-  --color-neutral-800: #dcd3c4;
-  --color-neutral-900: #eee7db;
-  --color-accent-100: #402310;
-  --color-accent-200: #643312;
-  --color-accent-300: #8c491a;
-  --color-accent-400: #b2622d;
-  --color-accent-500: #d67f48;
-  --color-accent-600: #f6a06b;
-  --color-accent-700: #ffc6a5;
-  --color-accent-800: #ffe1d0;
-  --color-accent-900: #fff2eb;
-  --color-accent-2-100: #272e1b;
-  --color-accent-2-200: #3d472b;
-  --color-accent-2-300: #56633f;
-  --color-accent-2-400: #728157;
-  --color-accent-2-500: #8fa073;
-  --color-accent-2-600: #aebf92;
-  --color-accent-2-700: #ccdbb2;
-  --color-accent-2-800: #e1eecc;
-  --color-accent-2-900: #f0fae1;
-  --color-danger: #e0694f;
-  --color-danger-bg: #4d1d15;
-  --color-danger-fg: #f4b3a3;
-  --color-warn-bg: #4a3610;
-  --color-warn-fg: #f6d58a;
-  --color-pending-bg: #3a362f;
-  --color-pending-fg: #eee7db;
-  --shadow-sm: 0 0 0 1px rgba(242, 232, 216, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 0 0 1px rgba(242, 232, 216, 0.06), 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 0 0 1px rgba(242, 232, 216, 0.08), 0 14px 36px rgba(0, 0, 0, 0.6);
-  --color-overlay-edge: rgba(242, 232, 216, 0.22);
+  --color-bg: #0e100e;
+  --color-surface: #181b18;
+  --color-text: #edf1e9;
+  --color-accent: #edf1e9;
+  --color-accent-2: #93c24f;
+  --color-divider: rgba(237, 241, 233, 0.13);
+  --color-neutral-100: #141714;
+  --color-neutral-200: #1f231f;
+  --color-neutral-300: #2a2f2a;
+  --color-neutral-400: #3f463f;
+  --color-neutral-500: #5e665d;
+  --color-neutral-600: #7f887e;
+  --color-neutral-700: #a3aca1;
+  --color-neutral-800: #c9d0c6;
+  --color-neutral-900: #e3e8e0;
+  --color-accent-100: #1f2d00;
+  --color-accent-200: #2e4300;
+  --color-accent-300: #3e5a00;
+  --color-accent-400: #7fa112;
+  --color-accent-500: #a8d11f;
+  --color-accent-600: #c6f03a;
+  --color-accent-700: #d6f37a;
+  --color-accent-800: #e8f8b4;
+  --color-accent-900: #f4fcd9;
+  --color-accent-2-100: #24330c;
+  --color-accent-2-200: #2f4512;
+  --color-accent-2-300: #44641a;
+  --color-accent-2-400: #5c8a1e;
+  --color-accent-2-500: #74a52e;
+  --color-accent-2-600: #93c24f;
+  --color-accent-2-700: #b3d97a;
+  --color-accent-2-800: #d2f28a;
+  --color-accent-2-900: #eaf8cc;
+  --color-money: #c6f03a;
+  --color-on-money: #0e100e;
+  --color-danger: #ff6a52;
+  --color-danger-bg: #3e140d;
+  --color-danger-fg: #ffb2a3;
+  --color-warn-bg: #3a2b06;
+  --color-warn-fg: #ffd47a;
+  --color-pending-bg: #2c312b;
+  --color-pending-fg: #dde3d8;
+  --shadow-sm: 0 0 0 1px rgba(237, 241, 233, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 0 0 1px rgba(237, 241, 233, 0.06), 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 0 0 1px rgba(237, 241, 233, 0.08), 0 14px 36px rgba(0, 0, 0, 0.6);
+  --color-overlay-edge: rgba(237, 241, 233, 0.2);
 }
 
 @layer base {
@@ -219,8 +238,9 @@
     color: var(--color-text);
     font-family: var(--font-body);
     font-size: 15px;
-    line-height: 1.55;
+    line-height: 1.5;
     font-weight: 400;
+    font-variant-numeric: tabular-nums;
   }
   h1,
   h2,
@@ -229,21 +249,23 @@
   h5,
   h6 {
     font-family: var(--font-heading);
-    font-weight: 400;
-    line-height: 1.12;
-    letter-spacing: -0.015em;
+    font-variation-settings:
+      'wdth' 125,
+      'wght' 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
   }
   h1 {
-    font-size: 42px;
+    font-size: 30px;
   }
   h2 {
-    font-size: 32px;
+    font-size: 24px;
   }
   h3 {
-    font-size: 25px;
+    font-size: 20px;
   }
   h4 {
-    font-size: 20px;
+    font-size: 17px;
   }
   a {
     color: var(--color-accent-700);
@@ -260,6 +282,7 @@
     outline-offset: 2px;
   }
   ::selection {
-    background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    background: var(--color-money);
+    color: var(--color-on-money);
   }
 }

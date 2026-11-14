@@ -25,6 +25,22 @@ describe('design tokens', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('lime is the money color in both themes, and only money buttons use it', () => {
+    const css = readFileSync(join(SRC, 'styles', 'index.css'), 'utf8');
+    expect(css.match(/--color-money: #c6f03a;/g)).toHaveLength(3);
+    const users = sourceFiles(SRC)
+      .filter((file) => /bg-money\b|variant="money"/.test(readFileSync(file, 'utf8')))
+      .map((file) => file.slice(SRC.length + 1).replaceAll('\\', '/'))
+      .sort();
+    expect(users).toEqual([
+      'components/ui/button.tsx',
+      'features/drawer/CountDrawerPage.tsx',
+      'features/drawer/OpenDrawerForm.tsx',
+      'features/sales/PaymentSheet.tsx',
+      'features/sales/SellPage.tsx',
+    ]);
+  });
+
   it('the scrim and the dialog edge are tokens, and dark mode draws the edge', () => {
     const css = readFileSync(join(SRC, 'styles', 'index.css'), 'utf8');
     expect(css).toMatch(/--color-scrim: rgb\(0 0 0 \/ 0\.55\);/);
