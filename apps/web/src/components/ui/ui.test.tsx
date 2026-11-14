@@ -110,7 +110,7 @@ describe('Sheet', () => {
     setWide(false);
     render(<Demo />);
     const dialog = screen.getByRole('dialog', { name: 'Adjust stock' });
-    expect(dialog.className).toContain('rounded-t-[32px]');
+    expect(dialog.className).toContain('rounded-t-[20px]');
     expect(dialog.className).toContain('bg-bg');
   });
 
@@ -119,7 +119,7 @@ describe('Sheet', () => {
     render(<Demo />);
     const dialog = screen.getByRole('dialog', { name: 'Adjust stock' });
     expect(dialog.className).toContain('rounded-card');
-    expect(dialog.className).not.toContain('rounded-t-[32px]');
+    expect(dialog.className).not.toContain('rounded-t-[20px]');
   });
 });
 

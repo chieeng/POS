@@ -50,7 +50,7 @@ export function FilterChip({
       aria-pressed={menu ? undefined : selected}
       onClick={clearable ? () => onClear() : onClick}
       className={cn(
-        'flex h-10 flex-none items-center gap-1.5 rounded-full px-[14px] text-[14px] whitespace-nowrap',
+        'flex h-10 flex-none items-center gap-1.5 rounded-[10px] px-[14px] text-[14px] whitespace-nowrap',
         selected
           ? 'bg-text font-semibold text-bg'
           : 'border border-divider hover:bg-text/7 active:bg-text/14',

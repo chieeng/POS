@@ -64,7 +64,7 @@ export function ConnectionPill({ variant, pending = 0, className }: ConnectionPi
     <div
       role="status"
       className={cn(
-        'flex items-center rounded-full font-semibold',
+        'flex items-center rounded-[8px] font-semibold',
         sidebar
           ? 'min-h-[36px] gap-2 px-3 text-[12.5px]'
           : 'h-[30px] gap-1.5 px-[11px] text-[12px]',

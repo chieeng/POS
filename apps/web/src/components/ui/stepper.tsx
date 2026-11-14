@@ -2,7 +2,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { Minus, Plus } from 'lucide-react';
 import { cn, ICON_STROKE } from '@/lib/utils';
 
-const stepperVariants = cva('flex items-center justify-between rounded-full', {
+const stepperVariants = cva('flex items-center justify-between rounded-[12px]', {
   variants: {
     size: {
       default: 'h-11 w-[130px] border border-divider px-1 text-[16px] font-bold',
@@ -48,7 +48,7 @@ export function Stepper({
 }: StepperProps) {
   const set = (next: number) => onChange(Math.min(max, Math.max(min, next)));
   const buttonClass = cn(
-    'grid flex-none place-items-center rounded-full hover:bg-text/7 active:bg-text/14 disabled:cursor-not-allowed disabled:opacity-45',
+    'grid flex-none place-items-center rounded-[10px] hover:bg-text/7 active:bg-text/14 disabled:cursor-not-allowed disabled:opacity-45',
     buttonSizes[size ?? 'default'],
   );
   const iconSize = size === 'lg' ? 18 : 15;

@@ -24,18 +24,23 @@ laptops. Roles: owner, special_sales, sales.
 ## Design rule
 
 - The SRS decides WHAT the app does: behaviour, rules, permissions, money.
-- The Claude Design file decides HOW it looks: layout, components, colours, wording style.
+- The design canvas decides HOW it looks: layout, components, colours, wording style. Since
+  Nov 13, 2026 that is the approved "price card and peso note" canvas (SRS 7.2); the old
+  Organic design project is kept only as the record of what each screen holds.
+- Lime is for money actions only (the `money` button: Pay, Complete sale, Open drawer, Close
+  drawer). Every other main action is ink (`primary`).
 - A feature the design shows but the SRS doesn't have is not built (design-only features are
   listed in SRS 7.2).
 - When the design implements one of our features differently from the SRS (behaviour, role,
   rule), follow the SRS and keep the design's look. List each difference in the PR; ask the
   owner only when it involves money or daily workflow.
-- Every screen built or changed follows its design file and uses `components/ui` with the
+- Every screen built or changed follows its canvas board and uses `components/ui` with the
   SRS 7.2 standard values and design tokens only (Tailwind's default colours don't exist in
-  this theme). If a screen has no design file, follow the existing Organic components and say
-  where you guessed.
-- Read the screen's design file (and Nav for navigation) before any screen work. The design
-  project is READ ONLY: never edit it. Where it is and how to reach it is in CLAUDE.local.md.
+  this theme). If a screen has no board yet, follow the drawn screens and say where you
+  guessed.
+- Read the screen's canvas board (and the navigation boards) before any screen work. Where the
+  canvas and the old project are, and how to reach them, is in CLAUDE.local.md. Only change the
+  canvas when the owner asks for a design change; the old Organic project is READ ONLY.
 
 ## Way of working
 

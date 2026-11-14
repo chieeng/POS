@@ -142,7 +142,7 @@ export function OpenDrawerForm({
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      <Button needsInternet type="submit" size="lg" disabled={busy}>
+      <Button needsInternet type="submit" variant="money" size="lg" disabled={busy}>
         {busy ? 'Opening…' : 'Open drawer'}
       </Button>
       {last && difference !== 0 && (

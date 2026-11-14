@@ -25,7 +25,7 @@ export function Segmented<T extends string>({
       role="radiogroup"
       aria-label={label}
       className={cn(
-        'flex overflow-hidden rounded-full border border-divider',
+        'flex overflow-hidden rounded-[10px] border border-divider',
         disabled && 'opacity-45',
         className,
       )}

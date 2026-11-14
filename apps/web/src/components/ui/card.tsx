@@ -7,7 +7,7 @@ const cardVariants = cva('flex flex-col', {
   variants: {
     size: {
       // List items and phone sections.
-      default: 'gap-2 rounded-[24px] px-[14px] py-3',
+      default: 'gap-2 rounded-card px-[14px] py-3',
       // Tables and laptop containers.
       panel: 'rounded-card px-5 py-2',
     },
