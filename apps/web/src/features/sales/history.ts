@@ -73,7 +73,16 @@ export interface SaleDetail {
     reference: string | null;
     accountLabel: string | null;
   }[];
+  /** 'ok', or why a void can't be asked for now (POS-10). */
+  voidable: Voidable;
+  /** How it was voided, when it was. */
+  void: { at: Date; by: string; reason: string; refundReference: string | null } | null;
+  /** A void request still waiting for the Owner: the caller's own, or anyone's for the Owner. */
+  pendingVoid: { id: string; mine: boolean; reason: string } | null;
 }
+
+export type Voidable = 'ok' | 'sale_not_completed' | 'drawer_waiting' | 'drawer_closed';
+const VOIDABLE: Voidable[] = ['ok', 'sale_not_completed', 'drawer_waiting', 'drawer_closed'];
 
 type Json = Record<string, unknown>;
 
@@ -147,6 +156,26 @@ export function toSaleDetail(raw: unknown): SaleDetail {
       reference: text(p.reference),
       accountLabel: text(p.accountLabel),
     })),
+    voidable: VOIDABLE.includes(s.voidable as Voidable)
+      ? (s.voidable as Voidable)
+      : 'drawer_closed',
+    void:
+      s.void && typeof s.void === 'object'
+        ? {
+            at: new Date(String((s.void as Json).at)),
+            by: String((s.void as Json).by ?? ''),
+            reason: String((s.void as Json).reason ?? ''),
+            refundReference: text((s.void as Json).refundReference),
+          }
+        : null,
+    pendingVoid:
+      s.pendingVoid && typeof s.pendingVoid === 'object'
+        ? {
+            id: String((s.pendingVoid as Json).id),
+            mine: (s.pendingVoid as Json).mine === true,
+            reason: String((s.pendingVoid as Json).reason ?? ''),
+          }
+        : null,
   };
 }
 

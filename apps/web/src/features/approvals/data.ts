@@ -5,15 +5,15 @@ import { STOCK_FRACTIONAL, type Product } from '@/features/catalog/data';
 import { deletePhotoFiles } from '@/features/catalog/photos';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
-export type RequestType = 'product_edit' | 'stock_adjustment' | 'stock_in_correction';
+export type RequestType = 'product_edit' | 'stock_adjustment' | 'stock_in_correction' | 'sale_void';
 
 /** SRS 3.9: one approval request. */
 export interface ApprovalRequest {
   id: string;
   type: RequestType;
-  /** The product (product_edit, stock_adjustment) or stock-in (stock_in_correction). */
+  /** The product (product_edit, stock_adjustment), stock-in (stock_in_correction) or sale (sale_void). */
   targetId: string;
-  /** The product, for the types that target one; empty for a stock-in correction. */
+  /** The product, for the types that target one; empty otherwise. */
   productId: string;
   /** The requested fields as they were when the request was made. */
   before: Record<string, unknown>;
@@ -33,13 +33,18 @@ type Row = Record<string, unknown>;
 const toObject = (value: unknown): Record<string, unknown> =>
   typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
 
-const TYPES: RequestType[] = ['product_edit', 'stock_adjustment', 'stock_in_correction'];
+const TYPES: RequestType[] = [
+  'product_edit',
+  'stock_adjustment',
+  'stock_in_correction',
+  'sale_void',
+];
 
 const toRequest = (row: Row): ApprovalRequest => ({
   id: String(row.id ?? ''),
   type: TYPES.includes(row.type as RequestType) ? (row.type as RequestType) : 'product_edit',
   targetId: String(row.target_id ?? ''),
-  productId: row.target_type === 'stock_receipt' ? '' : String(row.target_id ?? ''),
+  productId: row.target_type === 'product' ? String(row.target_id ?? '') : '',
   before: toObject(row.before),
   after: toObject(row.after),
   reason: String(row.reason ?? ''),
@@ -146,9 +151,28 @@ export const requestProductChange = (
 
 export const withdrawRequest = (id: string) => call('withdraw_request', { p_id: id });
 
-/** APPR-03, APPR-04: the Owner approves (applies the change) or rejects, with a note. */
-export const decideApproval = (id: string, approve: boolean, note: string) =>
-  call('decide_approval', { p_id: id, p_approve: approve, p_note: note.trim() || null });
+/**
+ * APPR-03, APPR-04: the Owner approves (applies the change) or rejects, with a note. Approving a
+ * void of a sale paid partly by GCash or Maya takes the reference of the refund sent (POS-10).
+ */
+export const decideApproval = (
+  id: string,
+  approve: boolean,
+  note: string,
+  refundReference: string | null = null,
+) =>
+  call('decide_approval', {
+    p_id: id,
+    p_approve: approve,
+    p_note: note.trim() || null,
+    p_refund_reference: refundReference?.trim() || null,
+  });
+
+/** What a void request gives back: cash out of today's drawer, GCash/Maya sent by the Owner. */
+export const voidRefund = (request: ApprovalRequest) => ({
+  cash: Number(request.after.cash ?? 0),
+  ewallet: Number(request.after.ewallet ?? 0),
+});
 
 /**
  * After a product change request is closed, deletes the photo files nothing shows any more:
@@ -174,6 +198,8 @@ export function describeApprovalError(error: unknown): string {
       return 'You already have a pending request for this product. Withdraw it first to make a new one.';
     case 'request_outdated':
       return 'This changed since the request was made, so it can only be rejected.';
+    case 'refund_reference_required':
+      return 'Type the reference of the GCash or Maya refund you sent.';
     case 'stock_negative':
       return 'Approving this would take stock below zero. Reject it, or adjust the stock first.';
     case 'request_closed':

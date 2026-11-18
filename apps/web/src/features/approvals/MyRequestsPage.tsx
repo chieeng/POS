@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { useSession } from '@/stores/session';
 import {
   cleanUpRequestPhoto,
   describeApprovalError,
@@ -18,6 +19,7 @@ import { StatusTag } from './StatusTag';
  * A pending request can be withdrawn; an outdated one needs a new request.
  */
 export function MyRequestsPage() {
+  const isSpecial = useSession((s) => s.user?.role === 'special_sales');
   const requests = useApprovalRequests();
   const context = useRequestContext();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -44,8 +46,10 @@ export function MyRequestsPage() {
     <div className="flex w-full max-w-[760px] flex-col gap-[14px] p-[14px] md:px-[26px] md:py-[22px] xl:py-[28px] xl:pl-[16px]">
       <h1 className="text-[28px] md:text-[30px]">My requests</h1>
       <p className="px-[4px] text-[13.5px] text-neutral-700">
-        To ask for a change, open the product (“Request a change”, “Request an adjustment”) or your
-        stock-in (“Request a correction”). The Owner decides; you see the answer here.
+        {isSpecial
+          ? 'To ask for a change, open the product (“Request a change”, “Request an adjustment”), your stock-in (“Request a correction”) or your sale (“Void the sale”).'
+          : 'To ask for a void, open your sale in My sales (“Void the sale”).'}{' '}
+        The Owner decides; you see the answer here.
       </p>
       {notice && (
         <p role="status" className="px-[4px] text-[14px] text-neutral-800">

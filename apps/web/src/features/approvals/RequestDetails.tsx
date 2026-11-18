@@ -2,7 +2,7 @@ import { ADJUSTMENT_LABELS, type AdjustmentType } from '@/features/stock/data';
 import { formatPeso } from '@/lib/money';
 import { formatQty, signedQty } from '@/lib/quantity';
 import type { RequestContext } from './context';
-import type { ApprovalRequest } from './data';
+import { voidRefund, type ApprovalRequest } from './data';
 import { RequestChanges } from './RequestChanges';
 
 interface LineValue {
@@ -31,6 +31,30 @@ export function RequestDetails({
         categories={context.categories}
         outdated={outdated}
       />
+    );
+  }
+
+  if (request.type === 'sale_void') {
+    const { cash, ewallet } = voidRefund(request);
+    return (
+      <div className="flex flex-col gap-[4px] text-[14px] [font-variant-numeric:tabular-nums]">
+        <p className="text-[15px]">
+          <b>Void the sale</b> of {formatPeso(Number(request.after.total ?? 0))}: its items go back
+          to stock.
+        </p>
+        {cash > 0 && (
+          <p>
+            <span className="text-neutral-700">Cash back, from today’s drawer: </span>
+            <b>{formatPeso(cash)}</b>
+          </p>
+        )}
+        {ewallet > 0 && (
+          <p>
+            <span className="text-neutral-700">GCash/Maya, sent back by the Owner: </span>
+            <b>{formatPeso(ewallet)}</b>
+          </p>
+        )}
+      </div>
     );
   }
 

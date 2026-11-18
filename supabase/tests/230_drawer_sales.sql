@@ -128,8 +128,8 @@ select is(
   'expected cash matches the cash the report shows'
 );
 
--- A voided sale (step 10) would not count; until then every sale is completed.
-update public.sales set status = 'voided' where id = pg_temp.sid(2);
+-- A voided sale (step 10) does not count.
+update public.sales set status = 'voided', voided_at = now() where id = pg_temp.sid(2);
 select is(
   (select r -> 'count' from pg_temp.report(pg_temp.session()) r),
   '3'::jsonb,

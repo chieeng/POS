@@ -164,7 +164,7 @@ describe('Approvals (Owner)', () => {
     await user.click(screen.getByRole('button', { name: /^Approve: / }));
     await user.type(screen.getByLabelText('Note (optional)'), 'OK');
     await user.click(screen.getByRole('button', { name: 'Approve' }));
-    expect(decideApproval).toHaveBeenCalledWith('r1', true, 'OK');
+    expect(decideApproval).toHaveBeenCalledWith('r1', true, 'OK', null);
     expect(await screen.findByText('Approved: Chips Classic.')).toBeInTheDocument();
   });
 
@@ -172,7 +172,7 @@ describe('Approvals (Owner)', () => {
     const user = renderPage(<ApprovalsPage />);
     await user.click(screen.getByRole('button', { name: /^Reject: / }));
     await user.click(screen.getByRole('button', { name: 'Reject' }));
-    expect(decideApproval).toHaveBeenCalledWith('r1', false, '');
+    expect(decideApproval).toHaveBeenCalledWith('r1', false, '', null);
   });
 
   test('an outdated request shows now and then, and can only be rejected', () => {
@@ -410,6 +410,89 @@ describe('audit log', () => {
       ).change,
     ).toBe(
       'Supplier: ABC Trading → XYZ Foods · Water 500 ml: 5 → 6 · Chips Classic: ₱34.00 → ₱32.00 · Typo',
+    );
+  });
+});
+
+describe('void requests (POS-10)', () => {
+  const VOID = request({
+    id: 'v1',
+    type: 'sale_void',
+    targetId: 'sale1',
+    productId: '',
+    before: { status: 'completed' },
+    after: {
+      status: 'voided',
+      receiptNo: 'TT-20261119-K97Z-3',
+      total: 145,
+      cash: 45,
+      ewallet: 100,
+    },
+    reason: 'Wrong item',
+    requestedBy: 's1',
+  });
+
+  test('the Owner sees what comes back, and types the GCash refund reference to approve', async () => {
+    signInAs('owner');
+    state.requests = [VOID];
+    const user = renderPage(<ApprovalsPage />);
+    expect(screen.getByRole('link', { name: 'Void sale · TT-20261119-K97Z-3' })).toHaveAttribute(
+      'href',
+      '/sales/sale1',
+    );
+    expect(screen.getByText('Cash back, from today’s drawer:').nextSibling).toHaveTextContent(
+      '₱45.00',
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Approve: Void sale · TT-20261119-K97Z-3' }),
+    );
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText('Approve this void?')).toBeInTheDocument();
+    expect(dialog.getByText(/Give back ₱45.00 cash from today’s drawer/)).toBeInTheDocument();
+    await user.type(dialog.getByLabelText(/GCash\/Maya refund you sent/), 'GC777');
+    await user.click(dialog.getByRole('button', { name: 'Approve' }));
+    expect(decideApproval).toHaveBeenCalledWith('v1', true, '', 'GC777');
+  });
+
+  test('Sales follows the request in My requests', () => {
+    signInAs('sales');
+    state.requests = [VOID];
+    renderPage(<MyRequestsPage />);
+    expect(screen.getByText(/To ask for a void, open your sale in My sales/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Void sale · TT-20261119-K97Z-3' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Withdraw' })).toBeInTheDocument();
+  });
+
+  test('the audit log names the sale and what came back', () => {
+    const entry = describeAudit(
+      {
+        id: 'a1',
+        action: 'sale.void',
+        actorId: 'o1',
+        actorName: 'Owner',
+        deviceTag: 'OWN1',
+        targetType: 'sale',
+        targetId: 'sale1',
+        before: null,
+        after: {
+          receiptNo: 'TT-20261119-K97Z-3',
+          salesperson: 'Test Two',
+          total: 145,
+          cash: 45,
+          ewallet: 100,
+          refundReference: 'GC777',
+          requestId: 'v1',
+        },
+        reason: 'Wrong item',
+        createdAt: new Date(),
+      } as unknown as AuditRecord,
+      'x',
+    );
+    expect(entry.what).toBe('voided sale TT-20261119-K97Z-3 by Test Two');
+    expect(entry.change).toBe(
+      'Total ₱145.00 · ₱45.00 cash out of the drawer · ₱100.00 GCash/Maya sent back, ref GC777 · approved request · Reason: Wrong item',
     );
   });
 });

@@ -241,10 +241,16 @@ test('Special Sales opens My requests; Sales cannot', async () => {
   expect(await screen.findByRole('heading', { name: 'My requests' })).toBeInTheDocument();
 });
 
-test('Sales cannot open My requests', async () => {
+test('Sales opens My requests (their void requests, step 10)', async () => {
   useSession.setState({ status: 'signedIn', user: userWith('sales') });
+  renderAt('/requests');
+  expect(await screen.findByRole('heading', { name: 'My requests' })).toBeInTheDocument();
+});
+
+test('the Owner cannot open My requests', async () => {
+  useSession.setState({ status: 'signedIn', user: userWith('owner') });
   const router = renderAt('/requests');
-  await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sell'));
+  await vi.waitFor(() => expect(router.state.location.pathname).not.toBe('/requests'));
 });
 
 test.each(['owner', 'special_sales'] as const)('%s opens Stock-in', async (role) => {
