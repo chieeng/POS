@@ -47,6 +47,7 @@ import {
   earlierCount,
   expectedFrom,
   FLAG_LABELS,
+  movementDay,
   movements,
   paidBy,
   reopenDrawer,
@@ -222,7 +223,7 @@ function Report({
           value={record.countedCash === null ? '—' : formatPeso(record.countedCash)}
           sub={
             record.status === 'closed'
-              ? `${countedLater(record.businessDate, record.closedAt) ?? 'Closed'} ${record.closedAt ? timeLabel(record.closedAt) : ''} by ${record.closedByName ?? ''}`
+              ? `${countedLater(record.businessDate, record.closedAt) ?? `Closed ${record.closedAt ? timeLabel(record.closedAt) : ''}`} by ${record.closedByName ?? ''}`
               : record.status === 'not_counted'
                 ? countedBefore
                   ? 'Not counted again after the reopen'
@@ -261,7 +262,11 @@ function Report({
                 return (
                   <TableRow key={index}>
                     <TableCell className="whitespace-nowrap">
-                      {move.at ? timeLabel(move.at) : '—'}
+                      {move.at
+                        ? movementDay(move.at, record.businessDate) === record.businessDate
+                          ? timeLabel(move.at)
+                          : `${shortDay(movementDay(move.at, record.businessDate))}, ${timeLabel(move.at)}`
+                        : '—'}
                     </TableCell>
                     <TableCell>
                       <span className="inline-flex items-center gap-[5px] font-semibold whitespace-nowrap">
@@ -301,7 +306,11 @@ function Report({
           <Line label="Opening cash" value={formatPeso(record.openingCash)} />
           <Line label="Cash sales" value={sales ? formatPeso(cashSales) : pending} />
           <Line label="Cash in" value={formatPeso(cashIn)} />
-          <Line label="Cash out" value={`−${formatPeso(cashOut)}`} negative={cashOut > 0} />
+          <Line
+            label="Cash out"
+            value={cashOut > 0 ? `−${formatPeso(cashOut)}` : formatPeso(0)}
+            negative={cashOut > 0}
+          />
           <div className="flex justify-between border-t border-divider pt-[8px] font-bold">
             <span>Expected</span>
             <span className="tabular-nums">

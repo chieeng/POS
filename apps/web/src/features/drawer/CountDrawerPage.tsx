@@ -143,9 +143,9 @@ export function CountDrawerPage() {
             ) : (
               stale && (
                 <Alert variant="info">
-                  The {target.day} drawer was never closed (opened by {stale.openedByName} with{' '}
+                  {target.day} drawer was never closed (opened by {stale.openedByName} with{' '}
                   {formatPeso(stale.openingCash)}). Count it before today’s drawer opens. Sales made
-                  this morning wait for today’s drawer, so keep their cash apart.
+                  today before this count wait for today’s drawer, so keep their cash apart.
                 </Alert>
               )
             )}

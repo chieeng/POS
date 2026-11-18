@@ -257,13 +257,45 @@ describe('the day in order (SHIFT-04)', () => {
     });
   });
 
-  it('says when a drawer was counted the next morning (Nov 13)', () => {
+  it('says when a drawer was counted later, with the day and time (Nov 18 review)', () => {
     const late = { ...CLOSED, closedAt: new Date('2026-11-02T07:40:00+08:00') };
     expect(movements(late, []).at(-1)).toMatchObject({
       type: 'Closed',
-      note: 'Short ₱20.00 · Counted the next morning (Nov 2) · One coin under the tray',
+      note: 'Short ₱20.00 · Counted later (Nov 2, 7:40 AM) · One coin under the tray',
     });
+    // Days later, in the afternoon: never "the next morning".
+    expect(countedLater('2026-11-14', new Date('2026-11-18T13:37:00+08:00'))).toBe(
+      'Counted later (Nov 18, 1:37 PM)',
+    );
     expect(countedLater('2026-11-01', new Date('2026-11-01T20:06:00+08:00'))).toBeNull();
+  });
+
+  it("dates a late count by its own day, notes today's waiting cash, and keeps time order", () => {
+    const opened = {
+      ...CLOSED,
+      businessDate: '2026-11-14',
+      openedAt: new Date('2026-11-14T13:39:00+08:00'),
+      openingReason: null,
+    };
+    const close: DrawerEvent = {
+      id: 'c9',
+      kind: 'closed',
+      at: new Date('2026-11-18T13:37:00+08:00'),
+      by: 'Test Special 5',
+      counted: 1603,
+      overShort: 0,
+      note: null,
+      waitingCash: 45,
+    };
+    const rows = movements(opened, [], [close]);
+    expect(rows.map((m) => m.type)).toEqual(['Opened', 'Closed']);
+    expect(rows[1]?.note).toBe(
+      'Exact · Counted later (Nov 18, 1:37 PM) · ₱45.00 in cash sales were made Nov 18 before this count',
+    );
+    const csv = drawerCsv(opened, [], [close]);
+    expect(csv).toContain('2026-11-14,1:39 PM,Opened');
+    expect(csv).toContain('2026-11-18,1:37 PM,Closed,');
+    expect(csv.indexOf('Opened')).toBeLessThan(csv.indexOf(',Closed,'));
   });
 
   it('marks a drawer nobody counted', () => {

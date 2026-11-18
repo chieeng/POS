@@ -24,6 +24,7 @@ import { Sheet, SheetContent, SheetTitle, WIDE_QUERY } from '@/components/ui/she
 import { useCategories, useProducts, type Product } from '@/features/catalog/data';
 import { ProductPhoto } from '@/features/catalog/ProductPhoto';
 import { useDrawerToday } from '@/features/drawer/data';
+import { shortDay } from '@/features/drawer/format';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useOnline } from '@/hooks/useOnline';
 import { formatPeso } from '@/lib/money';
@@ -816,11 +817,14 @@ function WeighDialog({
 
 /**
  * POS-14: online with no drawer open, selling is allowed; a banner says so and opens one.
- * Offline the drawer can't be checked, so nothing is said.
+ * Offline the drawer can't be checked, so nothing is said. An earlier drawer still open is
+ * counted first by those who can count (SHIFT-01): opening today's would close it uncounted.
  */
 function DrawerBanner() {
   const online = useOnline();
   const drawer = useDrawerToday();
+  const role = useSession((s) => s.user?.role);
+  const canCount = role === 'owner' || role === 'special_sales';
   if (!online || drawer.loading || drawer.error || !drawer.data) return null;
   const session = drawer.data.session;
   if (session?.status === 'open') return null;
@@ -828,6 +832,23 @@ function DrawerBanner() {
     return (
       <Alert variant="info">
         Today&apos;s drawer is closed. New sales go into the next drawer that opens.
+      </Alert>
+    );
+  }
+  const stale = drawer.data.stale;
+  if (stale && canCount) {
+    const day = `${shortDay(stale.businessDate)}’s`;
+    return (
+      <Alert
+        variant="warn"
+        action={
+          <AlertAction asChild>
+            <Link to="/drawer/count">Count {day} drawer</Link>
+          </AlertAction>
+        }
+      >
+        <b>{day} drawer was never counted.</b> Count it first, then open today’s. You can still
+        sell: the sales join today’s drawer once it opens.
       </Alert>
     );
   }
