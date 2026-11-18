@@ -4,7 +4,7 @@ import { getDeviceTag } from '@/lib/device';
 import { formatPeso } from '@/lib/money';
 import { supabase } from '@/lib/supabase';
 import { REASON_LABELS, type EntryReason, type EntryType } from './data';
-import { shortDay } from './format';
+import { shortDay, timeLabel } from './format';
 
 /** SHIFT-04: one day's drawer, as the Owner reads it (Row Level Security: the Owner only). */
 export interface DrawerRecord {
@@ -45,6 +45,8 @@ export interface DrawerEvent {
   overShort: number | null;
   /** The closing note, or the reason for the reopen. */
   note: string | null;
+  /** A late count: today's cash sales made before it, waiting for today's drawer. */
+  waitingCash?: number;
 }
 
 type Row = Record<string, unknown>;
@@ -141,6 +143,7 @@ const toEvent = (row: Row): DrawerEvent => {
     counted: money(after.counted),
     overShort: money(after.overShort),
     note: text(row.reason),
+    waitingCash: Number(after.waitingCash ?? 0),
   };
 };
 
@@ -327,14 +330,25 @@ const noteOf = (...parts: (string | null)[]) => parts.filter(Boolean).join(' · 
 const manilaDay = (at: Date) => at.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 
 /**
- * "Counted the next morning (Nov 13)": a drawer counted on a later day than its own, before
- * that day's drawer opened (the owner's decision of Nov 13, 2026). Null otherwise.
+ * "Counted later (Nov 18, 1:37 PM)": a drawer counted on a later day than its own, before that
+ * day's drawer opened (the owner's decision of Nov 13, 2026). It may be days later, or in the
+ * afternoon, so the words name the day and time. Null otherwise.
  */
 export function countedLater(businessDate: string, at: Date | null): string | null {
   if (!at) return null;
   const day = manilaDay(at);
-  return day > businessDate ? `Counted the next morning (${shortDay(day)})` : null;
+  return day > businessDate ? `Counted later (${shortDay(day)}, ${timeLabel(at)})` : null;
 }
+
+/** "₱45.00 in cash sales were made Nov 18 before this count": cash that may sit in the count. */
+export function waitingNote(at: Date | null, waitingCash: number): string | null {
+  if (!at || waitingCash <= 0) return null;
+  return `${formatPeso(waitingCash)} in cash sales were made ${shortDay(manilaDay(at))} before this count`;
+}
+
+/** The movement's own day, "YYYY-MM-DD": a late count happens on a later day than the drawer's. */
+export const movementDay = (at: Date | null, businessDate: string) =>
+  at ? manilaDay(at) : businessDate;
 
 /** "Closed when Test Special 5 opened Nov 13's drawer": who closed it, without counting it. */
 function notCountedNote(record: DrawerRecord): string {
@@ -394,6 +408,7 @@ export function movements(
             note: noteOf(
               closeResult(event.overShort),
               countedLater(record.businessDate, event.at),
+              waitingNote(event.at, event.waitingCash ?? 0),
               event.note,
             ),
             by: event.by,
@@ -513,7 +528,7 @@ export function drawerCsv(
   );
   const rows = movements(record, entries, events).map((move) =>
     [
-      csvCell(record.businessDate),
+      csvCell(movementDay(move.at, record.businessDate)),
       csvCell(
         move.at
           ? move.at.toLocaleTimeString('en-PH', {

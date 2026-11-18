@@ -307,6 +307,35 @@ describe('the drawer banner (POS-14)', () => {
     expect(screen.getByRole('list', { name: 'Products' })).toBeInTheDocument();
   });
 
+  test('an earlier drawer never counted: Owner and Special Sales are asked to count it first', () => {
+    state.drawer = {
+      ...OPEN,
+      session: null,
+      staleOpen: true,
+      stale: { id: 's0', businessDate: '2026-11-04', openedByName: 'Test Two', openingCash: 1000 },
+    };
+    useSession.setState({ user: { ...useSession.getState().user!, role: 'special_sales' } });
+    renderSell();
+    expect(screen.getByText('Nov 4’s drawer was never counted.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Count Nov 4’s drawer' })).toHaveAttribute(
+      'href',
+      '/drawer/count',
+    );
+    expect(screen.queryByRole('link', { name: 'Open the drawer' })).toBeNull();
+  });
+
+  test('an earlier drawer never counted: Sales, who cannot count, still see Open the drawer', () => {
+    state.drawer = {
+      ...OPEN,
+      session: null,
+      staleOpen: true,
+      stale: { id: 's0', businessDate: '2026-11-04', openedByName: 'Test Two', openingCash: 1000 },
+    };
+    renderSell();
+    expect(screen.getByText('No drawer is open today.')).toBeInTheDocument();
+    expect(screen.queryByText(/was never counted/)).toBeNull();
+  });
+
   test("today's drawer closed: new sales go to the next one", () => {
     state.drawer = { ...OPEN, session: { ...OPEN.session!, status: 'closed' } };
     renderSell();

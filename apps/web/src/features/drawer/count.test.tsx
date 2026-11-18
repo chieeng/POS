@@ -194,7 +194,7 @@ describe('a drawer left open overnight (the owner’s decision, Nov 13, 2026)', 
   it('counts that drawer by its id, then names this morning’s waiting cash', async () => {
     server.close = { expected: 1000, counted: 1045, overShort: 45, late: true, waitingCash: 45 };
     const user = renderAt(<CountDrawerPage />);
-    expect(await screen.findByText(/The Oct 31’s drawer was never closed/)).toBeInTheDocument();
+    expect(await screen.findByText(/Oct 31’s drawer was never closed/)).toBeInTheDocument();
     await user.type(screen.getByRole('spinbutton', { name: 'Number of ₱1,000' }), '1');
     await user.click(screen.getByRole('button', { name: 'Close drawer' }));
     const dialog = within(screen.getByRole('dialog'));
