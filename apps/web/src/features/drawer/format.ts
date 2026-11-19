@@ -39,3 +39,6 @@ export const REASON_LABELS: Record<EntryReason, string> = {
   change_fund: 'Change fund',
   other: 'Other',
 };
+
+/** The store's day, "YYYY-MM-DD", of a moment. */
+export const manilaDay = (at: Date) => at.toLocaleDateString('en-CA', { timeZone: MANILA });

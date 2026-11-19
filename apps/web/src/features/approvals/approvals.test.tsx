@@ -458,7 +458,9 @@ describe('void requests (POS-10)', () => {
     signInAs('sales');
     state.requests = [VOID];
     renderPage(<MyRequestsPage />);
-    expect(screen.getByText(/To ask for a void, open your sale in My sales/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/To ask for a void or a return, open your sale in My sales/),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'Void sale · TT-20261119-K97Z-3' }),
     ).toBeInTheDocument();
@@ -493,6 +495,95 @@ describe('void requests (POS-10)', () => {
     expect(entry.what).toBe('voided sale TT-20261119-K97Z-3 by Test Two');
     expect(entry.change).toBe(
       'Total ₱145.00 · ₱45.00 cash out of the drawer · ₱100.00 GCash/Maya sent back, ref GC777 · approved request · Reason: Wrong item',
+    );
+  });
+});
+
+describe('return requests (POS-10)', () => {
+  const RETURN = request({
+    id: 'ret1',
+    type: 'sale_return',
+    targetId: 'sale2',
+    productId: '',
+    before: { returned: {} },
+    after: {
+      receiptNo: 'TT-20261120-K97Z-4',
+      items: [{ name: 'Test Chips', unit: 'pack', qty: 1, refund: 45, condition: 'damaged' }],
+      refund: 45,
+      cashRefund: null,
+      method: 'gcash',
+      defective: true,
+      late: true,
+    },
+    reason: 'Seal broken',
+    requestedBy: 's1',
+  });
+
+  test('the Owner sees the items, the refund, and types the GCash reference to approve', async () => {
+    signInAs('owner');
+    state.requests = [RETURN];
+    const user = renderPage(<ApprovalsPage />);
+    expect(screen.getByRole('link', { name: 'Return · TT-20261120-K97Z-4' })).toHaveAttribute(
+      'href',
+      '/sales/sale2',
+    );
+    expect(screen.getByText('Past the return window · defective')).toBeInTheDocument();
+    expect(screen.getByText(/· damaged ·/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Approve: Return · TT-20261120-K97Z-4' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText('Approve this return?')).toBeInTheDocument();
+    await user.type(dialog.getByLabelText(/GCash\/Maya refund you sent/), 'GC999');
+    await user.click(dialog.getByRole('button', { name: 'Approve' }));
+    expect(decideApproval).toHaveBeenCalledWith('ret1', true, '', 'GC999');
+  });
+
+  test('a cash return asks for no reference and says what leaves the drawer', async () => {
+    signInAs('owner');
+    state.requests = [
+      {
+        ...RETURN,
+        after: { ...RETURN.after, method: 'cash', cashRefund: 45, defective: false, late: false },
+      },
+    ];
+    const user = renderPage(<ApprovalsPage />);
+    await user.click(screen.getByRole('button', { name: 'Approve: Return · TT-20261120-K97Z-4' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByText(/Give back ₱45.00 cash from today’s drawer/)).toBeInTheDocument();
+    expect(dialog.queryByLabelText(/refund you sent/)).toBeNull();
+  });
+
+  test('the audit log names the sale for void and return requests (review of Nov 19)', () => {
+    const base = {
+      id: 'a1',
+      actorId: 's1',
+      actorName: 'Test Two',
+      deviceTag: 'A1B2',
+      targetType: 'approval',
+      targetId: 'r1',
+      before: null,
+      reason: 'Wrong item',
+      createdAt: new Date(),
+    };
+    const line = (type: string, action: string, changes: Record<string, unknown>) =>
+      describeAudit(
+        {
+          ...base,
+          action,
+          after: { type, label: 'sale TT-20261120-K97Z-4', changes },
+        } as unknown as AuditRecord,
+        'x',
+      );
+    expect(line('sale_void', 'approval.request', { total: 45 }).what).toBe(
+      'asked to void sale TT-20261120-K97Z-4',
+    );
+    expect(line('sale_return', 'approval.request', RETURN.after).what).toBe(
+      'asked for a return on sale TT-20261120-K97Z-4',
+    );
+    expect(line('sale_return', 'approval.approve', RETURN.after).what).toBe(
+      'approved the return on sale TT-20261120-K97Z-4',
+    );
+    expect(line('sale_return', 'approval.request', RETURN.after).change).toBe(
+      'Test Chips × 1 damaged · Refund ₱45.00 GCash · Wrong item',
     );
   });
 });

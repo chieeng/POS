@@ -48,6 +48,7 @@ const BRANCH: BranchSettings = {
   vatRate: 12,
   roundCash: true,
   idleLockMinutes: 15,
+  returnWindowDays: 30,
   storeLat: null,
   storeLng: null,
   radiusM: 100,
@@ -132,6 +133,7 @@ describe('store details validation', () => {
     tin: '',
     receiptFooter: '',
     idleLockMinutes: '15',
+    returnWindowDays: '30',
   };
   test.each([
     [{ name: '  ' }, 'Enter the store name.'],
@@ -167,6 +169,7 @@ describe('Settings > Store (SYS-01)', () => {
       tin: null,
       receipt_footer: null,
       idle_lock_minutes: 10,
+      return_window_days: 30,
     });
     expect(await screen.findByText('Saved.')).toBeInTheDocument();
   });

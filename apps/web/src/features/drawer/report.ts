@@ -214,6 +214,8 @@ export interface DrawerSales {
   total: number;
   /** What the preset discounts took off (POS-03). */
   discounts: number;
+  /** Cash handed back from this drawer for returns (POS-10). */
+  cashRefunds: number;
   /** Cash is what went into the drawer; a split sale counts under each of its methods. */
   methods: { method: 'cash' | 'gcash' | 'maya'; count: number; amount: number }[];
   salespeople: { name: string; count: number; total: number }[];
@@ -226,6 +228,7 @@ const toDrawerSales = (row: Row): DrawerSales => ({
   count: Number(row.count ?? 0),
   total: Number(row.total ?? 0),
   discounts: Number(row.discounts ?? 0),
+  cashRefunds: Number(row.cashRefunds ?? 0),
   methods: ((row.methods ?? []) as Row[]).map((m) => ({
     method: m.method as DrawerSales['methods'][number]['method'],
     count: Number(m.count ?? 0),
@@ -273,17 +276,23 @@ export function useDrawerSales(sessionId: string | undefined) {
 }
 
 /**
- * Opening + cash sales + cash in − cash out: what the drawer should hold, as the server works
- * it out (refunds and utang payments join later).
+ * Opening + cash sales + cash in − cash out − cash refunds: what the drawer should hold, as the
+ * server works it out (utang payments join later).
  */
-export function expectedFrom(record: DrawerRecord, entries: DrawerEntryRecord[], cashSales = 0) {
+export function expectedFrom(
+  record: DrawerRecord,
+  entries: DrawerEntryRecord[],
+  cashSales = 0,
+  cashRefunds = 0,
+) {
   const cashIn = entries.filter((e) => e.type === 'cash_in').reduce((s, e) => s + e.amount, 0);
   const cashOut = entries.filter((e) => e.type === 'cash_out').reduce((s, e) => s + e.amount, 0);
   return {
     cashIn,
     cashOut,
     cashSales,
-    expected: record.openingCash + cashSales + cashIn - cashOut,
+    cashRefunds,
+    expected: record.openingCash + cashSales + cashIn - cashOut - cashRefunds,
   };
 }
 
@@ -454,7 +463,8 @@ export function drawerSummary(
   sales: DrawerSales | null = null,
 ): { type: string; note: string; amount: number | null }[] {
   const expected =
-    record.expectedCash ?? expectedFrom(record, entries, paidBy(sales, 'cash')).expected;
+    record.expectedCash ??
+    expectedFrom(record, entries, paidBy(sales, 'cash'), sales?.cashRefunds ?? 0).expected;
   const counted = record.status === 'closed' ? record.countedCash : null;
   const overShort = record.status === 'closed' ? record.overShort : null;
   const missing =

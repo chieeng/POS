@@ -96,6 +96,7 @@ const BRANCH: BranchSettings = {
   vatRate: 12,
   roundCash: true,
   idleLockMinutes: 15,
+  returnWindowDays: 30,
   storeLat: null,
   storeLng: null,
   radiusM: 100,

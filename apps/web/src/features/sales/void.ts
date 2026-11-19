@@ -42,9 +42,10 @@ export async function voidSale(
 export const VOID_BLOCKED: Record<string, string> = {
   drawer_waiting:
     'This sale is waiting for today’s drawer. Once the drawer is open, it can be voided.',
-  drawer_closed:
-    'Its drawer was closed, so it can no longer be voided. Returns come in the next update.',
+  drawer_closed: 'Its drawer was closed, so it can no longer be voided. Return the items instead.',
   sale_not_completed: 'This sale was already voided or corrected.',
+  sale_has_returns:
+    'Part of this sale was returned, so it can’t be voided. Return the rest instead.',
 };
 
 export function describeVoidError(error: unknown): string {

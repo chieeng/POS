@@ -21,6 +21,8 @@ export interface BranchSettings {
   /** POS-04: round the cash part of a sale to the nearest peso. On by default. */
   roundCash: boolean;
   idleLockMinutes: number;
+  /** POS-10: days after a sale that its items may be returned; defective ones later, approved. */
+  returnWindowDays: number;
   /** Both null until the Owner sets the store's location: the clock-in check is off (ATT-02). */
   storeLat: number | null;
   storeLng: number | null;
@@ -63,6 +65,7 @@ export const toBranch = (row: Row): BranchSettings => ({
   vatRate: num(row.vat_rate) ?? 12,
   roundCash: row.round_cash !== false,
   idleLockMinutes: num(row.idle_lock_minutes) ?? 15,
+  returnWindowDays: num(row.return_window_days) ?? 30,
   storeLat: num(row.store_lat),
   storeLng: num(row.store_lng),
   radiusM: num(row.radius_m) ?? 100,
@@ -79,7 +82,7 @@ export const toBranch = (row: Row): BranchSettings => ({
 
 // One string literal, so supabase-js can type the row it returns.
 const COLUMNS =
-  'id, name, address, contact, tin, receipt_footer, vat_registered, vat_rate, round_cash, idle_lock_minutes, store_lat, store_lng, radius_m, morning_clock_in, afternoon_clock_in, grace_minutes, late_deduction, late_penalty, paid_minutes_per_day, afternoon_day_credit, owner_clocks_in';
+  'id, name, address, contact, tin, receipt_footer, vat_registered, vat_rate, round_cash, return_window_days, idle_lock_minutes, store_lat, store_lng, radius_m, morning_clock_in, afternoon_clock_in, grace_minutes, late_deduction, late_penalty, paid_minutes_per_day, afternoon_day_credit, owner_clocks_in';
 
 /**
  * The signed-in user's branch, live. Row Level Security returns it only to the branch's own
@@ -119,6 +122,7 @@ export interface BranchChanges {
   vat_rate?: number;
   round_cash?: boolean;
   idle_lock_minutes?: number;
+  return_window_days?: number;
   store_lat?: number | null;
   store_lng?: number | null;
   radius_m?: number;

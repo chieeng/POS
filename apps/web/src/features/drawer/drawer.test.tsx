@@ -152,6 +152,21 @@ describe('opening the drawer (SHIFT-01)', () => {
     });
   });
 
+  it('a count made the next day says when (review of Nov 19)', async () => {
+    server.today.lastCount = {
+      amount: 1648,
+      counted_by_name: 'Test Special 5',
+      closed_at: '2026-11-01T12:05:00+08:00',
+      business_date: '2026-10-31',
+    };
+    renderPage();
+    expect(
+      await screen.findByText(
+        'Oct 31’s closing count: ₱1,648.00 (counted today 12:05 PM by Test Special 5)',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('puts the amount back to the last count', async () => {
     server.today.lastCount = {
       amount: 2000,

@@ -22,6 +22,7 @@ import {
   describeApprovalError,
   formatWhen,
   useApprovalRequests,
+  returnRefund,
   voidRefund,
   type ApprovalRequest,
 } from './data';
@@ -91,8 +92,16 @@ export function ApprovalsPage() {
   const loading = requests.loading || context.loading;
   // POS-10: approving a void of a sale paid partly by GCash/Maya records the refund's reference.
   const isVoid = decision?.request.type === 'sale_void';
-  const needsReference =
-    decision !== null && decision.approve && isVoid && voidRefund(decision.request).ewallet > 0;
+  const isReturn = decision?.request.type === 'sale_return';
+  const ret = decision && isReturn ? returnRefund(decision.request) : null;
+  const ewalletBack = decision
+    ? isVoid
+      ? voidRefund(decision.request).ewallet
+      : ret && ret.method !== 'cash'
+        ? ret.refund
+        : 0
+    : 0;
+  const needsReference = decision !== null && decision.approve && ewalletBack > 0;
 
   return (
     <div className="flex w-full max-w-[760px] flex-col gap-[14px] p-[14px] md:px-[26px] md:py-[22px] xl:py-[28px] xl:pl-[16px]">
@@ -228,17 +237,23 @@ export function ApprovalsPage() {
               {decision.approve
                 ? isVoid
                   ? 'Approve this void?'
-                  : 'Approve this change?'
+                  : isReturn
+                    ? 'Approve this return?'
+                    : 'Approve this change?'
                 : 'Reject this request?'}
             </DialogTitle>
             <DialogDescription>
-              {isVoid
+              {ret
                 ? decision.approve
-                  ? `The sale is voided now and its items go back to stock.${voidRefund(decision.request).cash > 0 ? ` Give back ${formatPeso(voidRefund(decision.request).cash)} cash from today’s drawer.` : ''}`
-                  : 'The sale stays as it is.'
-                : decision.approve
-                  ? 'The product changes exactly as requested, now.'
-                  : 'The product stays as it is.'}{' '}
+                  ? `The items are taken back now: back to stock or set aside as damaged.${ret.method === 'cash' ? ` Give back ${formatPeso(ret.cashRefund ?? ret.refund)} cash from today’s drawer.` : ''}`
+                  : 'Nothing is returned.'
+                : isVoid
+                  ? decision.approve
+                    ? `The sale is voided now and its items go back to stock.${voidRefund(decision.request).cash > 0 ? ` Give back ${formatPeso(voidRefund(decision.request).cash)} cash from today’s drawer.` : ''}`
+                    : 'The sale stays as it is.'
+                  : decision.approve
+                    ? 'The product changes exactly as requested, now.'
+                    : 'The product stays as it is.'}{' '}
               {nameOf(decision.request.requestedBy)} sees your decision and note.
             </DialogDescription>
             <div>
@@ -257,8 +272,7 @@ export function ApprovalsPage() {
             {needsReference && (
               <div>
                 <Label htmlFor="refund-reference" className="text-[13px]">
-                  Reference of the {formatPeso(voidRefund(decision.request).ewallet)} GCash/Maya
-                  refund you sent
+                  Reference of the {formatPeso(ewalletBack)} GCash/Maya refund you sent
                 </Label>
                 <Input
                   id="refund-reference"

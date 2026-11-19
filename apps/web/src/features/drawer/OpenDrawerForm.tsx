@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { formatPeso } from '@/lib/money';
 import { useSession } from '@/stores/session';
 import { describeDrawerError, openDrawer, parsePeso, type DrawerToday } from './data';
-import { dayBefore, shortDay, timeLabel } from './format';
+import { dayBefore, manilaDay, shortDay, timeLabel } from './format';
 import { PesoInput } from './PesoInput';
 
 const plain = (amount: number) => amount.toFixed(2);
@@ -35,6 +35,10 @@ export function OpenDrawerForm({
   const value = parsePeso(amount);
   const difference = last && value !== null ? value - last.amount : 0;
   const yesterday = last?.businessDate === dayBefore(drawer.today);
+  // A count made on a later day than its drawer's (the overnight count) says when it was made.
+  const countedDay = last ? manilaDay(last.closedAt) : '';
+  const today = drawer.today;
+  const countedLater = !!last && countedDay > last.businessDate;
   const lastName = yesterday
     ? 'yesterday’s count'
     : `the ${shortDay(last?.businessDate ?? '')} count`;
@@ -108,8 +112,19 @@ export function OpenDrawerForm({
               </>
             ) : (
               <>
-                {yesterday ? 'Yesterday’s' : `Last (${shortDay(last.businessDate)})`} closing count:{' '}
-                {formatPeso(last.amount)} ({last.countedByName}, {timeLabel(last.closedAt)})
+                {countedLater ? (
+                  <>
+                    {shortDay(last.businessDate)}’s closing count: {formatPeso(last.amount)}{' '}
+                    (counted {countedDay === today ? 'today' : shortDay(countedDay)}{' '}
+                    {timeLabel(last.closedAt)} by {last.countedByName})
+                  </>
+                ) : (
+                  <>
+                    {yesterday ? 'Yesterday’s' : `Last (${shortDay(last.businessDate)})`} closing
+                    count: {formatPeso(last.amount)} ({last.countedByName},{' '}
+                    {timeLabel(last.closedAt)})
+                  </>
+                )}
               </>
             )}
           </p>

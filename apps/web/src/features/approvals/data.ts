@@ -5,7 +5,8 @@ import { STOCK_FRACTIONAL, type Product } from '@/features/catalog/data';
 import { deletePhotoFiles } from '@/features/catalog/photos';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
-export type RequestType = 'product_edit' | 'stock_adjustment' | 'stock_in_correction' | 'sale_void';
+export type RequestType =
+  'product_edit' | 'stock_adjustment' | 'stock_in_correction' | 'sale_void' | 'sale_return';
 
 /** SRS 3.9: one approval request. */
 export interface ApprovalRequest {
@@ -38,6 +39,7 @@ const TYPES: RequestType[] = [
   'stock_adjustment',
   'stock_in_correction',
   'sale_void',
+  'sale_return',
 ];
 
 const toRequest = (row: Row): ApprovalRequest => ({
@@ -169,6 +171,25 @@ export const decideApproval = (
   });
 
 /** What a void request gives back: cash out of today's drawer, GCash/Maya sent by the Owner. */
+/** What a return request gives back, and how (POS-10). */
+export const returnRefund = (request: ApprovalRequest) => ({
+  refund: Number(request.after.refund ?? 0),
+  cashRefund:
+    request.after.cashRefund === null || request.after.cashRefund === undefined
+      ? null
+      : Number(request.after.cashRefund),
+  method: String(request.after.method ?? 'cash') as 'cash' | 'gcash' | 'maya',
+  defective: request.after.defective === true,
+  late: request.after.late === true,
+  items: (Array.isArray(request.after.items) ? request.after.items : []) as {
+    name?: string;
+    unit?: string;
+    qty?: number;
+    refund?: number;
+    condition?: string;
+  }[],
+});
+
 export const voidRefund = (request: ApprovalRequest) => ({
   cash: Number(request.after.cash ?? 0),
   ewallet: Number(request.after.ewallet ?? 0),
@@ -200,6 +221,8 @@ export function describeApprovalError(error: unknown): string {
       return 'This changed since the request was made, so it can only be rejected.';
     case 'refund_reference_required':
       return 'Type the reference of the GCash or Maya refund you sent.';
+    case 'drawer_not_open':
+      return 'This cash refund comes out of today’s drawer. Open today’s drawer first, then approve.';
     case 'stock_negative':
       return 'Approving this would take stock below zero. Reject it, or adjust the stock first.';
     case 'request_closed':

@@ -106,6 +106,7 @@ const NO_SALES: DrawerSales = {
   count: 0,
   total: 0,
   discounts: 0,
+  cashRefunds: 0,
   methods: [],
   salespeople: [],
   flaggedCount: 0,
@@ -117,6 +118,7 @@ const SALES: DrawerSales = {
   count: 6,
   total: 428,
   discounts: 0,
+  cashRefunds: 0,
   methods: [
     { method: 'cash', count: 5, amount: 318 },
     { method: 'gcash', count: 1, amount: 90 },
@@ -163,6 +165,7 @@ describe('the drawer’s sales (SHIFT-04, POS-14)', () => {
       cashIn: 0,
       cashOut: 0,
       cashSales: 318,
+      cashRefunds: 0,
       expected: 1318,
     });
   });
@@ -173,7 +176,9 @@ describe('the drawer’s sales (SHIFT-04, POS-14)', () => {
     state.sales = SALES;
     renderReport();
     expect(screen.getAllByText('₱1,318.00').length).toBe(2);
-    expect(screen.getByText('Opening + cash sales + cash in − cash out')).toBeInTheDocument();
+    expect(
+      screen.getByText('Opening + cash sales + cash in − cash out − refunds'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Not in the drawer: GCash ₱90.00 · Maya ₱20.00')).toBeInTheDocument();
     const sales = within(screen.getByRole('region', { name: 'Sales' }));
     for (const [label, value] of [
@@ -253,6 +258,7 @@ describe('the day in order (SHIFT-04)', () => {
       cashIn: 500,
       cashOut: 350,
       cashSales: 0,
+      cashRefunds: 0,
       expected: 1950,
     });
   });

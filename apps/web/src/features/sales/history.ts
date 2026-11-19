@@ -66,6 +66,9 @@ export interface SaleDetail {
     /** The preset or deal it took. */
     discountName: string | null;
     lineTotal: number;
+    /** POS-10: units already returned, and what they gave back. */
+    returnedQty: number;
+    refunded: number;
   }[];
   payments: {
     method: PayMethod;
@@ -79,10 +82,51 @@ export interface SaleDetail {
   void: { at: Date; by: string; reason: string; refundReference: string | null } | null;
   /** A void request still waiting for the Owner: the caller's own, or anyone's for the Owner. */
   pendingVoid: { id: string; mine: boolean; reason: string } | null;
+  /** A return request still waiting for the Owner, seen the same way. */
+  pendingReturn: {
+    id: string;
+    mine: boolean;
+    reason: string;
+    refund: number;
+    method: PayMethod;
+  } | null;
+  /** The store's return window, and whether this sale is past it (defective items only). */
+  returnWindow: { days: number; late: boolean };
+  /** Cash is rounded to the peso (POS-04), refunds too. */
+  roundCash: boolean;
+  /** Given back so far, by method. */
+  refunded: Partial<Record<PayMethod, number>>;
+  /** The returns made, oldest first. */
+  returns: SaleReturn[];
 }
 
-export type Voidable = 'ok' | 'sale_not_completed' | 'drawer_waiting' | 'drawer_closed';
-const VOIDABLE: Voidable[] = ['ok', 'sale_not_completed', 'drawer_waiting', 'drawer_closed'];
+export interface SaleReturn {
+  at: Date;
+  by: string;
+  reason: string;
+  refund: number;
+  cashRefund: number | null;
+  method: PayMethod;
+  refundReference: string | null;
+  defective: boolean;
+  items: {
+    name: string;
+    unit: string;
+    qty: number;
+    condition: 'stock' | 'damaged';
+    refund: number;
+  }[];
+}
+
+export type Voidable =
+  'ok' | 'sale_not_completed' | 'sale_has_returns' | 'drawer_waiting' | 'drawer_closed';
+const VOIDABLE: Voidable[] = [
+  'ok',
+  'sale_not_completed',
+  'sale_has_returns',
+  'drawer_waiting',
+  'drawer_closed',
+];
 
 type Json = Record<string, unknown>;
 
@@ -149,6 +193,8 @@ export function toSaleDetail(raw: unknown): SaleDetail {
       discount: num(l.discount),
       discountName: text(l.discountName),
       lineTotal: num(l.lineTotal),
+      returnedQty: num(l.returnedQty),
+      refunded: num(l.refunded),
     })),
     payments: ((s.payments ?? []) as Json[]).map((p) => ({
       method: (p.method ?? 'cash') as PayMethod,
@@ -176,6 +222,41 @@ export function toSaleDetail(raw: unknown): SaleDetail {
             reason: String((s.pendingVoid as Json).reason ?? ''),
           }
         : null,
+    pendingReturn:
+      s.pendingReturn && typeof s.pendingReturn === 'object'
+        ? {
+            id: String((s.pendingReturn as Json).id),
+            mine: (s.pendingReturn as Json).mine === true,
+            reason: String((s.pendingReturn as Json).reason ?? ''),
+            refund: num((s.pendingReturn as Json).refund),
+            method: ((s.pendingReturn as Json).method ?? 'cash') as PayMethod,
+          }
+        : null,
+    returnWindow: {
+      days: num((s.returnWindow as Json | undefined)?.days ?? 30),
+      late: (s.returnWindow as Json | undefined)?.late === true,
+    },
+    roundCash: s.roundCash !== false,
+    refunded: Object.fromEntries(
+      Object.entries((s.refunded ?? {}) as Json).map(([method, amount]) => [method, num(amount)]),
+    ) as Partial<Record<PayMethod, number>>,
+    returns: ((s.returns ?? []) as Json[]).map((r) => ({
+      at: new Date(String(r.at)),
+      by: String(r.by ?? ''),
+      reason: String(r.reason ?? ''),
+      refund: num(r.refund),
+      cashRefund: r.cashRefund === null || r.cashRefund === undefined ? null : num(r.cashRefund),
+      method: (r.method ?? 'cash') as PayMethod,
+      refundReference: text(r.refundReference),
+      defective: r.defective === true,
+      items: ((r.items ?? []) as Json[]).map((i) => ({
+        name: String(i.name ?? ''),
+        unit: String(i.unit ?? ''),
+        qty: num(i.qty),
+        condition: i.condition === 'damaged' ? ('damaged' as const) : ('stock' as const),
+        refund: num(i.refund),
+      })),
+    })),
   };
 }
 
