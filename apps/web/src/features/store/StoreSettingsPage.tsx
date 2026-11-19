@@ -83,6 +83,7 @@ const detailsFrom = (branch: BranchSettings): StoreDetailsValues => ({
   tin: branch.tin ?? '',
   receiptFooter: branch.receiptFooter ?? '',
   idleLockMinutes: String(branch.idleLockMinutes),
+  returnWindowDays: String(branch.returnWindowDays),
 });
 
 const checkoutFrom = (branch: BranchSettings): CheckoutValues => ({
@@ -158,6 +159,7 @@ function StoreDetailsForm({ branch }: { branch: BranchSettings }) {
         tin: values.tin || null,
         receipt_footer: values.receiptFooter || null,
         idle_lock_minutes: Number(values.idleLockMinutes),
+        return_window_days: Number(values.returnWindowDays),
       });
       reset(values);
       setSaved(true);
@@ -255,6 +257,22 @@ function StoreDetailsForm({ branch }: { branch: BranchSettings }) {
           aria-invalid={!!errors.idleLockMinutes || undefined}
           aria-describedby={describedBy('store-idle', errors.idleLockMinutes)}
           {...register('idleLockMinutes')}
+        />
+      </Field>
+      <Field
+        id="store-returns"
+        label="Returns allowed for (days after the sale)"
+        hint="After this, only a defective item can be returned, with your approval and a reason."
+        error={errors.returnWindowDays?.message}
+      >
+        <Input
+          id="store-returns"
+          inputMode="numeric"
+          autoComplete="off"
+          className={`${inputClass} max-w-[140px]`}
+          aria-invalid={!!errors.returnWindowDays || undefined}
+          aria-describedby={describedBy('store-returns', errors.returnWindowDays)}
+          {...register('returnWindowDays')}
         />
       </Field>
 

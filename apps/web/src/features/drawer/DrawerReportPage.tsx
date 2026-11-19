@@ -185,8 +185,9 @@ function Report({
     cashIn,
     cashOut,
     cashSales,
+    cashRefunds,
     expected: expectedNow,
-  } = expectedFrom(record, entries, paidBy(sales, 'cash'));
+  } = expectedFrom(record, entries, paidBy(sales, 'cash'), sales?.cashRefunds ?? 0);
   // A closed drawer keeps the server's figure; an open one waits for its sales.
   const expected = record.expectedCash ?? (sales ? expectedNow : null);
   const pending = salesFailed ? 'Needs internet' : '…';
@@ -215,7 +216,7 @@ function Report({
           icon={Calculator}
           label={record.status === 'open' ? 'Expected so far' : 'Expected'}
           value={expected === null ? pending : formatPeso(expected)}
-          sub="Opening + cash sales + cash in − cash out"
+          sub="Opening + cash sales + cash in − cash out − refunds"
         />
         <SummaryCard
           icon={HandCoins}
@@ -311,6 +312,9 @@ function Report({
             value={cashOut > 0 ? `−${formatPeso(cashOut)}` : formatPeso(0)}
             negative={cashOut > 0}
           />
+          {cashRefunds > 0 && (
+            <Line label="Cash refunds" value={`−${formatPeso(cashRefunds)}`} negative />
+          )}
           <div className="flex justify-between border-t border-divider pt-[8px] font-bold">
             <span>Expected</span>
             <span className="tabular-nums">

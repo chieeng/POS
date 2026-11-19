@@ -47,8 +47,8 @@ export function MyRequestsPage() {
       <h1 className="text-[28px] md:text-[30px]">My requests</h1>
       <p className="px-[4px] text-[13.5px] text-neutral-700">
         {isSpecial
-          ? 'To ask for a change, open the product (“Request a change”, “Request an adjustment”), your stock-in (“Request a correction”) or your sale (“Void the sale”).'
-          : 'To ask for a void, open your sale in My sales (“Void the sale”).'}{' '}
+          ? 'To ask for a change, open the product (“Request a change”, “Request an adjustment”), your stock-in (“Request a correction”) or your sale (“Void the sale”, “Return items”).'
+          : 'To ask for a void or a return, open your sale in My sales (“Void the sale”, “Return items”).'}{' '}
         The Owner decides; you see the answer here.
       </p>
       {notice && (

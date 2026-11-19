@@ -22,6 +22,12 @@ export const storeDetailsSchema = z.object({
     .trim()
     .regex(/^\d{1,3}$/, 'Enter whole minutes.')
     .refine((value) => Number(value) >= 1 && Number(value) <= 240, 'Use 1 to 240 minutes.'),
+  // POS-10: how many days after a sale its items may be returned (30 by default).
+  returnWindowDays: z
+    .string()
+    .trim()
+    .regex(/^\d{1,3}$/, 'Enter whole days.')
+    .refine((value) => Number(value) >= 1 && Number(value) <= 365, 'Use 1 to 365 days.'),
 });
 export type StoreDetailsValues = z.infer<typeof storeDetailsSchema>;
 

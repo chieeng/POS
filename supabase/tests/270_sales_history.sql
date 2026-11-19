@@ -143,8 +143,8 @@ grant execute on all functions in schema pg_temp to authenticated;
 select is(pg_temp.detail('sales', 1), 'ok', 'Sales opens their own sale');
 select is(
   pg_temp.detail_json('sales', 1) -> 'lines',
-  '[{"lineNo": 1, "name": "Chips Classic", "sku": "CK-12", "unit": "pack", "qty": 2, "unitPrice": 45.00, "discount": 0.00, "discountName": null, "lineTotal": 90.00},
-    {"lineNo": 2, "name": "Rice", "sku": "RICE", "unit": "kg", "qty": 1.25, "unitPrice": 99.00, "discount": 0.00, "discountName": null, "lineTotal": 123.75}]'::jsonb,
+  '[{"lineNo": 1, "name": "Chips Classic", "sku": "CK-12", "unit": "pack", "qty": 2, "unitPrice": 45.00, "discount": 0.00, "discountName": null, "lineTotal": 90.00, "returnedQty": 0, "refunded": 0},
+    {"lineNo": 2, "name": "Rice", "sku": "RICE", "unit": "kg", "qty": 1.25, "unitPrice": 99.00, "discount": 0.00, "discountName": null, "lineTotal": 123.75, "returnedQty": 0, "refunded": 0}]'::jsonb,
   'with its lines, and never the cost'
 );
 select is(

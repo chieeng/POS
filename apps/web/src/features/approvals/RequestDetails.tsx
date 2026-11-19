@@ -2,7 +2,7 @@ import { ADJUSTMENT_LABELS, type AdjustmentType } from '@/features/stock/data';
 import { formatPeso } from '@/lib/money';
 import { formatQty, signedQty } from '@/lib/quantity';
 import type { RequestContext } from './context';
-import { voidRefund, type ApprovalRequest } from './data';
+import { returnRefund, voidRefund, type ApprovalRequest } from './data';
 import { RequestChanges } from './RequestChanges';
 
 interface LineValue {
@@ -31,6 +31,41 @@ export function RequestDetails({
         categories={context.categories}
         outdated={outdated}
       />
+    );
+  }
+
+  if (request.type === 'sale_return') {
+    const ret = returnRefund(request);
+    const method = { cash: 'Cash', gcash: 'GCash', maya: 'Maya' }[ret.method];
+    return (
+      <div className="flex flex-col gap-[4px] text-[14px] [font-variant-numeric:tabular-nums]">
+        {(ret.late || ret.defective) && (
+          <p className="font-semibold">
+            {ret.late ? 'Past the return window · defective' : 'Defective'}
+          </p>
+        )}
+        <ul className="m-0 flex list-none flex-col gap-[2px] p-0">
+          {ret.items.map((item, index) => (
+            <li key={index}>
+              {String(item.name ?? '')} × {formatQty(Number(item.qty ?? 0))}
+              {item.unit === 'kg' || item.unit === 'L' ? ` ${item.unit}` : ''}
+              <span className="text-neutral-700">
+                {' '}
+                · {item.condition === 'damaged' ? 'damaged' : 'back to stock'} ·{' '}
+                {formatPeso(Number(item.refund ?? 0))}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p>
+          <span className="text-neutral-700">
+            {ret.method === 'cash'
+              ? 'Cash back, from today’s drawer: '
+              : `${method}, sent back by the Owner: `}
+          </span>
+          <b>{formatPeso(ret.method === 'cash' ? (ret.cashRefund ?? ret.refund) : ret.refund)}</b>
+        </p>
+      </div>
     );
   }
 

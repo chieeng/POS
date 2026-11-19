@@ -77,6 +77,7 @@ export const ACTION_LABELS: Record<string, string> = {
   'deal.create': 'Deals added',
   'deal.update': 'Deal changes',
   'sale.void': 'Sales voided',
+  'sale.return': 'Returns and refunds',
 };
 
 /** "3 for ₱100.00", "a bundle of 2 items for ₱20.00", from an audit line. */
@@ -121,6 +122,7 @@ const FIELD_LABELS: Record<string, string> = {
   vat_rate: 'VAT rate',
   round_cash: 'Round cash to the peso',
   idle_lock_minutes: 'Lock after (min)',
+  return_window_days: 'Returns allowed (days)',
   store_lat: 'Latitude',
   store_lng: 'Longitude',
   radius_m: 'Radius (m)',
@@ -283,6 +285,27 @@ function correctionChanges(
   ];
 }
 
+/** "Chips Classic × 1 back to stock, Rice × 1.25 kg damaged". */
+function returnItemsText(items: unknown): string {
+  return (Array.isArray(items) ? (items as Json[]) : [])
+    .map((item) => {
+      const unit = item.unit === 'kg' || item.unit === 'L' ? ` ${String(item.unit)}` : '';
+      const where = item.condition === 'damaged' ? 'damaged' : 'back to stock';
+      return `${text(item.name)} × ${text(item.qty)}${unit} ${where}`;
+    })
+    .join(', ');
+}
+
+/** "Refund ₱40.00 cash (₱40.00 from the drawer)", "Refund ₱45.00 GCash, ref GC777". */
+function refundText(value: Json): string {
+  const method = { cash: 'cash', gcash: 'GCash', maya: 'Maya' }[String(value.method)] ?? '';
+  const refund = formatPeso(Number(value.refund ?? 0));
+  if (value.method === 'cash') {
+    return `Refund ${refund} cash (${formatPeso(Number(value.cashRefund ?? value.refund ?? 0))} from the drawer)`;
+  }
+  return `Refund ${refund} ${method}${typeof value.refundReference === 'string' ? `, ref ${value.refundReference}` : ''}`;
+}
+
 /** A photo change in plain words (the keys themselves mean nothing to a person). */
 function photoText(old: unknown, next: unknown): string {
   if (typeof next !== 'string') return 'Remove the photo';
@@ -297,6 +320,8 @@ function requestChanges(after: Json): string[] {
   switch (after.type) {
     case 'sale_void':
       return [`Void the sale of ${formatPeso(Number(changes.total ?? 0))}`];
+    case 'sale_return':
+      return [returnItemsText(changes.items), refundText(changes)];
     case 'stock_adjustment':
       return [adjustmentText(changes.type, changes.qty, after.unit)];
     case 'stock_in_correction':
@@ -422,11 +447,25 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
     case 'approval.approve':
     case 'approval.reject': {
       const product = `“${text(after.label)}”`;
+      // Sales are named by their receipt: "asked to void sale TT-…", "asked for a return on …".
+      const receipt = String(after.label ?? '').replace(/^sale /, '');
+      const asked =
+        after.type === 'sale_void'
+          ? `asked to void sale ${receipt}`
+          : after.type === 'sale_return'
+            ? `asked for a return on sale ${receipt}`
+            : `requested a change to ${product}`;
+      const subject =
+        after.type === 'sale_void'
+          ? `the void of sale ${receipt}`
+          : after.type === 'sale_return'
+            ? `the return on sale ${receipt}`
+            : `a request for ${product}`;
       const what = {
-        'approval.request': `requested a change to ${product}`,
-        'approval.withdraw': `withdrew a request for ${product}`,
-        'approval.approve': `approved a request for ${product}`,
-        'approval.reject': `rejected a request for ${product}`,
+        'approval.request': asked,
+        'approval.withdraw': `withdrew ${subject}`,
+        'approval.approve': `approved ${subject}`,
+        'approval.reject': `rejected ${subject}`,
       }[entry.action];
       return {
         icon: ClipboardCheck,
@@ -525,6 +564,20 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
           .join(' · '),
       };
     }
+    case 'sale.return':
+      return {
+        icon: Wallet,
+        what: `took back items from sale ${text(after.receiptNo)} by ${text(after.salesperson)}`,
+        change: [
+          returnItemsText(after.items),
+          refundText(after),
+          after.defective === true ? 'defective' : null,
+          after.requestId ? 'approved request' : 'by the Owner directly',
+          entry.reason ? `Reason: ${entry.reason}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      };
     case 'sale.void': {
       const cash = Number(after.cash ?? 0);
       const ewallet = Number(after.ewallet ?? 0);
