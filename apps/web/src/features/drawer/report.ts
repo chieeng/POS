@@ -208,6 +208,44 @@ export interface FlaggedSale {
   madeOffline: boolean;
 }
 
+/** POS-10: a sale of this drawer that was voided. */
+export interface DrawerVoid {
+  id: string;
+  receiptNo: string;
+  salesperson: string;
+  total: number;
+  /** Cash given back from the drawer, and GCash/Maya sent back by the Owner. */
+  cash: number;
+  ewallet: number;
+  refundReference: string | null;
+  at: Date;
+  by: string;
+  reason: string;
+}
+
+/** POS-10: a return whose cash left this drawer, or a GCash/Maya return of its day. */
+export interface DrawerReturn {
+  id: string;
+  receiptNo: string;
+  salesperson: string;
+  at: Date;
+  by: string;
+  reason: string;
+  refund: number;
+  method: 'cash' | 'gcash' | 'maya';
+  cashRefund: number | null;
+  refundReference: string | null;
+  defective: boolean;
+  items: {
+    name: string;
+    unit: string;
+    qty: number;
+    refund: number;
+    condition: 'stock' | 'damaged';
+    unitCost: number;
+  }[];
+}
+
 /** SHIFT-04: one drawer's sales, summed on the server (the Owner only). */
 export interface DrawerSales {
   count: number;
@@ -216,6 +254,8 @@ export interface DrawerSales {
   discounts: number;
   /** Cash handed back from this drawer for returns (POS-10). */
   cashRefunds: number;
+  voids: DrawerVoid[];
+  returns: DrawerReturn[];
   /** Cash is what went into the drawer; a split sale counts under each of its methods. */
   methods: { method: 'cash' | 'gcash' | 'maya'; count: number; amount: number }[];
   salespeople: { name: string; count: number; total: number }[];
@@ -229,6 +269,39 @@ const toDrawerSales = (row: Row): DrawerSales => ({
   total: Number(row.total ?? 0),
   discounts: Number(row.discounts ?? 0),
   cashRefunds: Number(row.cashRefunds ?? 0),
+  voids: ((row.voids ?? []) as Row[]).map((v) => ({
+    id: String(v.id),
+    receiptNo: String(v.receiptNo ?? ''),
+    salesperson: String(v.salesperson ?? ''),
+    total: Number(v.total ?? 0),
+    cash: Number(v.cash ?? 0),
+    ewallet: Number(v.ewallet ?? 0),
+    refundReference: text(v.refundReference),
+    at: new Date(String(v.at)),
+    by: String(v.by ?? ''),
+    reason: String(v.reason ?? ''),
+  })),
+  returns: ((row.returns ?? []) as Row[]).map((r) => ({
+    id: String(r.id),
+    receiptNo: String(r.receiptNo ?? ''),
+    salesperson: String(r.salesperson ?? ''),
+    at: new Date(String(r.at)),
+    by: String(r.by ?? ''),
+    reason: String(r.reason ?? ''),
+    refund: Number(r.refund ?? 0),
+    method: (r.method ?? 'cash') as DrawerReturn['method'],
+    cashRefund: money(r.cashRefund),
+    refundReference: text(r.refundReference),
+    defective: r.defective === true,
+    items: ((r.items ?? []) as Row[]).map((i) => ({
+      name: String(i.name ?? ''),
+      unit: String(i.unit ?? ''),
+      qty: Number(i.qty ?? 0),
+      refund: Number(i.refund ?? 0),
+      condition: i.condition === 'damaged' ? ('damaged' as const) : ('stock' as const),
+      unitCost: Number(i.unitCost ?? 0),
+    })),
+  })),
   methods: ((row.methods ?? []) as Row[]).map((m) => ({
     method: m.method as DrawerSales['methods'][number]['method'],
     count: Number(m.count ?? 0),
@@ -335,6 +408,38 @@ export function earlierCount(record: DrawerRecord, events: DrawerEvent[]): strin
 }
 
 const noteOf = (...parts: (string | null)[]) => parts.filter(Boolean).join(' · ');
+
+const METHOD_NAMES = { cash: 'cash', gcash: 'GCash', maya: 'Maya' } as const;
+
+/** "Chips Classic × 2 damaged, Rice × 1.25 kg back to stock". */
+export const returnItemsText = (items: DrawerReturn['items']) =>
+  items
+    .map(
+      (item) =>
+        `${item.name} × ${item.qty}${item.unit === 'kg' || item.unit === 'L' ? ` ${item.unit}` : ''} ${item.condition === 'damaged' ? 'damaged' : 'back to stock'}`,
+    )
+    .join(', ');
+
+/** "₱45.00 cash from the drawer", "₱45.00 GCash, ref GC777". */
+export const refundWords = (ret: DrawerReturn) =>
+  ret.method === 'cash'
+    ? `${formatPeso(ret.cashRefund ?? ret.refund)} cash from the drawer${ret.cashRefund !== null && ret.cashRefund !== ret.refund ? ` (${formatPeso(ret.refund)} rounded)` : ''}`
+    : `${formatPeso(ret.refund)} ${METHOD_NAMES[ret.method]}${ret.refundReference ? `, ref ${ret.refundReference}` : ''}`;
+
+/** POS-10: damaged items written off, at their cost when sold. */
+export function damagedItems(sales: DrawerSales | null) {
+  return (sales?.returns ?? []).flatMap((ret) =>
+    ret.items
+      .filter((item) => item.condition === 'damaged')
+      .map((item) => ({
+        name: item.name,
+        unit: item.unit,
+        qty: item.qty,
+        receiptNo: ret.receiptNo,
+        cost: Math.round(item.qty * item.unitCost * 100) / 100,
+      })),
+  );
+}
 
 const manilaDay = (at: Date) => at.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 
@@ -497,6 +602,38 @@ export function drawerSummary(
           type: `Check ${sale.receiptNo}`,
           note: noteOf(sale.salesperson, sale.flags.map((flag) => FLAG_LABELS[flag]).join(', ')),
           amount: sale.total,
+        })),
+        ...sales.voids.map((sale) => ({
+          type: `Voided ${sale.receiptNo}`,
+          note: noteOf(
+            sale.salesperson,
+            `by ${sale.by}`,
+            sale.cash > 0 ? `${formatPeso(sale.cash)} cash back` : null,
+            sale.ewallet > 0
+              ? `${formatPeso(sale.ewallet)} GCash/Maya sent back${sale.refundReference ? `, ref ${sale.refundReference}` : ''}`
+              : null,
+            `Reason: ${sale.reason}`,
+          ),
+          amount: -sale.total,
+        })),
+        ...sales.returns.map((ret) => ({
+          type: `Return ${ret.receiptNo}`,
+          note: noteOf(
+            returnItemsText(ret.items),
+            refundWords(ret),
+            ret.defective ? 'defective' : null,
+            `by ${ret.by}`,
+            `Reason: ${ret.reason}`,
+          ),
+          amount: -ret.refund,
+        })),
+        ...(sales.cashRefunds > 0
+          ? [{ type: 'Cash refunds', note: 'Out of the drawer', amount: -sales.cashRefunds }]
+          : []),
+        ...damagedItems(sales).map((item) => ({
+          type: `Damaged ${item.name}`,
+          note: `${item.qty}${item.unit === 'kg' || item.unit === 'L' ? ` ${item.unit}` : ''} from ${item.receiptNo}, written off at cost`,
+          amount: -item.cost,
         })),
       ]
     : [];

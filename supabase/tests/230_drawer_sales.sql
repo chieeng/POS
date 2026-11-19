@@ -71,7 +71,7 @@ select is(
 -- ---- An empty drawer -------------------------------------------------------------------------
 select is(
   pg_temp.report(pg_temp.session()),
-  '{"count": 0, "total": 0, "discounts": 0, "cashRefunds": 0, "flagged": [], "methods": [], "salespeople": [], "flaggedCount": 0}'::jsonb,
+  '{"count": 0, "total": 0, "discounts": 0, "cashRefunds": 0, "voids": [], "returns": [], "flagged": [], "methods": [], "salespeople": [], "flaggedCount": 0}'::jsonb,
   'a drawer with no sales yet: zeros and empty lists'
 );
 

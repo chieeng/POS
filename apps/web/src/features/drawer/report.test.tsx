@@ -107,6 +107,8 @@ const NO_SALES: DrawerSales = {
   total: 0,
   discounts: 0,
   cashRefunds: 0,
+  voids: [],
+  returns: [],
   methods: [],
   salespeople: [],
   flaggedCount: 0,
@@ -119,6 +121,8 @@ const SALES: DrawerSales = {
   total: 428,
   discounts: 0,
   cashRefunds: 0,
+  voids: [],
+  returns: [],
   methods: [
     { method: 'cash', count: 5, amount: 318 },
     { method: 'gcash', count: 1, amount: 90 },
@@ -241,6 +245,119 @@ describe('the drawer’s sales (SHIFT-04, POS-14)', () => {
       '2026-11-08,,Check TT-20261107-KY96-9,Test Two · Late: made on an earlier day,,45.00',
     );
     expect(csv).toContain('2026-11-08,,Expected,So far,,1318.00');
+  });
+});
+
+describe('voids, returns and damaged items (SHIFT-04, POS-10)', () => {
+  const FIXED: DrawerSales = {
+    ...SALES,
+    cashRefunds: 90,
+    voids: [
+      {
+        id: 'v1',
+        receiptNo: 'TS-20261108-KY96-3',
+        salesperson: 'Test Special 5',
+        total: 90,
+        cash: 45,
+        ewallet: 45,
+        refundReference: 'GCREF01',
+        at: new Date('2026-11-08T10:05:00+08:00'),
+        by: 'Owner',
+        reason: 'Rang up twice',
+      },
+    ],
+    returns: [
+      {
+        id: 'r1',
+        receiptNo: 'TT-20261108-KY96-4',
+        salesperson: 'Test Two',
+        at: new Date('2026-11-08T11:00:00+08:00'),
+        by: 'Owner',
+        reason: 'Spoiled',
+        refund: 90,
+        method: 'cash',
+        cashRefund: 90,
+        refundReference: null,
+        defective: false,
+        items: [
+          {
+            name: 'Test Chips',
+            unit: 'pack',
+            qty: 2,
+            refund: 90,
+            condition: 'damaged',
+            unitCost: 30,
+          },
+        ],
+      },
+      {
+        id: 'r2',
+        receiptNo: 'TT-20261108-KY96-5',
+        salesperson: 'Test Two',
+        at: new Date('2026-11-08T12:00:00+08:00'),
+        by: 'Owner',
+        reason: 'Wrong item',
+        refund: 45,
+        method: 'gcash',
+        cashRefund: null,
+        refundReference: 'GCBACK1',
+        defective: false,
+        items: [
+          {
+            name: 'Test Chips',
+            unit: 'pack',
+            qty: 1,
+            refund: 45,
+            condition: 'stock',
+            unitCost: 30,
+          },
+        ],
+      },
+    ],
+  };
+
+  it('lists each void and return, and the damaged items at cost', () => {
+    state.record = OPEN;
+    state.entries = [];
+    state.sales = FIXED;
+    renderReport();
+    expect(screen.getByText('Cash refunds').nextSibling).toHaveTextContent('−₱90.00');
+    expect(screen.getByText('Expected so far').nextSibling).toHaveTextContent('₱1,228.00');
+    const fixes = within(screen.getByRole('region', { name: 'Voids and returns' }));
+    expect(fixes.getByRole('heading', { name: 'Voids · 1' })).toBeInTheDocument();
+    expect(
+      fixes.getByText('₱45.00 cash back · ₱45.00 GCash/Maya sent back, ref GCREF01'),
+    ).toBeInTheDocument();
+    expect(fixes.getByText('Reason: Rang up twice')).toBeInTheDocument();
+    expect(fixes.getByRole('heading', { name: 'Returns · 2' })).toBeInTheDocument();
+    expect(fixes.getByText('Test Chips × 2 damaged')).toBeInTheDocument();
+    expect(fixes.getByText('₱90.00 cash from the drawer')).toBeInTheDocument();
+    expect(fixes.getByText('₱45.00 GCash, ref GCBACK1')).toBeInTheDocument();
+    expect(fixes.getByText('Written off at cost').nextSibling).toHaveTextContent('₱60.00');
+  });
+
+  it('puts them in the CSV', () => {
+    const csv = drawerCsv(OPEN, [], [], FIXED);
+    expect(csv).toContain(
+      '2026-11-08,,Voided TS-20261108-KY96-3,"Test Special 5 · by Owner · ₱45.00 cash back · ₱45.00 GCash/Maya sent back, ref GCREF01 · Reason: Rang up twice",,-90.00',
+    );
+    expect(csv).toContain(
+      '2026-11-08,,Return TT-20261108-KY96-4,Test Chips × 2 damaged · ₱90.00 cash from the drawer · by Owner · Reason: Spoiled,,-90.00',
+    );
+    expect(csv).toContain('2026-11-08,,Cash refunds,Out of the drawer,,-90.00');
+    expect(csv).toContain(
+      '2026-11-08,,Damaged Test Chips,"2 from TT-20261108-KY96-4, written off at cost",,-60.00',
+    );
+    expect(csv).toContain('2026-11-08,,Expected,So far,,1228.00');
+  });
+
+  it('shows nothing extra when nothing was voided or returned', () => {
+    state.record = OPEN;
+    state.entries = [];
+    state.sales = SALES;
+    renderReport();
+    expect(screen.queryByRole('region', { name: 'Voids and returns' })).toBeNull();
+    expect(screen.queryByText('Cash refunds')).toBeNull();
   });
 });
 

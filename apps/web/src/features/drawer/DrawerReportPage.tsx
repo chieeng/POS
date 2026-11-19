@@ -43,6 +43,7 @@ import { describeDrawerError } from './data';
 import { shortDay, timeLabel } from './format';
 import {
   countedLater,
+  damagedItems,
   drawerCsv,
   earlierCount,
   expectedFrom,
@@ -50,7 +51,9 @@ import {
   movementDay,
   movements,
   paidBy,
+  refundWords,
   reopenDrawer,
+  returnItemsText,
   useDrawerDay,
   useDrawerEntries,
   useDrawerEvents,
@@ -345,7 +348,7 @@ function Report({
             </p>
           )}
           <p className="text-[13px] text-neutral-700">
-            Refunds and utang payments join this list in later updates.
+            Utang payments join this list in a later update.
           </p>
           {canReopen && (
             <Button
@@ -362,6 +365,8 @@ function Report({
         </div>
       </div>
 
+      {sales && <FixesSection sales={sales} />}
+
       {sales ? (
         <SalesSection sales={sales} />
       ) : (
@@ -376,6 +381,108 @@ function Report({
 }
 
 const METHOD_LABELS = { cash: 'Cash', gcash: 'GCash', maya: 'Maya' } as const;
+
+/**
+ * SHIFT-04, POS-10: the drawer's voids, returns and damaged items, each with who, why and what
+ * went back. Shown only when there is any.
+ */
+function FixesSection({ sales }: { sales: DrawerSales }) {
+  const damaged = damagedItems(sales);
+  if (sales.voids.length === 0 && sales.returns.length === 0) return null;
+  const damagedCost = damaged.reduce((sum, item) => sum + item.cost, 0);
+  return (
+    <section
+      aria-label="Voids and returns"
+      className="grid gap-[16px] xl:grid-cols-[1fr_1.4fr_1fr]"
+    >
+      <div className="flex flex-col gap-[10px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+        <h2 className="mb-[4px] text-[20px]">
+          Voids{sales.voids.length > 0 ? ` · ${sales.voids.length}` : ''}
+        </h2>
+        {sales.voids.length === 0 ? (
+          <p className="text-neutral-700">No voids.</p>
+        ) : (
+          <ul className="flex flex-col gap-[10px]">
+            {sales.voids.map((sale) => (
+              <li key={sale.id} className="flex flex-col gap-[4px] rounded-[20px] bg-bg p-[12px]">
+                <div className="flex items-baseline justify-between gap-[8px]">
+                  <span className="font-semibold break-all">{sale.receiptNo}</span>
+                  <span className="font-bold text-danger-fg tabular-nums">
+                    −{formatPeso(sale.total)}
+                  </span>
+                </div>
+                <div className="text-[12.5px] text-neutral-700">
+                  {sale.salesperson} · voided {madeLabel(sale.at)} by {sale.by}
+                </div>
+                <div className="text-[13px]">
+                  {[
+                    sale.cash > 0 ? `${formatPeso(sale.cash)} cash back` : null,
+                    sale.ewallet > 0
+                      ? `${formatPeso(sale.ewallet)} GCash/Maya sent back${sale.refundReference ? `, ref ${sale.refundReference}` : ''}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </div>
+                <div className="text-[13px] text-neutral-700">Reason: {sale.reason}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-[10px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+        <h2 className="mb-[4px] text-[20px]">
+          Returns{sales.returns.length > 0 ? ` · ${sales.returns.length}` : ''}
+        </h2>
+        {sales.returns.length === 0 ? (
+          <p className="text-neutral-700">No returns.</p>
+        ) : (
+          <ul className="flex flex-col gap-[10px]">
+            {sales.returns.map((ret) => (
+              <li key={ret.id} className="flex flex-col gap-[4px] rounded-[20px] bg-bg p-[12px]">
+                <div className="flex items-baseline justify-between gap-[8px]">
+                  <span className="font-semibold break-all">{ret.receiptNo}</span>
+                  <span className="font-bold text-danger-fg tabular-nums">
+                    −{formatPeso(ret.refund)}
+                  </span>
+                </div>
+                <div className="text-[12.5px] text-neutral-700">
+                  {ret.salesperson} · returned {madeLabel(ret.at)} by {ret.by}
+                  {ret.defective ? ' · defective' : ''}
+                </div>
+                <div className="text-[13px]">{returnItemsText(ret.items)}</div>
+                <div className="text-[13px]">{refundWords(ret)}</div>
+                <div className="text-[13px] text-neutral-700">Reason: {ret.reason}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-[8px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+        <h2 className="mb-[4px] text-[20px]">Damaged</h2>
+        {damaged.length === 0 ? (
+          <p className="text-neutral-700">Nothing damaged.</p>
+        ) : (
+          <>
+            {damaged.map((item, index) => (
+              <Line
+                key={index}
+                label={`${item.name} × ${item.qty}${item.unit === 'kg' || item.unit === 'L' ? ` ${item.unit}` : ''}`}
+                value={formatPeso(item.cost)}
+              />
+            ))}
+            <div className="flex justify-between border-t border-divider pt-[8px] font-bold">
+              <span>Written off at cost</span>
+              <span className="tabular-nums">{formatPeso(damagedCost)}</span>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
 
 const madeLabel = (date: Date) =>
   date.toLocaleString('en-PH', {
