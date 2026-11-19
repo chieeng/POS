@@ -30,8 +30,17 @@ export function useRequestContext() {
       suppliers: suppliers.data,
       outdated: (request: ApprovalRequest) =>
         isOutdated(request, productById.get(request.productId), corrected.has(request.targetId)),
-      /** "Chips Classic", "Stock adjustment · Chips Classic", "Stock-in correction · DR 1234". */
+      /**
+       * "Chips Classic", "Stock adjustment · Chips Classic", "Stock-in correction · DR 1234",
+       * "Void sale · TT-20261119-K97Z-3".
+       */
       title: (request: ApprovalRequest): { label: string; to: string } => {
+        if (request.type === 'sale_void') {
+          return {
+            label: `Void sale · ${String(request.after.receiptNo ?? '')}`,
+            to: `/sales/${request.targetId}`,
+          };
+        }
         if (request.type === 'stock_in_correction') {
           const receipt = receiptById.get(request.targetId);
           return {

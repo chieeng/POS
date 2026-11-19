@@ -116,7 +116,7 @@ export function navItems(role: Role, pending: number): NavItem[] {
   const available: Record<Role, readonly NavKey[]> = {
     owner: ['home', 'sell', 'sales', 'approvals', 'products', 'stockIn', 'drawer', 'settings'],
     special_sales: ['sell', 'sales', 'products', 'stockIn', 'drawer', 'requests'],
-    sales: ['sell', 'sales', 'products', 'drawer'],
+    sales: ['sell', 'sales', 'products', 'drawer', 'requests'],
   };
   return NAV_ORDER[role]
     .filter((key) => available[role].includes(key) && built[key])

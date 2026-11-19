@@ -30,7 +30,7 @@ describe('navItems', () => {
       'requests',
     ]);
     // SRS 6.1: Sales can view products and stock levels.
-    expect(keys(navItems('sales', 0))).toEqual(['sell', 'sales', 'products', 'drawer']);
+    expect(keys(navItems('sales', 0))).toEqual(['sell', 'sales', 'products', 'drawer', 'requests']);
   });
 
   it('names sales history by role: everyone’s for the Owner, their own for staff', () => {

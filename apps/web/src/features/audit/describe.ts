@@ -76,6 +76,7 @@ export const ACTION_LABELS: Record<string, string> = {
   'discount.update': 'Discount changes',
   'deal.create': 'Deals added',
   'deal.update': 'Deal changes',
+  'sale.void': 'Sales voided',
 };
 
 /** "3 for ₱100.00", "a bundle of 2 items for ₱20.00", from an audit line. */
@@ -294,6 +295,8 @@ function requestChanges(after: Json): string[] {
   const before = asObject(after.before);
   const names = asObject(after.names);
   switch (after.type) {
+    case 'sale_void':
+      return [`Void the sale of ${formatPeso(Number(changes.total ?? 0))}`];
     case 'stock_adjustment':
       return [adjustmentText(changes.type, changes.qty, after.unit)];
     case 'stock_in_correction':
@@ -517,6 +520,25 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
         change: [
           REASON_LABELS[after.reason as EntryReason] ?? text(after.reason),
           typeof after.note === 'string' && after.note !== '' ? after.note : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      };
+    }
+    case 'sale.void': {
+      const cash = Number(after.cash ?? 0);
+      const ewallet = Number(after.ewallet ?? 0);
+      return {
+        icon: Wallet,
+        what: `voided sale ${text(after.receiptNo)} by ${text(after.salesperson)}`,
+        change: [
+          `Total ${formatPeso(Number(after.total ?? 0))}`,
+          cash > 0 ? `${formatPeso(cash)} cash out of the drawer` : null,
+          ewallet > 0
+            ? `${formatPeso(ewallet)} GCash/Maya sent back, ref ${text(after.refundReference)}`
+            : null,
+          after.requestId ? 'approved request' : 'by the Owner directly',
+          entry.reason ? `Reason: ${entry.reason}` : null,
         ]
           .filter(Boolean)
           .join(' · '),

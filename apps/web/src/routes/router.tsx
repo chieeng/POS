@@ -109,7 +109,8 @@ export const routes: RouteObject[] = [
           { path: '/sales', element: <SalesHistoryPage /> },
           { path: '/sales/:saleId', element: <SaleDetailPage /> },
           {
-            element: <RequireRole role="special_sales" />,
+            // APPR-05: Special Sales and Sales follow their requests (Sales: voids, step 10).
+            element: <RequireRole role={['special_sales', 'sales']} />,
             children: [{ path: '/requests', element: <MyRequestsPage /> }],
           },
         ],

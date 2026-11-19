@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProductPhoto } from '@/features/catalog/ProductPhoto';
 import { useUsers } from '@/features/users/data';
+import { formatPeso } from '@/lib/money';
 import { useSession } from '@/stores/session';
 import {
   cleanUpRequestPhoto,
@@ -21,6 +22,7 @@ import {
   describeApprovalError,
   formatWhen,
   useApprovalRequests,
+  voidRefund,
   type ApprovalRequest,
 } from './data';
 import { useRequestContext } from './context';
@@ -32,8 +34,9 @@ type Decision = { request: ApprovalRequest; approve: boolean } | null;
 /**
  * Approvals (SRS 3.9, APPR-03, APPR-04), the Owner only: pending requests first, each with what
  * it changes, the reason and who asked; Approve applies it exactly as asked, Reject changes
- * nothing. Product edits, stock adjustments and stock-in corrections. An outdated request (the
- * product or stock-in changed since) can only be rejected.
+ * nothing. Product edits, stock adjustments, stock-in corrections and sale voids. An outdated
+ * request (the product or stock-in changed since, or the sale's drawer closed) can only be
+ * rejected; for a void the server says so when Approve is tried.
  */
 export function ApprovalsPage() {
   const branchId = useSession((s) => s.user?.branchId ?? '');
@@ -43,6 +46,7 @@ export function ApprovalsPage() {
 
   const [decision, setDecision] = useState<Decision>(null);
   const [note, setNote] = useState('');
+  const [reference, setReference] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -55,6 +59,7 @@ export function ApprovalsPage() {
 
   const open = (request: ApprovalRequest, approve: boolean) => {
     setNote('');
+    setReference('');
     setError(null);
     setNotice(null);
     setDecision({ request, approve });
@@ -65,7 +70,12 @@ export function ApprovalsPage() {
     setBusy(true);
     setError(null);
     try {
-      await decideApproval(decision.request.id, decision.approve, note);
+      await decideApproval(
+        decision.request.id,
+        decision.approve,
+        note,
+        needsReference ? reference : null,
+      );
       cleanUpRequestPhoto(decision.request, decision.approve ? 'approved' : 'rejected');
       setNotice(
         `${decision.approve ? 'Approved' : 'Rejected'}: ${context.title(decision.request).label}.`,
@@ -79,6 +89,10 @@ export function ApprovalsPage() {
   };
 
   const loading = requests.loading || context.loading;
+  // POS-10: approving a void of a sale paid partly by GCash/Maya records the refund's reference.
+  const isVoid = decision?.request.type === 'sale_void';
+  const needsReference =
+    decision !== null && decision.approve && isVoid && voidRefund(decision.request).ewallet > 0;
 
   return (
     <div className="flex w-full max-w-[760px] flex-col gap-[14px] p-[14px] md:px-[26px] md:py-[22px] xl:py-[28px] xl:pl-[16px]">
@@ -211,12 +225,20 @@ export function ApprovalsPage() {
         {decision && (
           <DialogContent>
             <DialogTitle>
-              {decision.approve ? 'Approve this change?' : 'Reject this request?'}
+              {decision.approve
+                ? isVoid
+                  ? 'Approve this void?'
+                  : 'Approve this change?'
+                : 'Reject this request?'}
             </DialogTitle>
             <DialogDescription>
-              {decision.approve
-                ? 'The product changes exactly as requested, now.'
-                : 'The product stays as it is.'}{' '}
+              {isVoid
+                ? decision.approve
+                  ? `The sale is voided now and its items go back to stock.${voidRefund(decision.request).cash > 0 ? ` Give back ${formatPeso(voidRefund(decision.request).cash)} cash from today’s drawer.` : ''}`
+                  : 'The sale stays as it is.'
+                : decision.approve
+                  ? 'The product changes exactly as requested, now.'
+                  : 'The product stays as it is.'}{' '}
               {nameOf(decision.request.requestedBy)} sees your decision and note.
             </DialogDescription>
             <div>
@@ -232,6 +254,22 @@ export function ApprovalsPage() {
                 className="min-h-[46px] bg-bg text-[15px]"
               />
             </div>
+            {needsReference && (
+              <div>
+                <Label htmlFor="refund-reference" className="text-[13px]">
+                  Reference of the {formatPeso(voidRefund(decision.request).ewallet)} GCash/Maya
+                  refund you sent
+                </Label>
+                <Input
+                  id="refund-reference"
+                  value={reference}
+                  maxLength={60}
+                  autoComplete="off"
+                  onChange={(event) => setReference(event.target.value)}
+                  className="min-h-[46px] bg-bg text-[15px]"
+                />
+              </div>
+            )}
             {error && <Alert variant="danger">{error}</Alert>}
             <DialogActions>
               <DialogClose asChild>
