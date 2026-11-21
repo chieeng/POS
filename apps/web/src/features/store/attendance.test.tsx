@@ -18,6 +18,9 @@ const BRANCH: BranchSettings = {
   ...toBranch({ id: 'main', name: 'Eragon Store' }),
   morningClockIn: '06:00',
   afternoonClockIn: '13:00',
+  afternoonLine: '12:00',
+  morningOutLine: '15:00',
+  earliestOut: '18:00',
   graceMinutes: 15,
   lateDeduction: 'none',
   latePenalty: 0,
@@ -49,8 +52,11 @@ beforeEach(() => {
 describe('Settings > Attendance (ATT-07)', () => {
   test('shows the defaults: 6:00, 13:00, 15 min, no deduction, half day, staff only', () => {
     renderPage();
-    expect(screen.getByLabelText('Morning shift clock-in')).toHaveValue('06:00');
-    expect(screen.getByLabelText('Afternoon shift clock-in')).toHaveValue('13:00');
+    expect(screen.getByLabelText('Latest time in (morning)')).toHaveValue('06:00');
+    expect(screen.getByLabelText('Afternoon start')).toHaveValue('13:00');
+    expect(screen.getByLabelText('Afternoon half day if in at or after')).toHaveValue('12:00');
+    expect(screen.getByLabelText('Morning half day if out before')).toHaveValue('15:00');
+    expect(screen.getByLabelText('Earliest time out')).toHaveValue('18:00');
     expect(screen.getByLabelText('Grace period (minutes)')).toHaveValue('15');
     expect(screen.getByRole('radio', { name: 'None' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Half day' })).toBeChecked();
@@ -61,8 +67,8 @@ describe('Settings > Attendance (ATT-07)', () => {
 
   test('saves every rule, in the database units', async () => {
     const user = renderPage();
-    await user.clear(screen.getByLabelText('Morning shift clock-in'));
-    await user.type(screen.getByLabelText('Morning shift clock-in'), '07:30');
+    await user.clear(screen.getByLabelText('Latest time in (morning)'));
+    await user.type(screen.getByLabelText('Latest time in (morning)'), '07:30');
     await user.clear(screen.getByLabelText('Grace period (minutes)'));
     await user.type(screen.getByLabelText('Grace period (minutes)'), '10');
     await user.click(screen.getByRole('radio', { name: 'Minutes late' }));
@@ -75,6 +81,9 @@ describe('Settings > Attendance (ATT-07)', () => {
     expect(save).toHaveBeenCalledWith({
       morning_clock_in: '07:30',
       afternoon_clock_in: '13:00',
+      afternoon_line: '12:00',
+      morning_out_line: '15:00',
+      earliest_out: '18:00',
       grace_minutes: 10,
       late_deduction: 'minutes',
       late_penalty: 0,
@@ -112,11 +121,25 @@ describe('Settings > Attendance (ATT-07)', () => {
 
   test('refuses an afternoon shift that starts before the morning one', async () => {
     const user = renderPage();
-    await user.clear(screen.getByLabelText('Afternoon shift clock-in'));
-    await user.type(screen.getByLabelText('Afternoon shift clock-in'), '05:00');
+    await user.clear(screen.getByLabelText('Afternoon start'));
+    await user.type(screen.getByLabelText('Afternoon start'), '05:00');
     await user.click(saveButton());
     expect(
       await screen.findByText('The afternoon shift must start after the morning shift.'),
+    ).toBeInTheDocument();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  test('keeps the day’s times in order (step 11)', async () => {
+    const user = renderPage();
+    await user.clear(screen.getByLabelText('Morning half day if out before'));
+    await user.type(screen.getByLabelText('Morning half day if out before'), '12:30');
+    await user.clear(screen.getByLabelText('Earliest time out'));
+    await user.type(screen.getByLabelText('Earliest time out'), '11:00');
+    await user.click(saveButton());
+    expect(await screen.findByText('Use a time after the afternoon start.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Use a time no earlier than the morning half day line.'),
     ).toBeInTheDocument();
     expect(save).not.toHaveBeenCalled();
   });

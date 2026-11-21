@@ -88,6 +88,9 @@ export const attendanceSchema = z
   .object({
     morningClockIn: clockTime,
     afternoonClockIn: clockTime,
+    afternoonLine: clockTime,
+    morningOutLine: clockTime,
+    earliestOut: clockTime,
     graceMinutes: z
       .string()
       .trim()
@@ -110,5 +113,23 @@ export const attendanceSchema = z
   .refine((values) => values.afternoonClockIn > values.morningClockIn, {
     path: ['afternoonClockIn'],
     message: 'The afternoon shift must start after the morning shift.',
+  })
+  // The day's times go in order: 8:00 AM < 12:00 noon <= 1:00 PM < 3:00 PM <= 6:00 PM.
+  .refine(
+    (values) =>
+      values.afternoonLine > values.morningClockIn &&
+      values.afternoonLine <= values.afternoonClockIn,
+    {
+      path: ['afternoonLine'],
+      message: 'Use a time after the latest time in and no later than the afternoon start.',
+    },
+  )
+  .refine((values) => values.morningOutLine > values.afternoonClockIn, {
+    path: ['morningOutLine'],
+    message: 'Use a time after the afternoon start.',
+  })
+  .refine((values) => values.earliestOut >= values.morningOutLine, {
+    path: ['earliestOut'],
+    message: 'Use a time no earlier than the morning half day line.',
   });
 export type AttendanceValues = z.infer<typeof attendanceSchema>;

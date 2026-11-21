@@ -30,6 +30,12 @@ export interface BranchSettings {
   /** "HH:MM", Manila time (ATT-06). */
   morningClockIn: string;
   afternoonClockIn: string;
+  /** In at or after this: an afternoon half day (12:00 noon). */
+  afternoonLine: string;
+  /** A morning start out before this: a morning half day (3:00 PM). */
+  morningOutLine: string;
+  /** Out before this: early out; after it, overtime (6:00 PM). */
+  earliestOut: string;
   graceMinutes: number;
   lateDeduction: LateDeduction;
   /** Pesos per late day, used when lateDeduction is "flat". */
@@ -69,8 +75,11 @@ export const toBranch = (row: Row): BranchSettings => ({
   storeLat: num(row.store_lat),
   storeLng: num(row.store_lng),
   radiusM: num(row.radius_m) ?? 100,
-  morningClockIn: hhmm(row.morning_clock_in, '06:00'),
+  morningClockIn: hhmm(row.morning_clock_in, '08:00'),
   afternoonClockIn: hhmm(row.afternoon_clock_in, '13:00'),
+  afternoonLine: hhmm(row.afternoon_line, '12:00'),
+  morningOutLine: hhmm(row.morning_out_line, '15:00'),
+  earliestOut: hhmm(row.earliest_out, '18:00'),
   graceMinutes: num(row.grace_minutes) ?? 15,
   lateDeduction:
     row.late_deduction === 'minutes' || row.late_deduction === 'flat' ? row.late_deduction : 'none',
@@ -82,7 +91,7 @@ export const toBranch = (row: Row): BranchSettings => ({
 
 // One string literal, so supabase-js can type the row it returns.
 const COLUMNS =
-  'id, name, address, contact, tin, receipt_footer, vat_registered, vat_rate, round_cash, return_window_days, idle_lock_minutes, store_lat, store_lng, radius_m, morning_clock_in, afternoon_clock_in, grace_minutes, late_deduction, late_penalty, paid_minutes_per_day, afternoon_day_credit, owner_clocks_in';
+  'id, name, address, contact, tin, receipt_footer, vat_registered, vat_rate, round_cash, return_window_days, idle_lock_minutes, store_lat, store_lng, radius_m, morning_clock_in, afternoon_clock_in, afternoon_line, morning_out_line, earliest_out, grace_minutes, late_deduction, late_penalty, paid_minutes_per_day, afternoon_day_credit, owner_clocks_in';
 
 /**
  * The signed-in user's branch, live. Row Level Security returns it only to the branch's own
@@ -128,6 +137,9 @@ export interface BranchChanges {
   radius_m?: number;
   morning_clock_in?: string;
   afternoon_clock_in?: string;
+  afternoon_line?: string;
+  morning_out_line?: string;
+  earliest_out?: string;
   grace_minutes?: number;
   late_deduction?: LateDeduction;
   late_penalty?: number;

@@ -86,6 +86,9 @@ laptops. Roles: owner, special_sales, sales.
   No secrets, passwords, one-time links, design link or project ID in the block. If a command
   is truly needed, give the exact PowerShell command and what should be seen.
 
+- Small wording or polish findings (no effect on money, stock or security) go to
+  `docs/POLISH.md` for step 15, after go-live, instead of their own PR (the owner's rule of
+  Nov 21, 2026). Findings that touch money, stock or security are still fixed before go-live.
 - When the owner comes back with the reviewer's findings, fix them on ONE small PR from `dev`,
   say "ready to merge #N", and give a short "Re-test hand-off" block the same way.
 - Reviewer hand-off after EVERY task: whenever Claude finishes something and needs the owner to

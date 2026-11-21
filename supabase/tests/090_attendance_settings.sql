@@ -10,8 +10,8 @@ select is(
       late_penalty, paid_minutes_per_day, afternoon_day_credit, owner_clocks_in)
     from public.branches where id = 'tmain'
   ),
-  '06:00:00 | 13:00:00 | 15 | none | 0.00 | 480 | 0.5 | f',
-  'defaults: 6:00 AM, 1:00 PM, 15 min grace, no late deduction (flat PHP 0), 8 paid hours, afternoon day = half, Owner does not clock in'
+  '08:00:00 | 13:00:00 | 15 | none | 0.00 | 480 | 0.5 | f',
+  'defaults: 8:00 AM (store opens at 8, Nov 21), 1:00 PM, 15 min grace, no late deduction (flat PHP 0), 8 paid hours, afternoon day = half, Owner does not clock in'
 );
 
 -- ---- Who may change them -------------------------------------------------------------------
@@ -52,7 +52,7 @@ select is(
       || (before ->> 'owner_clocks_in') || ' -> ' || (after ->> 'owner_clocks_in')
     from public.audit_logs where action = 'branch.update'
   ),
-  'none -> minutes, 06:00:00 -> 07:30:00, false -> true',
+  'none -> minutes, 08:00:00 -> 07:30:00, false -> true',
   'the change is audit-logged with old and new values (ATT-09)'
 );
 
