@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { Controller, useForm, useWatch, type UseFormRegisterReturn } from 'react-hook-form';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,6 +61,9 @@ const describedBy = (id: string, error?: unknown) => (error ? `${id}-error` : `$
 const valuesFrom = (branch: BranchSettings): AttendanceValues => ({
   morningClockIn: branch.morningClockIn,
   afternoonClockIn: branch.afternoonClockIn,
+  afternoonLine: branch.afternoonLine,
+  morningOutLine: branch.morningOutLine,
+  earliestOut: branch.earliestOut,
   graceMinutes: String(branch.graceMinutes),
   lateDeduction: branch.lateDeduction,
   latePenalty: String(branch.latePenalty),
@@ -137,6 +140,9 @@ function AttendanceForm({ branch }: { branch: BranchSettings }) {
       await updateBranchSettings({
         morning_clock_in: values.morningClockIn,
         afternoon_clock_in: values.afternoonClockIn,
+        afternoon_line: values.afternoonLine,
+        morning_out_line: values.morningOutLine,
+        earliest_out: values.earliestOut,
         grace_minutes: Number(values.graceMinutes),
         late_deduction: values.lateDeduction,
         late_penalty: Number(values.latePenalty),
@@ -162,8 +168,8 @@ function AttendanceForm({ branch }: { branch: BranchSettings }) {
         <div className="grid gap-[14px] sm:grid-cols-2">
           <Field
             id="att-morning"
-            label="Morning shift clock-in"
-            hint="Manila time."
+            label="Latest time in (morning)"
+            hint="After this plus the grace period, a morning start is late."
             error={errors.morningClockIn?.message}
           >
             <Input
@@ -178,8 +184,8 @@ function AttendanceForm({ branch }: { branch: BranchSettings }) {
           </Field>
           <Field
             id="att-afternoon"
-            label="Afternoon shift clock-in"
-            hint="Manila time."
+            label="Afternoon start"
+            hint="Latest time in for an afternoon half day, plus the grace period."
             error={errors.afternoonClockIn?.message}
           >
             <Input
@@ -192,6 +198,27 @@ function AttendanceForm({ branch }: { branch: BranchSettings }) {
               {...register('afternoonClockIn')}
             />
           </Field>
+          <TimeField
+            id="att-afternoon-line"
+            label="Afternoon half day if in at or after"
+            hint="Time in from this time on counts as an afternoon half day."
+            error={errors.afternoonLine?.message}
+            register={register('afternoonLine')}
+          />
+          <TimeField
+            id="att-morning-out"
+            label="Morning half day if out before"
+            hint="A morning start that clocks out before this is a morning half day."
+            error={errors.morningOutLine?.message}
+            register={register('morningOutLine')}
+          />
+          <TimeField
+            id="att-earliest-out"
+            label="Earliest time out"
+            hint="Out before this is marked early out; after it, the minutes are recorded as overtime."
+            error={errors.earliestOut?.message}
+            register={register('earliestOut')}
+          />
         </div>
         <Field
           id="att-grace"
@@ -343,5 +370,34 @@ function AttendanceForm({ branch }: { branch: BranchSettings }) {
         )}
       </div>
     </form>
+  );
+}
+
+/** A time of day with its label, hint and error (Manila time). */
+function TimeField({
+  id,
+  label,
+  hint,
+  error,
+  register,
+}: {
+  id: string;
+  label: string;
+  hint: string;
+  error: string | undefined;
+  register: UseFormRegisterReturn;
+}) {
+  return (
+    <Field id={id} label={label} hint={hint} error={error}>
+      <Input
+        id={id}
+        type="time"
+        step={60}
+        className={inputClass}
+        aria-invalid={!!error || undefined}
+        aria-describedby={describedBy(id, error)}
+        {...register}
+      />
+    </Field>
   );
 }
