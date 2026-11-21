@@ -19,6 +19,7 @@ describe('navItems', () => {
       'products',
       'stockIn',
       'drawer',
+      'attendance',
       'settings',
     ]);
     expect(keys(navItems('special_sales', 0))).toEqual([

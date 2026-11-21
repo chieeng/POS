@@ -33,6 +33,9 @@ export interface AttendanceRecord {
   overtimeMinutes: number;
   flags: string[];
   inDistanceM: number | null;
+  inAccuracyM: number | null;
+  outDistanceM: number | null;
+  outAccuracyM: number | null;
 }
 
 /** The day's settings, in minutes after midnight. */
@@ -58,6 +61,8 @@ type Json = Record<string, unknown>;
 
 const date = (value: unknown) => (typeof value === 'string' ? new Date(value) : null);
 const num = (value: unknown) => (value === null || value === undefined ? 0 : Number(value));
+const numOrNull = (value: unknown) =>
+  value === null || value === undefined ? null : Math.round(Number(value));
 
 export function toRecord(row: Json): AttendanceRecord {
   return {
@@ -70,10 +75,10 @@ export function toRecord(row: Json): AttendanceRecord {
     earlyMinutes: num(row.early_minutes),
     overtimeMinutes: num(row.overtime_minutes),
     flags: Array.isArray(row.flags) ? (row.flags as string[]) : [],
-    inDistanceM:
-      row.in_distance_m === null || row.in_distance_m === undefined
-        ? null
-        : Number(row.in_distance_m),
+    inDistanceM: numOrNull(row.in_distance_m),
+    inAccuracyM: numOrNull(row.in_accuracy_m),
+    outDistanceM: numOrNull(row.out_distance_m),
+    outAccuracyM: numOrNull(row.out_accuracy_m),
   };
 }
 
@@ -120,12 +125,30 @@ export const DAY_TYPE_LABELS = {
 } as const;
 
 export const FLAG_LABELS: Record<string, string> = {
+  location_not_read: 'Location not read',
   location_not_verified: 'Location not verified',
   store_location_not_set: 'Store location not set',
   sent_late: 'Sent from this phone later',
   clock_ahead: 'Phone clock was ahead',
   edited: 'Changed by the Owner',
 };
+
+/**
+ * A flag in words; a poor location reading says how far and how precise it was (the Nov 22
+ * test): "Location not verified: 230 m away, accuracy 40 m".
+ */
+export function flagText(flag: string, record: AttendanceRecord): string {
+  if (flag === 'location_not_verified') {
+    const distance = record.inDistanceM ?? record.outDistanceM;
+    const accuracy = record.inAccuracyM ?? record.outAccuracyM;
+    const parts = [
+      distance !== null ? `${distance.toLocaleString('en-PH')} m away` : null,
+      accuracy !== null ? `accuracy ${accuracy.toLocaleString('en-PH')} m` : null,
+    ].filter(Boolean);
+    return parts.length > 0 ? `Location not verified: ${parts.join(', ')}` : FLAG_LABELS[flag]!;
+  }
+  return FLAG_LABELS[flag] ?? flag;
+}
 
 // ---- Sending ------------------------------------------------------------------------------------
 

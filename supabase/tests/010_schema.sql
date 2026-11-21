@@ -96,7 +96,7 @@ select is(
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and has_function_privilege('authenticated', p.oid, 'execute')
   ),
-  'adjust_stock attendance_today clock_in clock_out close_drawer complete_sale correct_stock_in create_category create_deal create_discount create_payment_account create_product create_supplier decide_approval drawer_expected_cash drawer_sales drawer_today open_drawer product_stock_history record_account_event record_drawer_entry record_product_export record_sign_in record_stock_in reopen_drawer report_unsent request_product_change request_sale_return request_sale_void request_stock_adjustment request_stock_in_correction return_sale sale_detail sales_history set_product_photo update_branch_settings update_category update_deal update_discount update_payment_account update_product update_supplier void_sale withdraw_request',
+  'adjust_stock attendance_today clock_in clock_out close_drawer complete_sale correct_stock_in create_category create_deal create_discount create_payment_account create_product create_supplier decide_approval drawer_expected_cash drawer_sales drawer_today fix_attendance mark_attendance_day open_drawer product_stock_history record_account_event record_drawer_entry record_product_export record_sign_in record_stock_in reopen_drawer report_unsent request_attendance_fix request_product_change request_sale_return request_sale_void request_stock_adjustment request_stock_in_correction return_sale sale_detail sales_history set_product_photo set_rest_weekday update_branch_settings update_category update_deal update_discount update_payment_account update_product update_supplier void_sale withdraw_request',
   'only the API functions in public are callable by a signed-in user'
 );
 

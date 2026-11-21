@@ -104,7 +104,7 @@ select is(
 select is(
   (select jsonb_build_object('location', a.in_location, 'flags', a.flags, 'devTime', abs(extract(epoch from (a.in_at - a.in_device_at))) < 1)
    from public.attendance a where a.user_id = tests.uid('special')),
-  '{"location": "not_verified", "flags": ["location_not_verified", "sent_late"], "devTime": true}'::jsonb,
+  '{"location": "not_verified", "flags": ["location_not_read", "sent_late"], "devTime": true}'::jsonb,
   'it counts at the phone''s time, flagged location not verified and sent late');
 select is(
   tests.message('special', format('select public.clock_out(%L)', pg_temp.payload('00000000-0000-4000-8000-00000000c009', 40))),

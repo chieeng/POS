@@ -6,7 +6,12 @@ import { deletePhotoFiles } from '@/features/catalog/photos';
 
 export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
 export type RequestType =
-  'product_edit' | 'stock_adjustment' | 'stock_in_correction' | 'sale_void' | 'sale_return';
+  | 'product_edit'
+  | 'stock_adjustment'
+  | 'stock_in_correction'
+  | 'sale_void'
+  | 'sale_return'
+  | 'attendance_fix';
 
 /** SRS 3.9: one approval request. */
 export interface ApprovalRequest {
@@ -40,6 +45,7 @@ const TYPES: RequestType[] = [
   'stock_in_correction',
   'sale_void',
   'sale_return',
+  'attendance_fix',
 ];
 
 const toRequest = (row: Row): ApprovalRequest => ({
@@ -221,6 +227,8 @@ export function describeApprovalError(error: unknown): string {
       return 'This changed since the request was made, so it can only be rejected.';
     case 'refund_reference_required':
       return 'Type the reference of the GCash or Maya refund you sent.';
+    case 'out_before_in':
+      return 'The time out must be after the time in.';
     case 'drawer_not_open':
       return 'This cash refund comes out of today’s drawer. Open today’s drawer first, then approve.';
     case 'stock_negative':

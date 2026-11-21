@@ -34,6 +34,42 @@ export function RequestDetails({
     );
   }
 
+  if (request.type === 'attendance_fix') {
+    const day = (request.before.day ?? {}) as Record<string, unknown>;
+    const recorded = (value: unknown) =>
+      typeof value === 'string'
+        ? new Date(value).toLocaleTimeString('en-PH', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: 'Asia/Manila',
+          })
+        : 'none';
+    const asked = (value: unknown) => {
+      if (typeof value !== 'string' || value === '') return null;
+      const [h, m] = value.split(':').map(Number);
+      return `${h! % 12 || 12}:${String(m).padStart(2, '0')} ${h! < 12 ? 'AM' : 'PM'}`;
+    };
+    const timeIn = asked(request.after.in);
+    const timeOut = asked(request.after.out);
+    return (
+      <div className="flex flex-col gap-[4px] text-[14px]">
+        {timeIn && (
+          <p>
+            <span className="text-neutral-700">Time in: </span>
+            {recorded(day.in)} → <b>{timeIn}</b>
+          </p>
+        )}
+        {timeOut && (
+          <p>
+            <span className="text-neutral-700">Time out: </span>
+            {recorded(day.out)} → <b>{timeOut}</b>
+          </p>
+        )}
+        <p className="text-neutral-700">The day is worked out again from the times.</p>
+      </div>
+    );
+  }
+
   if (request.type === 'sale_return') {
     const ret = returnRefund(request);
     const method = { cash: 'Cash', gcash: 'GCash', maya: 'Maya' }[ret.method];

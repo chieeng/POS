@@ -17,6 +17,35 @@ const server = vi.hoisted(() => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
+    // The Owner's staff list (profiles): one chain, any filters.
+    from: () => {
+      const chain = {
+        select: () => chain,
+        neq: () => chain,
+        eq: () => chain,
+        order: () =>
+          Promise.resolve({
+            data: [
+              {
+                id: 'u2',
+                display_name: 'Test Two',
+                role: 'sales',
+                active: true,
+                rest_weekday: null,
+              },
+              {
+                id: 'u5',
+                display_name: 'Test Special 5',
+                role: 'special_sales',
+                active: true,
+                rest_weekday: 0,
+              },
+            ],
+            error: null,
+          }),
+      };
+      return chain;
+    },
     rpc: (fn: string, args: Json) => {
       server.calls.push({ fn, args });
       if (fn === 'attendance_today') return Promise.resolve({ data: server.today, error: null });
@@ -215,11 +244,11 @@ describe('My attendance (ATT-01)', () => {
     ).toBeInTheDocument();
   });
 
-  it('the Owner doesn’t clock in unless turned on', async () => {
+  it('the Owner doesn’t clock in unless turned on, and fixes days instead', async () => {
     signInAs('owner');
     server.today = todayWith(null, { canClock: false });
     renderPage();
-    expect(await screen.findByText(/The Owner doesn’t clock in/)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Fix a day' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clock in' })).toBeNull();
   });
 
@@ -245,5 +274,57 @@ describe('clock in before selling (ATT-16)', () => {
     expect(await screen.findByRole('heading', { name: 'Clock in first' })).toBeInTheDocument();
     expect(screen.getByText('Clock in at the store to start selling today.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Clock in' })).toBeInTheDocument();
+  });
+});
+
+describe('fixing a day (ATT-11)', () => {
+  it('staff ask the Owner with the real time and a reason', async () => {
+    server.today = todayWith(RECORD);
+    const user = renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Ask the Owner to fix a day' }));
+    await user.click(screen.getByRole('button', { name: 'Send to the Owner' }));
+    expect(screen.getByText('Give the time in, the time out, or both.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Time out'), '18:05');
+    await user.type(screen.getByLabelText('Reason'), 'Forgot to clock out');
+    await user.click(screen.getByRole('button', { name: 'Send to the Owner' }));
+    expect(calls('request_attendance_fix')[0]?.args).toMatchObject({
+      p_day: day,
+      p_in: null,
+      p_out: '18:05',
+      p_reason: 'Forgot to clock out',
+    });
+    expect(await screen.findByText(/Request sent. The Owner will decide/)).toBeInTheDocument();
+  });
+
+  it('the Owner marks a day absent, and sets a usual rest day', async () => {
+    signInAs('owner');
+    server.today = todayWith(null, { canClock: false });
+    const user = renderPage();
+    await screen.findByRole('heading', { name: 'Fix a day' });
+    await user.click(await screen.findByRole('radio', { name: 'Absent' }));
+    await user.type(screen.getByLabelText('Reason'), 'Sick');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(calls('mark_attendance_day')[0]?.args).toMatchObject({
+      p_user: 'u2',
+      p_day: day,
+      p_kind: 'absent',
+      p_reason: 'Sick',
+    });
+    expect(screen.getByLabelText('Test Special 5')).toHaveValue('0');
+    await user.selectOptions(screen.getByLabelText('Test Two'), 'Saturday');
+    expect(calls('set_rest_weekday')[0]?.args).toMatchObject({ p_user: 'u2', p_weekday: 6 });
+  });
+
+  it('a poor location reading says how far and how precise', async () => {
+    server.today = todayWith({
+      ...RECORD,
+      flags: ['location_not_verified'],
+      in_distance_m: 230,
+      in_accuracy_m: 41.6,
+    });
+    renderPage();
+    expect(
+      await screen.findByText('Location not verified: 230 m away, accuracy 42 m'),
+    ).toBeInTheDocument();
   });
 });

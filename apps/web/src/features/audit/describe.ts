@@ -78,6 +78,9 @@ export const ACTION_LABELS: Record<string, string> = {
   'deal.update': 'Deal changes',
   'sale.void': 'Sales voided',
   'sale.return': 'Returns and refunds',
+  'attendance.fix': 'Attendance fixes',
+  'attendance.mark': 'Days marked absent or rest',
+  'attendance.restDay': 'Rest day changes',
 };
 
 /** "3 for ₱100.00", "a bundle of 2 items for ₱20.00", from an audit line. */
@@ -322,6 +325,15 @@ function requestChanges(after: Json): string[] {
       return [`Void the sale of ${formatPeso(Number(changes.total ?? 0))}`];
     case 'sale_return':
       return [returnItemsText(changes.items), refundText(changes)];
+    case 'attendance_fix':
+      return [
+        [
+          changes.in ? `in ${text(changes.in)}` : null,
+          changes.out ? `out ${text(changes.out)}` : null,
+        ]
+          .filter(Boolean)
+          .join(', '),
+      ];
     case 'stock_adjustment':
       return [adjustmentText(changes.type, changes.qty, after.unit)];
     case 'stock_in_correction':
@@ -454,13 +466,17 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
           ? `asked to void sale ${receipt}`
           : after.type === 'sale_return'
             ? `asked for a return on sale ${receipt}`
-            : `requested a change to ${product}`;
+            : after.type === 'attendance_fix'
+              ? `asked to fix attendance (${text(after.label)})`
+              : `requested a change to ${product}`;
       const subject =
         after.type === 'sale_void'
           ? `the void of sale ${receipt}`
           : after.type === 'sale_return'
             ? `the return on sale ${receipt}`
-            : `a request for ${product}`;
+            : after.type === 'attendance_fix'
+              ? `the attendance fix (${text(after.label)})`
+              : `a request for ${product}`;
       const what = {
         'approval.request': asked,
         'approval.withdraw': `withdrew ${subject}`,
@@ -562,6 +578,38 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
         ]
           .filter(Boolean)
           .join(' · '),
+      };
+    }
+    case 'attendance.fix':
+      return {
+        icon: ClipboardCheck,
+        what: `fixed attendance for ${text(after.name)}, ${text(after.day)}`,
+        change: [
+          after.dayType ? String(after.dayType).replace('_', ' ') : 'no time out yet',
+          Number(after.lateMinutes) > 0 ? `${text(after.lateMinutes)} min late` : null,
+          after.requestId ? 'approved request' : 'by the Owner directly',
+          entry.reason ? `Reason: ${entry.reason}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      };
+    case 'attendance.mark':
+      return {
+        icon: ClipboardCheck,
+        what:
+          after.kind === 'clear'
+            ? `cleared the mark on ${text(after.name)}, ${text(after.day)}`
+            : `marked ${text(after.name)} ${after.kind === 'rest' ? 'on a rest day' : 'absent'}, ${text(after.day)}`,
+        change: entry.reason ? `Reason: ${entry.reason}` : '',
+      };
+    case 'attendance.restDay': {
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const name = (value: unknown) =>
+        value === null || value === undefined ? 'none' : (days[Number(value)] ?? '—');
+      return {
+        icon: ClipboardCheck,
+        what: `changed ${text(after.name)}'s usual rest day`,
+        change: `${name(before.weekday)} → ${name(after.weekday)}`,
       };
     }
     case 'sale.return':
