@@ -167,11 +167,26 @@ describe('My sales (staff)', () => {
     expect(rows[1]).toHaveTextContent('₱213.75');
     expect(rows[1]).toHaveAttribute('href', '/sales/s1');
     expect(within(rows[0]!).getByText('Voided')).toBeInTheDocument();
+    expect(within(rows[1]!).queryByText(/returned/i)).toBeNull();
     expect(historyCalls()[0]?.args).toMatchObject({
       p_from: today,
       p_to: today,
       p_salesperson: null,
     });
+  });
+
+  it('marks sales with returns (review of Nov 21)', async () => {
+    server.history = [
+      {
+        sales: [sale(3, today, 135, { returned: 'all' }), sale(4, today, 90, { returned: 'some' })],
+        days: [{ day: today, count: 2, total: 225 }],
+        hasMore: false,
+      },
+    ];
+    renderAt('/sales');
+    const rows = await screen.findAllByRole('link');
+    expect(within(rows[0]!).getByText('Returned')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('Part returned')).toBeInTheDocument();
   });
 
   it('the chips ask for yesterday, the week or 30 days', async () => {

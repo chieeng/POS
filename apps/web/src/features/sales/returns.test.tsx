@@ -270,6 +270,58 @@ describe('returning items', () => {
     });
   });
 
+  it('while a return waits for the Owner, no void is offered either (review of Nov 21)', async () => {
+    server.details = [
+      detail({
+        voidable: 'ok',
+        pendingReturn: {
+          id: 'r1',
+          mine: true,
+          reason: 'Wrong flavour',
+          refund: 45,
+          method: 'cash',
+        },
+      }),
+    ];
+    renderSale();
+    expect(await screen.findByText(/You asked for a return/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Void the sale/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Return items/ })).toBeNull();
+  });
+
+  it('after a partial return: the tag, and what is left to refund on each line', async () => {
+    server.details = [
+      detail({
+        refunded: { cash: 40 },
+        returns: [
+          {
+            at: `${today}T11:00:00+08:00`,
+            by: 'Owner',
+            reason: 'Wrong flavour',
+            refund: 40,
+            cashRefund: 40,
+            method: 'cash',
+            refundReference: null,
+            defective: false,
+            items: [{ name: 'Test Chips', unit: 'pack', qty: 1, condition: 'stock', refund: 40 }],
+          },
+        ],
+        lines: [
+          { ...(detail().lines as Json[])[0], returnedQty: 1, refunded: 40 },
+          (detail().lines as Json[])[1],
+        ],
+      }),
+    ];
+    const user = renderSale();
+    expect(await screen.findByText('Part returned')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Return items/ }));
+    const sheet = within(screen.getByRole('dialog'));
+    expect(
+      sheet.getByText(/2 left to return · ₱80.00 left to refund of ₱120.00/),
+    ).toBeInTheDocument();
+    expect(sheet.getByText(/1.25 kg left to return · ₱68.75 paid/)).toBeInTheDocument();
+  });
+
   it('shows the returns made, and stops offering what is all back', async () => {
     server.details = [
       detail({

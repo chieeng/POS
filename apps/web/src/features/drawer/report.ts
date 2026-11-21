@@ -325,6 +325,14 @@ const toDrawerSales = (row: Row): DrawerSales => ({
   })),
 });
 
+/** GCash or Maya given back for returns on this drawer's day (sent by the Owner, POS-10). */
+export const refundedBy = (sales: DrawerSales | null, method: 'gcash' | 'maya') =>
+  Math.round(
+    (sales?.returns ?? [])
+      .filter((ret) => ret.method === method)
+      .reduce((sum, ret) => sum + ret.refund, 0) * 100,
+  ) / 100;
+
 /** The amount paid by one method, 0 when none. */
 export const paidBy = (sales: DrawerSales | null, method: 'cash' | 'gcash' | 'maya') =>
   sales?.methods.find((m) => m.method === method)?.amount ?? 0;
@@ -590,9 +598,32 @@ export function drawerSummary(
               },
             ]
           : []),
-        { type: 'Cash sales', note: 'In the drawer', amount: paidBy(sales, 'cash') },
+        {
+          type: 'Cash sales',
+          note:
+            sales.voids.length > 0 ? 'In the drawer; voided sales not counted' : 'In the drawer',
+          amount: paidBy(sales, 'cash'),
+        },
         { type: 'GCash', note: 'Not in the drawer', amount: paidBy(sales, 'gcash') },
+        ...(refundedBy(sales, 'gcash') > 0
+          ? [
+              {
+                type: 'GCash refunds',
+                note: `Sent back by the Owner; GCash kept ${formatPeso(paidBy(sales, 'gcash') - refundedBy(sales, 'gcash'))}`,
+                amount: -refundedBy(sales, 'gcash'),
+              },
+            ]
+          : []),
         { type: 'Maya', note: 'Not in the drawer', amount: paidBy(sales, 'maya') },
+        ...(refundedBy(sales, 'maya') > 0
+          ? [
+              {
+                type: 'Maya refunds',
+                note: `Sent back by the Owner; Maya kept ${formatPeso(paidBy(sales, 'maya') - refundedBy(sales, 'maya'))}`,
+                amount: -refundedBy(sales, 'maya'),
+              },
+            ]
+          : []),
         ...sales.salespeople.map((person) => ({
           type: `Sold by ${person.name}`,
           note: `${person.count} ${person.count === 1 ? 'sale' : 'sales'}`,
@@ -613,6 +644,7 @@ export function drawerSummary(
               ? `${formatPeso(sale.ewallet)} GCash/Maya sent back${sale.refundReference ? `, ref ${sale.refundReference}` : ''}`
               : null,
             `Reason: ${sale.reason}`,
+            'already left out of the sales above',
           ),
           amount: -sale.total,
         })),

@@ -237,10 +237,12 @@ export function SalesHistoryPage() {
   );
 }
 
-/** A sale that isn't simply completed says so: voided, corrected. */
+/** A sale that isn't simply completed says so: voided, corrected, returned (POS-10). */
 function SaleBadge({ sale }: { sale: HistorySale }) {
   if (sale.status === 'voided') return <StatusBadge tone="danger">Voided</StatusBadge>;
   if (sale.status === 'corrected') return <StatusBadge tone="pending">Corrected</StatusBadge>;
+  if (sale.returned === 'all') return <StatusBadge tone="pending">Returned</StatusBadge>;
+  if (sale.returned === 'some') return <StatusBadge tone="pending">Part returned</StatusBadge>;
   return null;
 }
 
