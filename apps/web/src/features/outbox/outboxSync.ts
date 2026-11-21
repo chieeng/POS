@@ -1,3 +1,4 @@
+import { registerClockSenders } from '@/features/attendance/clock';
 import { registerSaleSender } from '@/features/sales/data';
 import { syncOutbox } from '@/lib/outbox';
 import { useSession } from '@/stores/session';
@@ -9,6 +10,7 @@ export const OUTBOX_SYNC_MS = 30_000;
 /** Sends the signed-in user's outbox on start, when back online, and every 30 seconds. */
 export function startOutboxSync(): () => void {
   const stopSales = registerSaleSender();
+  const stopClock = registerClockSenders();
   const run = () => {
     const { status, user } = useSession.getState();
     if (status === 'signedIn' && user) void syncOutbox(user.uid);
@@ -21,6 +23,7 @@ export function startOutboxSync(): () => void {
   });
   return () => {
     stopSales();
+    stopClock();
     clearInterval(timer);
     window.removeEventListener('online', run);
     unsubscribe();

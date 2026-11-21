@@ -24,6 +24,7 @@ import { DrawerReportPage } from '@/features/drawer/DrawerReportPage';
 import { HomePage } from '@/features/home/HomePage';
 import { SaleDetailPage } from '@/features/sales/SaleDetailPage';
 import { SalesHistoryPage } from '@/features/sales/SalesHistoryPage';
+import { AttendancePage } from '@/features/attendance/AttendancePage';
 import { SellPage } from '@/features/sales/SellPage';
 import { SettingsLayout } from '@/features/settings/SettingsLayout';
 import { AddUserPage } from '@/features/users/AddUserPage';
@@ -104,6 +105,8 @@ export const routes: RouteObject[] = [
           },
           // POS-01, SRS 6.1: every role sells. Staff start here.
           { path: '/sell', element: <SellPage /> },
+          // ATT-01: every role reaches its own clock (the Owner sees a note unless they clock in).
+          { path: '/attendance', element: <AttendancePage /> },
           // The staff homes before build step 9, kept for bookmarks and installed apps.
           { path: '/special-sales', element: <Navigate to="/sell" replace /> },
           { path: '/sales', element: <SalesHistoryPage /> },

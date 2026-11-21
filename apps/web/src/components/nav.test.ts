@@ -28,9 +28,17 @@ describe('navItems', () => {
       'stockIn',
       'drawer',
       'requests',
+      'attendance',
     ]);
     // SRS 6.1: Sales can view products and stock levels.
-    expect(keys(navItems('sales', 0))).toEqual(['sell', 'sales', 'products', 'drawer', 'requests']);
+    expect(keys(navItems('sales', 0))).toEqual([
+      'sell',
+      'sales',
+      'products',
+      'drawer',
+      'requests',
+      'attendance',
+    ]);
   });
 
   it('names sales history by role: everyone’s for the Owner, their own for staff', () => {
@@ -56,13 +64,16 @@ describe('navItems', () => {
 
 describe('phoneNav', () => {
   it('shows every item and no More while five fit', () => {
-    // Sales has four; the Owner and Special Sales have more: see the next tests.
-    const items = navItems('sales', 0);
-    expect(phoneNav('sales', items)).toEqual({ bar: items, more: [] });
-    // Special Sales' six: the design's priority (Sell, Products, Sales), then Stock-in, and More.
+    const five = navItems('sales', 0).slice(0, 5);
+    expect(phoneNav('sales', five)).toEqual({ bar: five, more: [] });
+    // Sales' six (step 11 adds My attendance): Sell, Sales, Drawer, then Products, and More.
+    const sales = phoneNav('sales', navItems('sales', 0));
+    expect(keys(sales.bar)).toEqual(['sell', 'sales', 'drawer', 'products']);
+    expect(keys(sales.more)).toEqual(['requests', 'attendance']);
+    // Special Sales' seven: the design's priority (Sell, Products, Sales), then Stock-in, and More.
     const special = phoneNav('special_sales', navItems('special_sales', 0));
     expect(keys(special.bar)).toEqual(['sell', 'products', 'sales', 'stockIn']);
-    expect(keys(special.more)).toEqual(['drawer', 'requests']);
+    expect(keys(special.more)).toEqual(['drawer', 'requests', 'attendance']);
   });
 
   it('keeps the design priority four plus More past five items', () => {

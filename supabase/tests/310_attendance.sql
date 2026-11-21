@@ -117,6 +117,24 @@ select is(
    from public.attendance a where a.user_id = tests.uid('special')),
   true, 'at the server''s time, flagged clock ahead');
 
+-- ---- A time out after midnight closes the day it started --------------------------------------
+insert into public.attendance (branch_id, user_id, user_name, work_date, in_at, in_server_at, start_type, rules)
+values ('tmain', tests.uid('owner'), 'Owner', private.manila_today() - 1, now() - interval '20 hours', now(), 'morning',
+  private.attendance_rules('tmain', tests.uid('owner')));
+update public.branches set owner_clocks_in = true where id = 'tmain';
+select is(
+  tests.run('owner', format('select public.clock_out(%L)', pg_temp.payload('00000000-0000-4000-8000-00000000c011', null))),
+  'ok 1', 'an open day from yesterday takes the time out');
+select is(
+  (select a.out_at is not null and a.day_type is not null from public.attendance a
+   where a.user_id = tests.uid('owner') and a.work_date = private.manila_today() - 1),
+  true, 'and is closed');
+select is(
+  tests.message('owner', format('select public.clock_out(%L)', pg_temp.payload('00000000-0000-4000-8000-00000000c012', null))),
+  'not_clocked_in', 'with nothing open, a time out is refused');
+update public.branches set owner_clocks_in = false where id = 'tmain';
+delete from public.attendance where user_id = tests.uid('owner');
+
 -- ---- Who sees what (ATT-14, ATT-15) --------------------------------------------------------------
 select is(tests.rows('sales', 'select * from public.attendance'), 1::bigint, 'Sales sees only their own day');
 select is(tests.rows('owner', 'select * from public.attendance'), 2::bigint, 'the Owner sees everyone''s');
