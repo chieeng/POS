@@ -5,6 +5,23 @@ import type { Role } from '@/features/auth/roles';
 import { useSession, type SessionUser } from '@/stores/session';
 import { routes } from './router';
 
+vi.mock('@/features/attendance/clock', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/features/attendance/clock')>()),
+  // Clocked in for the day: these tests are about selling (the gate has its own tests).
+  useClockState: () => ({
+    loading: false,
+    canClock: true,
+    record: null,
+    rules: null,
+    storeLocationSet: true,
+    waitingIn: null,
+    waitingOut: null,
+    refused: null,
+    clockedIn: true,
+    clockedOut: false,
+    reload: () => undefined,
+  }),
+}));
 vi.mock('@/lib/supabase', () => ({ env: {}, supabase: {}, passwordLinkFailed: false }));
 vi.mock('@/lib/device', () => ({
   registerDevice: vi.fn(() => Promise.resolve()),

@@ -1,4 +1,5 @@
 import {
+  CalendarCheck,
   Inbox,
   LayoutDashboard,
   Package,
@@ -103,6 +104,12 @@ export function navItems(role: Role, pending: number): NavItem[] {
     },
     products: { to: '/products', label: 'Products', short: 'Products', icon: Package },
     stockIn: { to: '/stock-in', label: 'Stock-in', short: 'Stock-in', icon: PackagePlus },
+    attendance: {
+      to: '/attendance',
+      label: role === 'owner' ? 'Attendance' : 'My attendance',
+      short: 'Attendance',
+      icon: CalendarCheck,
+    },
     requests: {
       to: '/requests',
       label: 'My requests',
@@ -115,8 +122,8 @@ export function navItems(role: Role, pending: number): NavItem[] {
   };
   const available: Record<Role, readonly NavKey[]> = {
     owner: ['home', 'sell', 'sales', 'approvals', 'products', 'stockIn', 'drawer', 'settings'],
-    special_sales: ['sell', 'sales', 'products', 'stockIn', 'drawer', 'requests'],
-    sales: ['sell', 'sales', 'products', 'drawer', 'requests'],
+    special_sales: ['sell', 'sales', 'products', 'stockIn', 'drawer', 'requests', 'attendance'],
+    sales: ['sell', 'sales', 'products', 'drawer', 'requests', 'attendance'],
   };
   return NAV_ORDER[role]
     .filter((key) => available[role].includes(key) && built[key])

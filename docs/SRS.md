@@ -189,7 +189,7 @@ Staff clock in once a day on their own device, with no clock-out, and the store'
 | ATT-13 | The clock\_in database function computes distance, lateness, penalty and day credit on the server for every record, so a tampered client cannot change them. | M |
 | ATT-14 | Attendance board for the Owner: who has clocked in today, who is late, flagged, or not yet in. Per-person summary for any date range: days present, late count, penalties, computed pay; CSV export. | M |
 | ATT-15 | Staff see their own clock-in time, attendance history and penalties. | S |
-| ATT-16 | Staff must be clocked in before they can make a sale. | S |
+| ATT-16 | Staff must be clocked in before they can make a sale. Built in step 11 (Nov 2026): until today's time in, Sell shows the clock ("Clock in first") instead of the products; a time in saved on the phone offline counts. Clock-out is on My attendance (in More on phones), with a confirmation, because it ends the day. | S |
 
 Browser location can be faked with mock-location apps on some phones. Flags, server time checks and the Owner's review reduce this risk but cannot rule it out.
 

@@ -55,6 +55,8 @@ import { priceCart, type Pricing } from './pricing';
 import { SaleSlip } from './SaleSlip';
 import { itemCount, lineWarning, sellResults, stockState, type StockState } from './sell';
 import { lineTotalCents } from './totals';
+import { ClockPanel } from '@/features/attendance/AttendancePage';
+import { useClockState } from '@/features/attendance/clock';
 
 // Products drawn at a time; the rest come with "Load more" (SRS 7.2).
 const PAGE = 60;
@@ -65,7 +67,38 @@ const PAGE = 60;
  * too (POS-04, POS-07). No Hold yet (step 15), and no typed discounts: staff never type one
  * (POS-03); preset deals arrive later in step 9.
  */
+/**
+ * ATT-16: staff clock in before the first sale of the day. Until they do, Sell shows the clock
+ * instead of the products; offline, a time in saved on the phone counts.
+ */
 export function SellPage() {
+  const user = useSession((s) => s.user);
+  const clockState = useClockState(user?.uid, user?.role === 'owner');
+  // Only the first time on this phone: after that the day's state is kept on the phone.
+  if (clockState.loading) {
+    return (
+      <p role="status" className="px-[16px] pt-[14px] text-neutral-700 md:px-[26px]">
+        Loading…
+      </p>
+    );
+  }
+  if (clockState.canClock && !clockState.clockedIn) {
+    return (
+      <div className="flex w-full max-w-[560px] flex-col gap-[14px] px-[16px] pt-[14px] pb-[24px] md:px-[26px] md:pt-[22px]">
+        <div>
+          <h1 className="text-[28px] md:text-[30px]">Clock in first</h1>
+          <p className="m-0 text-[14.5px] text-neutral-700">
+            Clock in at the store to start selling today.
+          </p>
+        </div>
+        <ClockPanel state={clockState} compact />
+      </div>
+    );
+  }
+  return <SellScreen />;
+}
+
+function SellScreen() {
   const user = useSession((s) => s.user);
   const products = useProducts({ live: true });
   const categories = useCategories();

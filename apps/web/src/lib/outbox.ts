@@ -5,13 +5,13 @@ import { supabase } from '@/lib/supabase';
 
 /**
  * The device outbox (SRS 2, NFR-02): what was made offline waits here until the server has
- * it. Sales come first (build step 9), clock-ins later (step 11). Each item keeps the id the
+ * it: sales (build step 9), clock-ins and clock-outs (step 11). Each item keeps the id the
  * device gave it, so sending it twice is safe (POS-06).
  *
  * Its own database, apart from the saved product list: signing out clears that list, never
  * this. Nothing in here is ever dropped (the Owner's decision of Oct 31, 2026).
  */
-export type OutboxKind = 'sale' | 'clock_in';
+export type OutboxKind = 'sale' | 'clock_in' | 'clock_out';
 
 export interface OutboxItem {
   /** The client-generated id of the sale or clock-in, also its key on the server. */
@@ -215,6 +215,17 @@ export function watchOutboxSales(uid: string, onChange: (items: OutboxItem[]) =>
   const subscription = liveQuery(async () =>
     (await open().items.where('uid').equals(uid).sortBy('madeAt')).filter(
       (item) => item.kind === 'sale',
+    ),
+  ).subscribe({ next: onChange, error: () => undefined });
+  return () => subscription.unsubscribe();
+}
+
+/** This user's clock-in and clock-out taps still on this device, live (step 11). */
+export function watchOutboxClock(uid: string, onChange: (items: OutboxItem[]) => void): () => void {
+  if (typeof indexedDB === 'undefined') return () => undefined;
+  const subscription = liveQuery(async () =>
+    (await open().items.where('uid').equals(uid).sortBy('madeAt')).filter(
+      (item) => item.kind === 'clock_in' || item.kind === 'clock_out',
     ),
   ).subscribe({ next: onChange, error: () => undefined });
   return () => subscription.unsubscribe();
