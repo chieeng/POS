@@ -21,6 +21,8 @@ export interface HistorySale {
   status: SaleStatus;
   flags: string[];
   madeOffline: boolean;
+  /** POS-10: every unit came back ('all'), some did ('some'), or none (null). */
+  returned: 'all' | 'some' | null;
 }
 
 export interface HistoryDay {
@@ -153,6 +155,7 @@ export function toHistoryPage(raw: unknown): HistoryPage {
       status: (s.status ?? 'completed') as SaleStatus,
       flags: (s.flags ?? []) as string[],
       madeOffline: s.madeOffline === true,
+      returned: s.returned === 'all' || s.returned === 'some' ? s.returned : null,
     })),
     days: ((data.days ?? []) as Json[]).map((d) => ({
       day: String(d.day),

@@ -52,6 +52,7 @@ import {
   movements,
   paidBy,
   refundWords,
+  refundedBy,
   reopenDrawer,
   returnItemsText,
   useDrawerDay,
@@ -343,8 +344,8 @@ function Report({
           )}
           {sales && (
             <p className="mt-[6px] text-[13px] text-neutral-700">
-              Not in the drawer: GCash {formatPeso(paidBy(sales, 'gcash'))} · Maya{' '}
-              {formatPeso(paidBy(sales, 'maya'))}
+              Not in the drawer: GCash {ewalletText(sales, 'gcash')} · Maya{' '}
+              {ewalletText(sales, 'maya')}
             </p>
           )}
           <p className="text-[13px] text-neutral-700">
@@ -382,6 +383,15 @@ function Report({
 
 const METHOD_LABELS = { cash: 'Cash', gcash: 'GCash', maya: 'Maya' } as const;
 
+/** "₱45.00", or "₱0.00 (₱45.00 paid, ₱45.00 refunded)" once some was sent back. */
+function ewalletText(sales: DrawerSales, method: 'gcash' | 'maya') {
+  const paid = paidBy(sales, method);
+  const back = refundedBy(sales, method);
+  return back > 0
+    ? `${formatPeso(paid - back)} (${formatPeso(paid)} paid, ${formatPeso(back)} refunded)`
+    : formatPeso(paid);
+}
+
 /**
  * SHIFT-04, POS-10: the drawer's voids, returns and damaged items, each with who, why and what
  * went back. Shown only when there is any.
@@ -402,32 +412,37 @@ function FixesSection({ sales }: { sales: DrawerSales }) {
         {sales.voids.length === 0 ? (
           <p className="text-neutral-700">No voids.</p>
         ) : (
-          <ul className="flex flex-col gap-[10px]">
-            {sales.voids.map((sale) => (
-              <li key={sale.id} className="flex flex-col gap-[4px] rounded-[20px] bg-bg p-[12px]">
-                <div className="flex items-baseline justify-between gap-[8px]">
-                  <span className="font-semibold break-all">{sale.receiptNo}</span>
-                  <span className="font-bold text-danger-fg tabular-nums">
-                    −{formatPeso(sale.total)}
-                  </span>
-                </div>
-                <div className="text-[12.5px] text-neutral-700">
-                  {sale.salesperson} · voided {madeLabel(sale.at)} by {sale.by}
-                </div>
-                <div className="text-[13px]">
-                  {[
-                    sale.cash > 0 ? `${formatPeso(sale.cash)} cash back` : null,
-                    sale.ewallet > 0
-                      ? `${formatPeso(sale.ewallet)} GCash/Maya sent back${sale.refundReference ? `, ref ${sale.refundReference}` : ''}`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </div>
-                <div className="text-[13px] text-neutral-700">Reason: {sale.reason}</div>
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="text-[12.5px] text-neutral-700">
+              Voided sales are already left out of the sales and the cash sales.
+            </p>
+            <ul className="flex flex-col gap-[10px]">
+              {sales.voids.map((sale) => (
+                <li key={sale.id} className="flex flex-col gap-[4px] rounded-[20px] bg-bg p-[12px]">
+                  <div className="flex items-baseline justify-between gap-[8px]">
+                    <span className="font-semibold break-all">{sale.receiptNo}</span>
+                    <span className="font-bold text-danger-fg tabular-nums">
+                      −{formatPeso(sale.total)}
+                    </span>
+                  </div>
+                  <div className="text-[12.5px] text-neutral-700">
+                    {sale.salesperson} · voided {madeLabel(sale.at)} by {sale.by}
+                  </div>
+                  <div className="text-[13px]">
+                    {[
+                      sale.cash > 0 ? `${formatPeso(sale.cash)} cash back` : null,
+                      sale.ewallet > 0
+                        ? `${formatPeso(sale.ewallet)} GCash/Maya sent back${sale.refundReference ? `, ref ${sale.refundReference}` : ''}`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                  <div className="text-[13px] text-neutral-700">Reason: {sale.reason}</div>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </div>
 

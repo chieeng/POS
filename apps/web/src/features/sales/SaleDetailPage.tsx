@@ -132,6 +132,13 @@ function Detail({ sale, isOwner }: { sale: SaleDetail; isOwner: boolean }) {
       <div className="flex flex-wrap items-center gap-[8px] text-[13.5px] text-neutral-700">
         {isOwner && <span>{sale.salesperson}</span>}
         {sale.status === 'voided' && <StatusBadge tone="danger">Voided</StatusBadge>}
+        {sale.status === 'completed' && sale.returns.length > 0 && (
+          <StatusBadge tone="pending">
+            {sale.lines.every((line) => line.returnedQty >= line.qty)
+              ? 'Returned'
+              : 'Part returned'}
+          </StatusBadge>
+        )}
         {sale.status === 'corrected' && <StatusBadge tone="pending">Corrected</StatusBadge>}
         {sale.madeOffline && <span>Made offline, reached the store {when(sale.syncedAt)}</span>}
       </div>
@@ -226,8 +233,10 @@ function FixSection({
   const anyLeft =
     sale.lines.some((line) => leftOf(line) > 0) &&
     refundableBy(sale).some((method) => method.left > 0);
-  const showVoid = !sale.pendingVoid && sale.voidable !== 'sale_has_returns';
-  const showReturn = !sale.pendingReturn && anyLeft;
+  // One request at a time: while a void or a return waits for the Owner, neither is offered.
+  const waiting = sale.pendingVoid !== null || sale.pendingReturn !== null;
+  const showVoid = !waiting && sale.voidable !== 'sale_has_returns';
+  const showReturn = !waiting && anyLeft;
   const anyEnabled = (showVoid && voidBlocked === null) || showReturn;
   const { days, late } = sale.returnWindow;
 
@@ -517,7 +526,9 @@ function ReturnSheet({
                     <span className="text-[12.5px] text-neutral-700">
                       {formatQty(leftOf(line))}
                       {isSoldByMeasure(line.unit) ? ` ${line.unit}` : ''} left to return ·{' '}
-                      {formatPeso(line.lineTotal)} paid
+                      {line.refunded > 0
+                        ? `${formatPeso(line.lineTotal - line.refunded)} left to refund of ${formatPeso(line.lineTotal)}`
+                        : `${formatPeso(line.lineTotal)} paid`}
                     </span>
                   </Label>
                   <Input

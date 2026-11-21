@@ -252,5 +252,22 @@ select is(
 select is(tests.rows('sales', 'select * from public.returns'), 0::bigint, 'Sales reads no returns directly');
 select is(tests.rows('owner', 'select * from public.returns'), 4::bigint, 'the Owner reads them');
 
+-- ---- My sales marks returned sales (review of Nov 21) ---------------------------------------
+create function pg_temp.returned(p_n int) returns text language plpgsql as $$
+declare
+  v jsonb;
+begin
+  perform tests.as('owner');
+  v := public.sales_history(null, null);
+  perform tests.as_admin();
+  return (select s ->> 'returned' from jsonb_array_elements(v -> 'sales') s
+    where s ->> 'receiptNo' = 'S1-20261120-A1B2-' || p_n);
+end;
+$$;
+grant execute on function pg_temp.returned(int) to authenticated;
+select is(pg_temp.returned(1), 'all', 'a sale returned in full is marked "all"');
+select is(pg_temp.returned(4), 'some', 'a partly returned sale is marked "some"');
+select is(pg_temp.returned(2), 'some', 'the split sale with one GCash return is marked "some"');
+
 select * from finish();
 rollback;

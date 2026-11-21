@@ -336,10 +336,31 @@ describe('voids, returns and damaged items (SHIFT-04, POS-10)', () => {
     expect(fixes.getByText('Written off at cost').nextSibling).toHaveTextContent('₱60.00');
   });
 
+  it('shows GCash net of refunds, and that voids are already out of the sales (review of Nov 21)', () => {
+    state.record = OPEN;
+    state.entries = [];
+    state.sales = FIXED;
+    renderReport();
+    expect(
+      screen.getByText(
+        'Not in the drawer: GCash ₱45.00 (₱90.00 paid, ₱45.00 refunded) · Maya ₱20.00',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Voided sales are already left out of the sales and the cash sales.'),
+    ).toBeInTheDocument();
+    const csv = drawerCsv(OPEN, [], [], FIXED);
+    expect(csv).toContain('2026-11-08,,Cash sales,In the drawer; voided sales not counted,,318.00');
+    expect(csv).toContain(
+      '2026-11-08,,GCash refunds,Sent back by the Owner; GCash kept ₱45.00,,-45.00',
+    );
+    expect(csv).not.toContain('Maya refunds');
+  });
+
   it('puts them in the CSV', () => {
     const csv = drawerCsv(OPEN, [], [], FIXED);
     expect(csv).toContain(
-      '2026-11-08,,Voided TS-20261108-KY96-3,"Test Special 5 · by Owner · ₱45.00 cash back · ₱45.00 GCash/Maya sent back, ref GCREF01 · Reason: Rang up twice",,-90.00',
+      '2026-11-08,,Voided TS-20261108-KY96-3,"Test Special 5 · by Owner · ₱45.00 cash back · ₱45.00 GCash/Maya sent back, ref GCREF01 · Reason: Rang up twice · already left out of the sales above",,-90.00',
     );
     expect(csv).toContain(
       '2026-11-08,,Return TT-20261108-KY96-4,Test Chips × 2 damaged · ₱90.00 cash from the drawer · by Owner · Reason: Spoiled,,-90.00',
