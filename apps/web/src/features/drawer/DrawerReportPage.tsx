@@ -109,28 +109,31 @@ export function DrawerReportPage() {
         backTo="/drawer"
         backLabel="Back to the drawer"
       >
-        <input
-          type="date"
-          aria-label="Day"
-          value={day}
-          max={today}
-          onChange={(event) => {
-            if (event.target.value) setParams({ date: event.target.value }, { replace: true });
-          }}
-          className="h-[40px] rounded-full bg-surface px-[14px] text-[14px]"
-        />
-        <Button
-          variant="secondary"
-          className="min-h-[40px]"
-          disabled={!record}
-          onClick={() =>
-            record &&
-            download(`drawer-${day}.csv`, drawerCsv(record, entries.data, events.data, salesData))
-          }
-        >
-          <Download size={15} strokeWidth={ICON_STROKE} aria-hidden />
-          CSV
-        </Button>
+        {/* On a phone the day and CSV take their own row, so the title isn't squeezed. */}
+        <div className="flex w-full items-center gap-[10px] sm:w-auto">
+          <input
+            type="date"
+            aria-label="Day"
+            value={day}
+            max={today}
+            onChange={(event) => {
+              if (event.target.value) setParams({ date: event.target.value }, { replace: true });
+            }}
+            className="h-[40px] rounded-full bg-surface px-[14px] text-[14px]"
+          />
+          <Button
+            variant="secondary"
+            className="min-h-[40px]"
+            disabled={!record}
+            onClick={() =>
+              record &&
+              download(`drawer-${day}.csv`, drawerCsv(record, entries.data, events.data, salesData))
+            }
+          >
+            <Download size={15} strokeWidth={ICON_STROKE} aria-hidden />
+            CSV
+          </Button>
+        </div>
       </PageHeader>
 
       {drawer.error ? (
@@ -202,7 +205,7 @@ function Report({
 
   return (
     <>
-      <div className="grid gap-[14px] sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-[14px] sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           icon={difference === 0 ? LockOpen : TriangleAlert}
           tone={difference === 0 ? 'plain' : 'warn'}
@@ -249,8 +252,8 @@ function Report({
         </Alert>
       )}
 
-      <div className="grid gap-[16px] xl:grid-cols-[1.6fr_1fr]">
-        <div className="rounded-[30px] bg-surface px-[14px] py-[10px] md:px-[22px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-[16px] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div className="min-w-0 rounded-[30px] bg-surface px-[14px] py-[10px] md:px-[22px]">
           <Table>
             <TableHeader>
               <TableRow>
@@ -306,7 +309,7 @@ function Report({
           </Table>
         </div>
 
-        <div className="flex flex-col gap-[8px] rounded-[30px] bg-neutral-100 p-[22px] text-[14.5px]">
+        <div className="flex min-w-0 flex-col gap-[8px] rounded-[30px] bg-neutral-100 p-[22px] text-[14.5px]">
           <h2 className="mb-[4px] text-[20px]">Expected cash</h2>
           <Line label="Opening cash" value={formatPeso(record.openingCash)} />
           <Line label="Cash sales" value={sales ? formatPeso(cashSales) : pending} />
@@ -403,7 +406,7 @@ function FixesSection({ sales }: { sales: DrawerSales }) {
   return (
     <section
       aria-label="Voids and returns"
-      className="grid gap-[16px] xl:grid-cols-[1fr_1.4fr_1fr]"
+      className="grid grid-cols-[minmax(0,1fr)] gap-[16px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)]"
     >
       <div className="flex flex-col gap-[10px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
         <h2 className="mb-[4px] text-[20px]">
@@ -515,7 +518,10 @@ const madeLabel = (date: Date) =>
  */
 function SalesSection({ sales }: { sales: DrawerSales }) {
   return (
-    <section aria-label="Sales" className="grid gap-[16px] xl:grid-cols-[1fr_1fr_1.6fr]">
+    <section
+      aria-label="Sales"
+      className="grid grid-cols-[minmax(0,1fr)] gap-[16px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.6fr)]"
+    >
       <div className="flex flex-col gap-[8px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
         <h2 className="mb-[4px] text-[20px]">Sales</h2>
         <Line
