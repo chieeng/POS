@@ -121,7 +121,17 @@ export function navItems(role: Role, pending: number): NavItem[] {
     settings: { to: '/settings', label: 'Settings', short: 'Settings', icon: Settings },
   };
   const available: Record<Role, readonly NavKey[]> = {
-    owner: ['home', 'sell', 'sales', 'approvals', 'products', 'stockIn', 'drawer', 'settings'],
+    owner: [
+      'home',
+      'sell',
+      'sales',
+      'approvals',
+      'products',
+      'stockIn',
+      'drawer',
+      'attendance',
+      'settings',
+    ],
     special_sales: ['sell', 'sales', 'products', 'stockIn', 'drawer', 'requests', 'attendance'],
     sales: ['sell', 'sales', 'products', 'drawer', 'requests', 'attendance'],
   };

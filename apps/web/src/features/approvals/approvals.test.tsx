@@ -587,3 +587,29 @@ describe('return requests (POS-10)', () => {
     );
   });
 });
+
+describe('attendance fix requests (ATT-11)', () => {
+  test('the Owner sees the recorded and asked times', () => {
+    signInAs('owner');
+    state.requests = [
+      request({
+        id: 'af1',
+        type: 'attendance_fix',
+        targetId: 'k1',
+        productId: '',
+        before: { day: { kind: 'worked', in: '2026-11-21T07:50:00+08:00', out: null } },
+        after: { workDate: '2026-11-21', in: null, out: '18:05', label: 'Test Two, Nov 21' },
+        reason: 'Forgot to clock out',
+        requestedBy: 's1',
+      }),
+    ];
+    renderPage(<ApprovalsPage />);
+    expect(screen.getByRole('link', { name: 'Attendance fix · Test Two, Nov 21' })).toHaveAttribute(
+      'href',
+      '/attendance',
+    );
+    expect(screen.getByText('none', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('6:05 PM')).toBeInTheDocument();
+    expect(screen.queryByText(/Time in:/)).toBeNull();
+  });
+});

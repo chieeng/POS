@@ -14,12 +14,13 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { useOnline } from '@/hooks/useOnline';
 import { ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
+import { FixRequestForm, OwnerFixPanel } from './FixForms';
 import {
   clock,
   clockText,
   DAY_TYPE_LABELS,
   describeClockError,
-  FLAG_LABELS,
+  flagText,
   timeText,
   useClockState,
   type ClockKind,
@@ -36,12 +37,14 @@ const today = () =>
   });
 
 /**
- * My attendance (SRS ATT-01..05, ATT-12, ATT-15): today's time in and time out, one tap each,
- * at the store. The day's history and the Owner's board come in the next step 11 PRs.
+ * My attendance (SRS ATT-01..05, ATT-11, ATT-12, ATT-15): today's time in and time out, one
+ * tap each, at the store, and asking the Owner to fix a day. The Owner fixes or marks any day
+ * here; the board, history and CSV come in the last step 11 PR.
  */
 export function AttendancePage() {
   const user = useSession((s) => s.user);
-  const state = useClockState(user?.uid, user?.role === 'owner');
+  const isOwner = user?.role === 'owner';
+  const state = useClockState(user?.uid, isOwner);
   return (
     <div className="flex w-full max-w-[560px] flex-col gap-[16px] px-[16px] pt-[14px] pb-[24px] md:px-[26px] md:pt-[22px]">
       <div>
@@ -52,13 +55,12 @@ export function AttendancePage() {
         <p role="status" className="text-neutral-700">
           Loading…
         </p>
-      ) : !state.canClock ? (
-        <Alert variant="info">
-          The Owner doesn’t clock in. (To clock in too, turn on “Owner clocks in too” in Settings
-          &gt; Attendance.)
-        </Alert>
       ) : (
-        <ClockPanel state={state} />
+        <>
+          {state.canClock && <ClockPanel state={state} />}
+          {state.canClock && !isOwner && <FixRequestForm />}
+          {isOwner && <OwnerFixPanel />}
+        </>
       )}
     </div>
   );
@@ -181,7 +183,7 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
             <div className="flex flex-wrap gap-[6px]">
               {record.flags.map((flag) => (
                 <StatusBadge key={flag} tone="warn">
-                  {FLAG_LABELS[flag] ?? flag}
+                  {flagText(flag, record)}
                 </StatusBadge>
               ))}
             </div>

@@ -35,6 +35,12 @@ export function useRequestContext() {
        * "Void sale · TT-20261119-K97Z-3".
        */
       title: (request: ApprovalRequest): { label: string; to: string } => {
+        if (request.type === 'attendance_fix') {
+          return {
+            label: `Attendance fix · ${String(request.after.label ?? '')}`,
+            to: '/attendance',
+          };
+        }
         if (request.type === 'sale_return') {
           return {
             label: `Return · ${String(request.after.receiptNo ?? '')}`,

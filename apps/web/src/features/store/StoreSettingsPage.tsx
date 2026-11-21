@@ -535,6 +535,10 @@ function StoreLocationForm({ branch }: { branch: BranchSettings }) {
       )}
       {error && <Alert variant="danger">{error}</Alert>}
 
+      <p className="m-0 text-[13.5px] text-neutral-700">
+        Set this from a phone standing inside the store, with GPS on: a phone’s GPS is much more
+        precise than a laptop, which guesses from Wi-Fi and can be hundreds of metres off.
+      </p>
       <Button
         type="button"
         variant="secondary"
