@@ -32,6 +32,8 @@ export interface AttendanceRecord {
   earlyMinutes: number;
   overtimeMinutes: number;
   flags: string[];
+  inLocation: string | null;
+  outLocation: string | null;
   inDistanceM: number | null;
   inAccuracyM: number | null;
   outDistanceM: number | null;
@@ -75,6 +77,8 @@ export function toRecord(row: Json): AttendanceRecord {
     earlyMinutes: num(row.early_minutes),
     overtimeMinutes: num(row.overtime_minutes),
     flags: Array.isArray(row.flags) ? (row.flags as string[]) : [],
+    inLocation: typeof row.in_location === 'string' ? row.in_location : null,
+    outLocation: typeof row.out_location === 'string' ? row.out_location : null,
     inDistanceM: numOrNull(row.in_distance_m),
     inAccuracyM: numOrNull(row.in_accuracy_m),
     outDistanceM: numOrNull(row.out_distance_m),
@@ -139,8 +143,12 @@ export const FLAG_LABELS: Record<string, string> = {
  */
 export function flagText(flag: string, record: AttendanceRecord): string {
   if (flag === 'location_not_verified') {
-    const distance = record.inDistanceM ?? record.outDistanceM;
-    const accuracy = record.inAccuracyM ?? record.outAccuracyM;
+    // The reading that was poor: a good time in and a poor time out must not show the good one.
+    const atOut =
+      record.outLocation === 'not_verified' &&
+      (record.inLocation !== 'not_verified' || record.inDistanceM === null);
+    const distance = atOut ? record.outDistanceM : record.inDistanceM;
+    const accuracy = atOut ? record.outAccuracyM : record.inAccuracyM;
     const parts = [
       distance !== null ? `${distance.toLocaleString('en-PH')} m away` : null,
       accuracy !== null ? `accuracy ${accuracy.toLocaleString('en-PH')} m` : null,

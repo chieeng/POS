@@ -22,7 +22,7 @@ const daysAgo = (n: number) => {
   return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 };
 
-const fieldClass = 'flex flex-col gap-[6px]';
+const fieldClass = 'flex min-w-0 flex-col gap-[6px]';
 const panelClass = 'flex flex-col gap-[12px] rounded-[12px] bg-surface px-[16px] py-[14px]';
 
 /** ATT-11: staff ask the Owner to fix one of their days, with the real times and a reason. */
@@ -158,11 +158,20 @@ type Action = (typeof ACTIONS)[number]['value'];
  * ATT-11: the Owner fixes any person's day directly (times, Absent, Rest day), with a reason,
  * and sets each person's usual rest day.
  */
-export function OwnerFixPanel() {
+export function OwnerFixPanel({
+  initialPerson = '',
+  initialDay = '',
+}: {
+  /** From the board's Fix button. */
+  initialPerson?: string;
+  initialDay?: string;
+}) {
   const [reloads, setReloads] = useState(0);
   const staff = useStaff(reloads);
-  const [person, setPerson] = useState('');
-  const [day, setDay] = useState(daysAgo(0));
+  const [person, setPerson] = useState(initialPerson);
+  const [day, setDay] = useState(initialDay || daysAgo(0));
+  // A deactivated person's last days may still need a fix: shown when the board points at one.
+  const members = staff.data.filter((member) => member.active || member.id === initialPerson);
   const [action, setAction] = useState<Action>('times');
   const [timeIn, setTimeIn] = useState('');
   const [timeOut, setTimeOut] = useState('');
@@ -170,7 +179,7 @@ export function OwnerFixPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const chosen = person || staff.data[0]?.id || '';
+  const chosen = person || members[0]?.id || '';
 
   const submit = async () => {
     setError(null);
@@ -213,7 +222,7 @@ export function OwnerFixPanel() {
         <h2 id="owner-fix-heading" className="font-body text-[16px] font-bold">
           Fix a day
         </h2>
-        <div className="grid gap-[10px] sm:grid-cols-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-[10px] sm:grid-cols-2">
           <div className={fieldClass}>
             <Label htmlFor="owner-fix-person" className="text-[13px]">
               Person
@@ -222,9 +231,9 @@ export function OwnerFixPanel() {
               id="owner-fix-person"
               value={chosen}
               onChange={(event) => setPerson(event.target.value)}
-              className="min-h-[48px] rounded-[12px] border border-divider bg-bg px-[12px] text-[15px]"
+              className="min-h-[48px] w-full min-w-0 rounded-[12px] border border-divider bg-bg px-[12px] text-[15px]"
             >
-              {staff.data.map((member) => (
+              {members.map((member) => (
                 <option key={member.id} value={member.id}>
                   {member.name}
                 </option>
@@ -307,14 +316,16 @@ export function OwnerFixPanel() {
         <p className="m-0 text-[13.5px] text-neutral-700">
           Shown as “Rest day” instead of “not in yet” on that day each week.
         </p>
-        {staff.data.map((member) => (
+        {members.map((member) => (
           <div key={member.id} className="flex items-center justify-between gap-[10px] text-[15px]">
-            <label htmlFor={`rest-${member.id}`}>{member.name}</label>
+            <label htmlFor={`rest-${member.id}`} className="min-w-0 [overflow-wrap:anywhere]">
+              {member.name}
+            </label>
             <select
               id={`rest-${member.id}`}
               value={member.restWeekday === null ? '' : String(member.restWeekday)}
               onChange={(event) => void changeRestDay(member.id, event.target.value)}
-              className="min-h-[44px] rounded-[12px] border border-divider bg-bg px-[10px] text-[15px]"
+              className="min-h-[44px] flex-none rounded-[12px] border border-divider bg-bg px-[10px] text-[15px]"
             >
               <option value="">None</option>
               {WEEKDAYS.map((name, index) => (
