@@ -39,6 +39,19 @@ type Decision = { request: ApprovalRequest; approve: boolean } | null;
  * request (the product or stock-in changed since, or the sale's drawer closed) can only be
  * rejected; for a void the server says so when Approve is tried.
  */
+/** What an approval changes, by request type (the dialog named "the product" for every type). */
+function approvedThing(type: string): string {
+  if (type === 'attendance_fix') return 'The day’s times change';
+  if (type === 'stock_adjustment' || type === 'stock_in_correction') return 'The stock changes';
+  return 'The product changes';
+}
+
+function keptThing(type: string): string {
+  if (type === 'attendance_fix') return 'The day stays';
+  if (type === 'stock_adjustment' || type === 'stock_in_correction') return 'The stock stays';
+  return 'The product stays';
+}
+
 export function ApprovalsPage() {
   const branchId = useSession((s) => s.user?.branchId ?? '');
   const requests = useApprovalRequests();
@@ -252,8 +265,8 @@ export function ApprovalsPage() {
                     ? `The sale is voided now and its items go back to stock.${voidRefund(decision.request).cash > 0 ? ` Give back ${formatPeso(voidRefund(decision.request).cash)} cash from today’s drawer.` : ''}`
                     : 'The sale stays as it is.'
                   : decision.approve
-                    ? 'The product changes exactly as requested, now.'
-                    : 'The product stays as it is.'}{' '}
+                    ? `${approvedThing(decision.request.type)} exactly as requested, now.`
+                    : `${keptThing(decision.request.type)} as it is.`}{' '}
               {nameOf(decision.request.requestedBy)} sees your decision and note.
             </DialogDescription>
             <div>

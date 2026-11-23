@@ -400,6 +400,15 @@ The UI reference is the design canvas **POS redesign proposal** (a private claud
 - Order: the build order above. The shared tokens and components took the new look in one change (Nov 2026); each screen is then restyled to its canvas board when a step touches it, and the rest in step 15.
 - Navigation: items a role can't use, or that aren't built yet, are hidden. On phones the bottom bar shows up to five items; past five it keeps the role's four most-used (Owner: Home, Sell, Approvals, Inventory; Special Sales: Sell, Inventory, Sales, Customers; Sales: Sell, Sales, Customers, Drawer) plus More, which holds the rest and Sign out. Products and Stock-in stay separate menu items until the Inventory screens are restyled, then become one Inventory item. Sales keeps Products in the menu (6.1: Sales views products and stock), although the design hides it.
 - The connection indicator shows Online, Offline, or the number of changes waiting to sync. "Working locally" wording waits for the offline outbox (the first part of build step 9).
+- **Cleanup rules (the owner's decisions of Nov 23, 2026).** Staff read screens while serving, so each screen is understood in a second or two:
+  - One main action per screen.
+  - A row shows its times or amounts big, the day or item in plain words, and at most one coloured tag, then "+N" for the rest, opened by a tap (and on hover on a laptop). Tag order: money (a late deduction) first, then red (No time out, Absent), then amber (late, early out, location). A money amount or a red tag is never folded into "+N".
+  - Standing rules (the day's times) sit behind "How days count", not on the screen.
+  - Helper text is one short line at most, and each message is shown once.
+  - Money, stock, legal and safety information stays visible and correct: amounts, the late-deduction warning, "This is not an official receipt", the blind count.
+  - One word for one thing: "Flagged" for a day to review, on the board, in History and in the CSV.
+- **Connection indicator, from the cleanup:** it will show only when the device is offline or has changes waiting ("1 to sync"), not "Online" on every screen (the owner's decision of Nov 23, 2026). This waits until the offline indicator is reliable on every screen: in the step 11 test the laptop sidebar still said "Online" while offline. Until then it stays as it is.
+- **Sell cart bar** is ink (black, white in dark mode); lime stays on the Pay button inside the cart (the owner's decision of Nov 23, 2026).
 
 **Standard values.** Where the screens disagree, the app uses these:
 

@@ -197,7 +197,15 @@ export function OwnerFixPanel({
     try {
       if (action === 'times') await fixDay(chosen, day, timeIn, timeOut, reason);
       else await markDay(chosen, day, action as DayMark, reason);
-      setNotice('Saved. The day is worked out again from the times.');
+      setNotice(
+        action === 'times'
+          ? 'Saved. Late, early and overtime are worked out again.'
+          : action === 'absent'
+            ? 'Saved: marked Absent.'
+            : action === 'rest'
+              ? 'Saved: marked Rest day.'
+              : 'Saved: the mark is cleared.',
+      );
       setReason('');
     } catch (caught) {
       setError(describeFixError(caught));

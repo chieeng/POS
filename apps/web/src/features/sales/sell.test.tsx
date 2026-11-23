@@ -316,7 +316,7 @@ describe('the drawer banner (POS-14)', () => {
   test('no drawer open today: selling is allowed, with a banner and Open the drawer', () => {
     state.drawer = { ...OPEN, session: null };
     renderSell();
-    expect(screen.getByText('No drawer is open today.')).toBeInTheDocument();
+    expect(screen.getByText('Drawer not open.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open the drawer' })).toHaveAttribute(
       'href',
       '/drawer',
@@ -349,24 +349,24 @@ describe('the drawer banner (POS-14)', () => {
       stale: { id: 's0', businessDate: '2026-11-04', openedByName: 'Test Two', openingCash: 1000 },
     };
     renderSell();
-    expect(screen.getByText('No drawer is open today.')).toBeInTheDocument();
+    expect(screen.getByText('Drawer not open.')).toBeInTheDocument();
     expect(screen.queryByText(/was never counted/)).toBeNull();
   });
 
   test("today's drawer closed: new sales go to the next one", () => {
     state.drawer = { ...OPEN, session: { ...OPEN.session!, status: 'closed' } };
     renderSell();
-    expect(screen.getByText(/Today's drawer is closed/)).toBeInTheDocument();
+    expect(screen.getByText(/Today’s drawer is closed/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Open the drawer' })).toBeNull();
   });
 
   test('nothing is said with the drawer open, or offline', () => {
     renderSell();
-    expect(screen.queryByText('No drawer is open today.')).toBeNull();
+    expect(screen.queryByText('Drawer not open.')).toBeNull();
     state.drawer = { ...OPEN, session: null };
     setOnline(false);
     renderSell();
-    expect(screen.queryByText('No drawer is open today.')).toBeNull();
+    expect(screen.queryByText('Drawer not open.')).toBeNull();
   });
 });
 

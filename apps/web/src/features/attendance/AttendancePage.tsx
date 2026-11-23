@@ -256,7 +256,7 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
           </Button>
           <p className="m-0 flex items-center gap-[6px] text-[13px] text-neutral-700">
             <MapPin size={14} strokeWidth={ICON_STROKE} aria-hidden />
-            Your location is read once, now, to check you’re at the store.
+            Checks you’re at the store.
             {!online && ' You’re offline: the time is saved on this phone.'}
           </p>
         </div>
