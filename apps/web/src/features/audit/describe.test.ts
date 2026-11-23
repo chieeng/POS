@@ -23,5 +23,27 @@ describe('offline entries the server refused (NFR-02)', () => {
     expect(describeAudit({ ...entry, after: { kind: 'clock_in' } }, 'x').what).toBe(
       'made a clock-in offline that could not be saved',
     );
+    expect(describeAudit({ ...entry, after: { kind: 'clock_out' } }, 'x').what).toBe(
+      'made a clock-out offline that could not be saved',
+    );
+  });
+});
+
+describe('a time in on a marked day (decision F, Nov 23)', () => {
+  it('reads as clocking in over the mark, with the mark’s reason', () => {
+    expect(
+      describeAudit(
+        {
+          ...entry,
+          action: 'attendance.mark',
+          after: { name: 'Test Two', day: '2026-11-24', kind: 'replaced', was: 'absent' },
+          reason: 'Did not show up',
+        },
+        'x',
+      ),
+    ).toMatchObject({
+      what: 'clocked in on 2026-11-24, replacing the Absent mark',
+      change: 'The mark’s reason: Did not show up',
+    });
   });
 });
