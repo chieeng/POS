@@ -527,7 +527,9 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
         what:
           after.kind === 'clock_in'
             ? 'made a clock-in offline that could not be saved'
-            : 'made a sale offline that could not be saved',
+            : after.kind === 'clock_out'
+              ? 'made a clock-out offline that could not be saved'
+              : 'made a sale offline that could not be saved',
         change: `${text(entry.reason)} Kept on device ${text(entry.deviceTag ?? '—')}.`,
       };
     case 'drawer.open':
@@ -599,8 +601,12 @@ export function describeAudit(entry: AuditRecord, target: string): AuditLine {
         what:
           after.kind === 'clear'
             ? `cleared the mark on ${text(after.name)}, ${text(after.day)}`
-            : `marked ${text(after.name)} ${after.kind === 'rest' ? 'on a rest day' : 'absent'}, ${text(after.day)}`,
-        change: entry.reason ? `Reason: ${entry.reason}` : '',
+            : after.kind === 'replaced'
+              ? `clocked in on ${text(after.day)}, replacing the ${after.was === 'rest' ? 'Rest day' : 'Absent'} mark`
+              : `marked ${text(after.name)} ${after.kind === 'rest' ? 'on a rest day' : 'absent'}, ${text(after.day)}`,
+        change: entry.reason
+          ? `${after.kind === 'replaced' ? 'The mark’s reason' : 'Reason'}: ${entry.reason}`
+          : '',
       };
     case 'attendance.restDay': {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];

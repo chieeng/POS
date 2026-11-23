@@ -19,10 +19,12 @@ import { OwnerAttendance } from './OwnerAttendance';
 import { RecentDays } from './RecentDays';
 import {
   clock,
+  ClockError,
   clockText,
   DAY_TYPE_LABELS,
   describeClockError,
   flagText,
+  manilaDay,
   timeText,
   useClockState,
   type ClockKind,
@@ -85,6 +87,17 @@ export function AttendancePage() {
   );
 }
 
+/** "Sat, Nov 21, 7:58 AM", store time. */
+const refusedWhen = (at: Date) =>
+  at.toLocaleString('en-PH', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Manila',
+  });
+
 /** The day's rules in plain words, from the Owner's settings. */
 function Rules({ state }: { state: ClockState }) {
   const rules = state.rules;
@@ -129,6 +142,11 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
     setError(null);
     setNotice(null);
     try {
+      // The screen was opened yesterday: no Clock out after midnight (decision H, ATT-01).
+      if (kind === 'clock_out' && manilaDay(new Date()) !== state.day) {
+        state.reload();
+        throw new ClockError('past_midnight');
+      }
       const { result, located } = await clock(kind, { uid: user.uid, branchId: user.branchId });
       const what = kind === 'clock_in' ? 'Time in' : 'Time out';
       setNotice(
@@ -218,8 +236,10 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
       {error && <Alert variant="danger">{error}</Alert>}
       {state.refused && (
         <Alert variant="danger">
-          A clock tap saved on this phone was refused: {state.refused}. Ask the Owner to fix today’s
-          record.
+          Your {state.refused.kind === 'clock_in' ? 'time in' : 'time out'} of{' '}
+          {refusedWhen(state.refused.at)}, saved on this phone, wasn’t counted.{' '}
+          {state.refused.reason} If that day’s times are wrong, send a fix request
+          {compact ? ' on the Attendance page.' : ' below.'}
         </Alert>
       )}
 

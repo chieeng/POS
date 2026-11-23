@@ -174,13 +174,37 @@ async function callClock(kind: ClockKind, payload: ClockPayload): Promise<void> 
   if (error) throw error;
 }
 
+/**
+ * Why the server refused a tap that waited on the phone, in words: kept on the phone, shown on
+ * the clock screen and copied to the audit log for the Owner.
+ */
+export function refusalText(code: string): string {
+  switch (code) {
+    case 'tap_too_old':
+      // The owner's decision D of Nov 23, 2026 (ATT-12).
+      return 'It reached the server more than 24 hours after the tap, so it wasn’t counted. Send a fix request for that day.';
+    case 'already_clocked_in':
+      return 'There was already a time in that day.';
+    case 'already_clocked_out':
+      return 'There was already a time out that day.';
+    case 'not_clocked_in':
+      return 'There was no time in that day to close.';
+    case 'out_before_in':
+      return 'The time out was before the time in.';
+    case 'outside_radius':
+      return 'The phone was too far from the store.';
+  }
+  return code;
+}
+
 /** Sends a tap that waited in the outbox. */
 async function sendClock(item: OutboxItem): Promise<SendResult> {
   try {
     await callClock(item.kind as ClockKind, item.payload as unknown as ClockPayload);
     return { sent: true };
   } catch (error) {
-    return sendFailure(error);
+    const result = sendFailure(error);
+    return 'rejected' in result ? { rejected: refusalText(result.rejected) } : result;
   }
 }
 
@@ -268,6 +292,8 @@ export function describeClockError(error: unknown): string {
         return 'Clock in first. If you forgot to clock in, ask the Owner to fix it.';
       case 'out_before_in':
         return 'The time out can’t be before the time in. Check the phone’s clock and try again.';
+      case 'past_midnight':
+        return 'It’s past midnight, so yesterday’s time out can’t be added here. Send a fix request for yesterday with your time out.';
     }
     if (/no access/i.test(error.message)) return 'This account doesn’t clock in.';
   }
@@ -288,6 +314,8 @@ function readCache(uid: string): AttendanceToday | null {
 }
 
 export interface ClockState {
+  /** The store day this state is for ("YYYY-MM-DD"); it turns over at midnight. */
+  day: string;
   loading: boolean;
   /** This person clocks in (staff; the Owner only with "Owner clocks in too"). */
   canClock: boolean;
@@ -297,8 +325,8 @@ export interface ClockState {
   /** A tap waiting on this phone, today. */
   waitingIn: Date | null;
   waitingOut: Date | null;
-  /** A tap the server refused for good. */
-  refused: string | null;
+  /** A tap the server refused for good, in the last 30 days: which, when, and why. */
+  refused: { kind: ClockKind; at: Date; reason: string } | null;
   clockedIn: boolean;
   clockedOut: boolean;
   reload: () => void;
@@ -316,11 +344,19 @@ export function useClockState(uid: string | undefined, isOwner: boolean): ClockS
   const [waiting, setWaiting] = useState<OutboxItem[]>([]);
   const [runs, setRuns] = useState(0);
   const reload = useCallback(() => setRuns((n) => n + 1), []);
+  const [today, setToday] = useState(() => manilaDay(new Date()));
 
   useEffect(() => {
     if (!uid) return undefined;
     return watchOutboxClock(uid, setWaiting);
   }, [uid]);
+
+  // At midnight the screen turns to the new day: Clock in, never yesterday's Clock out
+  // (the owner's decision H of Nov 23, 2026).
+  useEffect(() => {
+    const timer = setInterval(() => setToday(manilaDay(new Date())), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!uid) return undefined;
@@ -342,23 +378,26 @@ export function useClockState(uid: string | undefined, isOwner: boolean): ClockS
       cancelled = true;
     };
     // A tap leaving the outbox changes what the server has.
-  }, [uid, online, runs, waiting.length]);
+  }, [uid, online, runs, waiting.length, today]);
 
-  const today = manilaDay(new Date());
   const record = server && server.today === today ? server.record : null;
-  const tapDay = (item: OutboxItem) =>
-    manilaDay(new Date(String((item.payload as Json).deviceAt ?? item.madeAt)));
+  const tapAt = (item: OutboxItem) =>
+    new Date(String((item.payload as Json).deviceAt ?? new Date(item.madeAt).toISOString()));
+  const tapDay = (item: OutboxItem) => manilaDay(tapAt(item));
   const pending = waiting.filter((item) => item.status === 'waiting' && tapDay(item) === today);
   const tap = (kind: ClockKind) => pending.find((item) => item.kind === kind);
   const inItem = tap('clock_in');
   const outItem = tap('clock_out');
-  const refusedItem = waiting.find(
-    (item) => item.status === 'needsAttention' && tapDay(item) === today,
-  );
+  // A refused tap is shown while a fix request can still be sent for its day (30 days).
+  const fixable = manilaDay(new Date(Date.parse(`${today}T12:00:00+08:00`) - 30 * 86_400_000));
+  const refusedItem = [...waiting]
+    .reverse()
+    .find((item) => item.status === 'needsAttention' && tapDay(item) >= fixable);
   const waitingIn = inItem ? new Date(String((inItem.payload as Json).deviceAt)) : null;
   const waitingOut = outItem ? new Date(String((outItem.payload as Json).deviceAt)) : null;
 
   return {
+    day: today,
     // Offline with nothing saved: not loading, nothing known (the clock still works).
     loading: online && !fetched && !server,
     canClock: server ? server.canClock : !isOwner,
@@ -367,7 +406,13 @@ export function useClockState(uid: string | undefined, isOwner: boolean): ClockS
     storeLocationSet: server?.storeLocationSet ?? true,
     waitingIn,
     waitingOut,
-    refused: refusedItem?.error ?? null,
+    refused: refusedItem
+      ? {
+          kind: refusedItem.kind as ClockKind,
+          at: tapAt(refusedItem),
+          reason: refusalText(refusedItem.error ?? 'Refused.'),
+        }
+      : null,
     clockedIn: !!record?.inAt || waitingIn !== null,
     clockedOut: !!record?.outAt || waitingOut !== null,
     reload,

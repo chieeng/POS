@@ -4,7 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession, type SessionUser } from '@/stores/session';
 import { AttendancePage } from './AttendancePage';
-import { clockText, manilaDay, toToday } from './clock';
+import { clockText, manilaDay, refusalText, toToday } from './clock';
+import { describeFixError } from './fixes';
 
 type Json = Record<string, unknown>;
 
@@ -13,6 +14,7 @@ const server = vi.hoisted(() => ({
   calls: [] as { fn: string; args: Json }[],
   error: null as { message: string; details?: string } | null,
   queued: [] as Json[],
+  outbox: [] as Json[],
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -67,7 +69,7 @@ vi.mock('@/lib/realtime', () => ({ watchTable: () => () => undefined }));
 vi.mock('@/lib/outbox', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/outbox')>()),
   watchOutboxClock: (_uid: string, onChange: (items: unknown[]) => void) => {
-    onChange([]);
+    onChange(server.outbox);
     return () => undefined;
   },
   addToOutbox: (item: Json) => {
@@ -138,6 +140,7 @@ beforeEach(() => {
   server.calls = [];
   server.error = null;
   server.queued = [];
+  server.outbox = [];
   geo = 'ok';
   localStorage.clear();
   signInAs('sales');
@@ -271,6 +274,53 @@ describe('My attendance (ATT-01)', () => {
         'The store’s location isn’t set yet, so where you clock in isn’t checked.',
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe('the owner’s decisions of Nov 23 (D, E, H)', () => {
+  const yesterday = manilaDay(new Date(Date.now() - 24 * 60 * 60 * 1000));
+
+  it('after midnight the clock offers Clock in, not yesterday’s Clock out (H)', async () => {
+    // The server's answer is still yesterday's, with the day open.
+    server.today = todayWith(
+      { ...RECORD, work_date: yesterday, in_at: `${yesterday}T07:54:00+08:00` },
+      { today: yesterday },
+    );
+    localStorage.setItem('pos.clock.u2', JSON.stringify(server.today));
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    renderPage();
+    expect(await screen.findByRole('button', { name: 'Clock in' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clock out' })).toBeNull();
+  });
+
+  it('a tap refused as more than 24 hours old stays on the phone, in words (D)', async () => {
+    server.outbox = [
+      {
+        id: 't1',
+        kind: 'clock_out',
+        uid: 'u2',
+        branchId: 'main',
+        payload: { deviceAt: `${yesterday}T18:04:00+08:00` },
+        madeAt: Date.now() - 26 * 60 * 60 * 1000,
+        status: 'needsAttention',
+        attempts: 1,
+        error: refusalText('tap_too_old'),
+      },
+    ];
+    renderPage();
+    expect(
+      await screen.findByText(/Your time out of .*6:04.*, saved on this phone, wasn’t counted./),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/more than 24 hours after the tap, so it wasn’t counted/),
+    ).toBeInTheDocument();
+  });
+
+  it('says a fix time hasn’t happened yet (E)', () => {
+    expect(describeFixError({ message: 'future_time' })).toBe(
+      'That time hasn’t happened yet. Give the real time in and time out.',
+    );
+    expect(refusalText('something new')).toBe('something new');
   });
 });
 

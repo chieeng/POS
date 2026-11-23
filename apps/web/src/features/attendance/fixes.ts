@@ -70,6 +70,8 @@ export function describeFixError(error: unknown): string {
       return 'Give a time in (or keep the one recorded), the times in order, and a reason.';
     case 'out_before_in':
       return 'The time out must be after the time in.';
+    case 'future_time':
+      return 'That time hasn’t happened yet. Give the real time in and time out.';
     case 'too_old':
       return 'Only the last 30 days can be fixed by request. Ask the Owner for older days.';
     case 'request_pending':
