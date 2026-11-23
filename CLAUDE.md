@@ -1,8 +1,20 @@
 # POS project: instructions for Claude
 
-At the start of every session: read docs/SRS.md (at least sections 7.1, 7.2 and 8, plus the
-requirements for the current step), then check `git log origin/dev` and `gh pr list` to see
-where things stand. Read the design file before any screen work.
+At the start of every session: read this file and docs/STATUS.md (where things stand, what
+comes next), docs/SRS.md (at least sections 7.1, 7.2 and 8, plus the requirements for the
+current step), then confirm the state with `git log origin/dev` and `gh pr list` before doing
+anything (they win over STATUS.md). Read the design file before any screen work.
+
+## Docs that hold the state
+
+- `docs/STATUS.md`: what is built, open PRs, decisions waiting to be built, what comes next and
+  the dates. Update it in every PR that changes any of these.
+- `docs/SRS.md`: WHAT the app does, every decision the owner made, and the build order (SRS 8).
+- `docs/GO-LIVE.md`: dates, release steps, production setup, trial and switch.
+- `docs/RESTORE.md`: backups, restoring, and the restore rehearsal on staging.
+- `docs/POLISH.md`: the step 15 polish list.
+- `CLAUDE.local.md` (private, never committed): the design canvas link and the old design
+  project's link and ID. Those links exist nowhere else.
 
 After a compaction, or whenever unsure, re-read this file, docs/SRS.md and the design file
 before continuing.
@@ -107,6 +119,7 @@ laptops. Roles: owner, special_sales, sales.
   No secrets, passwords, one-time links, design link or project ID in the block. At the end of
   a step, the hand-off includes the full "Test hand-off" checklist.
 
+- Hand-offs use simple, plain words: the owner and the reviewer are not developers.
 - Every hand-off (Test, Re-test, Reviewer) is written as ONE paste-ready prompt addressed to
   the reviewer: who they are and their job ("You are reviewing… guide me, the owner…"), the
   background, the PRs, the steps in order, the checks with expected results, what is known
@@ -116,9 +129,14 @@ laptops. Roles: owner, special_sales, sales.
   system (the build order, features, database, behaviour); the design session does design
   changes and design fixes only (tokens, components' look, restyling screens to their canvas
   boards). Each keeps to its own part, works in its own git worktree, and branches from
-  `origin/dev`.
-- Pace: don't start a new PR while 2 or more of Claude's PRs (from either session) are waiting
-  to be merged. Stop, give the reviewer hand-off, and wait for the owner.
+  `origin/dev`. The main folder stays on an old branch; leave it. One local Supabase (Docker) is
+  shared by the worktrees: if `db reset` fails or tables are missing, the other session may be
+  resetting; wait and retry.
+- One small PR at a time. Pace: don't start a new PR while 2 or more of Claude's PRs (from
+  either session; Dependabot doesn't count) are waiting to be merged. Stop, give the reviewer
+  hand-off, and wait for the owner.
+- Releases: Claude opens the release PR from `dev` to `main`; the owner merges it, creates the
+  `v*` tag and approves the production deploy (docs/GO-LIVE.md, "Release").
 - On this Windows setup long Bash heredocs break: write long files with the Write tool, and
   check that a failed command left no partial changes.
 
@@ -138,7 +156,8 @@ laptops. Roles: owner, special_sales, sales.
   or can't be undone.
 - Never push to `main`. No tags or releases. Never merge PRs (the owner does).
 - The repo is PUBLIC: scan every diff for secrets, private IDs and private links. Never commit
-  `.claude/skills` or CLAUDE.local.md.
+  `.claude/skills` or CLAUDE.local.md. The Claude Design link and project ID live only in
+  CLAUDE.local.md: never in the repo, a commit, a PR, a log or a hand-off.
 - Never ask the owner to paste passwords, tokens, the service role key, the database password
   or secret keys; ask yes/no instead. New secrets go only into Supabase or GitHub secrets, with
   exact click steps for the owner.

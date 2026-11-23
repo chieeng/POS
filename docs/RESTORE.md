@@ -199,6 +199,10 @@ If `pos-prod` itself is gone, a new Free project can take its place:
 This proves the backups work and that you can follow the steps above. Staging holds only
 test accounts, so nothing real can be lost. Plan about 45 minutes.
 
+**When:** after the step 11 staging test is finished and before the release (planned
+Nov 24-27, 2026; see [GO-LIVE.md](GO-LIVE.md)). The restore puts staging back to the backup's
+moment, so any test data made after the backup is lost.
+
 **Before you start:** the backup key exists and the `backup-staging` environment is set up
 (README, "Backups").
 
