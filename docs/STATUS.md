@@ -19,17 +19,18 @@ Last updated: Nov 23, 2026.
 
 ## Places
 
-| What                  | Where                                                                          |
-| --------------------- | ------------------------------------------------------------------------------ |
-| Repository            | `chieeng/POS` (public). `dev` = staging, `main` = production                   |
-| Staging               | https://dev.pos-duz.pages.dev (Supabase project `pos-staging`)                 |
-| Production            | https://pos-duz.pages.dev (Supabase project `pos-prod`), at v1.3.0 (steps 0-5) |
-| Requirements          | [SRS.md](SRS.md) (WHAT the app does)                                           |
-| Go-live checklist     | [GO-LIVE.md](GO-LIVE.md)                                                       |
-| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0 ready for Nov 28)                 |
-| Backups, restore      | [RESTORE.md](RESTORE.md)                                                       |
-| Polish list           | [POLISH.md](POLISH.md) (build step 15)                                         |
-| Design (HOW it looks) | The approved canvas; its link is only in the private CLAUDE.local.md           |
+| What                  | Where                                                                            |
+| --------------------- | -------------------------------------------------------------------------------- |
+| Repository            | `chieeng/POS` (public). `dev` = staging, `main` = production                     |
+| Staging               | https://dev.pos-duz.pages.dev (Supabase project `pos-staging`)                   |
+| Production            | https://pos-duz.pages.dev (Supabase project `pos-prod`), at v1.3.0 (steps 0-5)   |
+| Requirements          | [SRS.md](SRS.md) (WHAT the app does)                                             |
+| Go-live checklist     | [GO-LIVE.md](GO-LIVE.md)                                                         |
+| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0 ready for Nov 28)                   |
+| Plan after go-live    | [PLAN-AFTER-GO-LIVE.md](PLAN-AFTER-GO-LIVE.md) (with the owner's open questions) |
+| Backups, restore      | [RESTORE.md](RESTORE.md)                                                         |
+| Polish list           | [POLISH.md](POLISH.md) (build step 15)                                           |
+| Design (HOW it looks) | The approved canvas; its link is only in the private CLAUDE.local.md             |
 
 ## Build steps (SRS 8, "Build order")
 
