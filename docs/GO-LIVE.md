@@ -1,13 +1,28 @@
 # Go-live checklist
 
 The steps to take the app from staging to the store, in order. No secrets, links to private
-projects or passwords belong in this file (the repository is public).
+projects or passwords belong in this file (the repository is public). Where the project stands
+today is in [STATUS.md](STATUS.md).
+
+## Dates (accepted Nov 21, 2026; may move after the store-owner demo)
+
+| When           | What                                                   |
+| -------------- | ------------------------------------------------------ |
+| until Nov 26   | Step 11 tested on staging and in the store; D-H fix PR |
+| Nov 24-27      | Restore rehearsal on staging, after the step 11 test   |
+| Nov 27         | Buffer                                                 |
+| **Fri Nov 28** | Release steps 7-11 to production                       |
+| Nov 28-29      | Production setup                                       |
+| **Mon Nov 30** | Trial week starts, beside the store's current method   |
+| **Mon Dec 7**  | Switch (Dec 2 / Dec 9 if something slips)              |
 
 ## Before the release (staging)
 
-- [ ] Every step up to step 11 tested on staging.
+- [ ] Every step up to step 11 tested on staging, and the D-H attendance fixes merged.
 - [ ] Restore rehearsal done on staging (see [RESTORE.md](RESTORE.md), "Restore rehearsal on
-      staging").
+      staging"). Only after the step 11 test: it wipes the newer staging test data.
+- [ ] Dependabot pull requests merged or left for after the trial (#101, the Supabase CLI, waits
+      until backup and deploy are tested with it).
 - [ ] Production sign-in settings checked: sign-ups off, confirm email on, password minimum 10,
       authenticator codes (TOTP) on, CAPTCHA on, sign-in rate limits lowered (README, "First-time
       setup of a real project").
@@ -18,11 +33,21 @@ projects or passwords belong in this file (the repository is public).
       rest day.
 - [ ] Store details ready: name, address, contact, TIN, receipt footer, VAT yes/no, GCash and
       Maya accounts (label and number), the discounts and deals the store runs.
+- [ ] Senior citizen / PWD discounts and VAT checked with the store's accountant (SRS 8, open
+      questions).
 
 ## Release
 
-- [ ] The developer opens the release pull request from `dev` to `main`; the Owner merges it,
-      creates the version tag and approves the production deploy.
+1. [ ] Claude opens the release pull request from `dev` to `main` (title like "Release v1.4.0:
+       steps 7-11"), listing what changes for the store.
+2. [ ] The owner merges it once CI is green. Cloudflare Pages publishes `main` at once.
+3. [ ] Right away, the owner creates the tag on `main`: GitHub > Releases > Draft a new release > tag `v1.4.0`, target `main` > Publish.
+4. [ ] The owner approves the production deploy: GitHub > Actions > Deploy (the tag's run) >
+       Review deployments > production > Approve. It applies the database migrations.
+5. [ ] Check https://pos-duz.pages.dev: sign in as the Owner, open Settings and Sell.
+
+Steps 3 and 4 follow step 2 straight away, so the new screens never run long against the old
+database (README, "Release order").
 
 ## Production setup (in this order)
 
@@ -47,3 +72,8 @@ projects or passwords belong in this file (the repository is public).
 - [ ] One week running beside the store's current method, comparing stock, cash and
       attendance every day.
 - [ ] Switch when the week matched.
+
+## After go-live
+
+Sale corrections, then the archive of old sales (by the end of January 2027), then build steps
+12 to 15 (SRS 8).
