@@ -864,7 +864,7 @@ function DrawerBanner() {
   if (session) {
     return (
       <Alert variant="info">
-        Today&apos;s drawer is closed. New sales go into the next drawer that opens.
+        <b>Today’s drawer is closed.</b> New sales go to the next drawer.
       </Alert>
     );
   }
@@ -880,8 +880,7 @@ function DrawerBanner() {
           </AlertAction>
         }
       >
-        <b>{day} drawer was never counted.</b> Count it first, then open today’s. You can still
-        sell: the sales join today’s drawer once it opens.
+        <b>{day} drawer was never counted.</b> Count it, then open today’s. You can still sell.
       </Alert>
     );
   }
@@ -894,7 +893,7 @@ function DrawerBanner() {
         </AlertAction>
       }
     >
-      <b>No drawer is open today.</b> You can still sell: the sales join the drawer once it opens.
+      <b>Drawer not open.</b> You can still sell.
     </Alert>
   );
 }

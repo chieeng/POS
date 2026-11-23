@@ -612,4 +612,25 @@ describe('attendance fix requests (ATT-11)', () => {
     expect(screen.getByText('6:05 PM')).toBeInTheDocument();
     expect(screen.queryByText(/Time in:/)).toBeNull();
   });
+
+  test('the approve dialog names the day, not a product (POLISH, Nov 23)', async () => {
+    signInAs('owner');
+    state.requests = [
+      request({
+        id: 'af1',
+        type: 'attendance_fix',
+        targetId: 'k1',
+        productId: '',
+        before: { day: { kind: 'worked', in: '2026-11-21T07:50:00+08:00', out: null } },
+        after: { workDate: '2026-11-21', in: null, out: '18:05', label: 'Test Two, Nov 21' },
+        reason: 'Forgot to clock out',
+        requestedBy: 's1',
+      }),
+    ];
+    const user = renderPage(<ApprovalsPage />);
+    await user.click(screen.getByRole('button', { name: /^Approve: / }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(/The day’s times change exactly as requested/)).toBeVisible();
+    expect(within(dialog).queryByText(/product/i)).toBeNull();
+  });
 });
