@@ -9,26 +9,28 @@ Last updated: Nov 23, 2026.
 
 ## Who does what
 
-- **The owner** (of this repository) decides, merges every pull request, creates release tags
-  and approves production deploys. They test each step on staging with a separate reviewer,
+- **The owner** (of this repository) decides, merges into `main`, creates release tags and
+  approves production deploys. They test each step on staging with a separate reviewer,
   who can't see the repository or the chat (see the hand-off rules in CLAUDE.md).
 - **The store owner** runs the store and uses the app as the Owner role. The owner demos the
   app to them; dates after the demo may move.
-- **Claude** builds in small pull requests into `dev` and never merges, pushes to `main`, tags
-  or releases.
+- **Claude** builds in small pull requests into `dev` and, since Nov 23, 2026, merges its own
+  and Dependabot's into `dev` (CLAUDE.md, "Autonomous mode"). Never `main`, tags or releases.
 
 ## Places
 
-| What                  | Where                                                                          |
-| --------------------- | ------------------------------------------------------------------------------ |
-| Repository            | `chieeng/POS` (public). `dev` = staging, `main` = production                   |
-| Staging               | https://dev.pos-duz.pages.dev (Supabase project `pos-staging`)                 |
-| Production            | https://pos-duz.pages.dev (Supabase project `pos-prod`), at v1.3.0 (steps 0-5) |
-| Requirements          | [SRS.md](SRS.md) (WHAT the app does)                                           |
-| Go-live checklist     | [GO-LIVE.md](GO-LIVE.md)                                                       |
-| Backups, restore      | [RESTORE.md](RESTORE.md)                                                       |
-| Polish list           | [POLISH.md](POLISH.md) (build step 15)                                         |
-| Design (HOW it looks) | The approved canvas; its link is only in the private CLAUDE.local.md           |
+| What                  | Where                                                                            |
+| --------------------- | -------------------------------------------------------------------------------- |
+| Repository            | `chieeng/POS` (public). `dev` = staging, `main` = production                     |
+| Staging               | https://dev.pos-duz.pages.dev (Supabase project `pos-staging`)                   |
+| Production            | https://pos-duz.pages.dev (Supabase project `pos-prod`), at v1.3.0 (steps 0-5)   |
+| Requirements          | [SRS.md](SRS.md) (WHAT the app does)                                             |
+| Go-live checklist     | [GO-LIVE.md](GO-LIVE.md)                                                         |
+| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0 ready for Nov 28)                   |
+| Plan after go-live    | [PLAN-AFTER-GO-LIVE.md](PLAN-AFTER-GO-LIVE.md) (with the owner's open questions) |
+| Backups, restore      | [RESTORE.md](RESTORE.md)                                                         |
+| Polish list           | [POLISH.md](POLISH.md) (build step 15)                                           |
+| Design (HOW it looks) | The approved canvas; its link is only in the private CLAUDE.local.md             |
 
 ## Build steps (SRS 8, "Build order")
 
@@ -41,7 +43,7 @@ Last updated: Nov 23, 2026.
 | 8    | Cash drawer (blind count, auto-close, overnight count)             | Done on staging, not released    |
 | 9    | Checkout, offline outbox, payments, slip, discounts, package deals | Done on staging, not released    |
 | 10   | Voids, returns, refunds, damaged items, drawer report lines        | Done and tested on staging       |
-| 11   | Attendance (#108, #109, #111, #112, #113; #110 drawer report fix)  | Merged; staging test in progress |
+| 11   | Attendance (#108-#113, #115; #110 drawer report fix)               | Merged; staging test in progress |
 | -    | New look "price card and peso note" (#92 and fixes)                | Done on staging                  |
 | 12   | Customer credit (utang)                                            | After go-live                    |
 | 13   | Owner dashboard and reports                                        | After go-live                    |
@@ -53,18 +55,26 @@ Also after go-live, before step 12: **sale corrections** and the **archive of ol
 
 ## Open pull requests (Nov 23, 2026)
 
-| PR   | What                                  | When to merge                                   |
-| ---- | ------------------------------------- | ----------------------------------------------- |
-| #99  | Dependabot: @hookform/resolvers 7.0.6 | From Nov 25 (two weeks old)                     |
-| #100 | Dependabot: jsdom 31.0.1              | From Nov 27                                     |
-| #101 | Dependabot: Supabase CLI 3.1.0        | HOLD until backup and deploy are tested with it |
+| PR   | What                                                   | When to merge                                     |
+| ---- | ------------------------------------------------------ | ------------------------------------------------- |
+| #122 | Offline indicator: a real connection check             | After step 11 test part E (owner says "done")     |
+| #100 | Dependabot: jsdom 31.0.1 (tests only)                  | From Nov 27                                       |
+| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)      | From Dec 1, then check sign-in and settings forms |
+| #117 | Dependabot: dev-tooling group (tests and lint only)    | From Dec 4                                        |
+| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)   | From Dec 4                                        |
+| #116 | Dependabot: runtime group (supabase-js, router, icons) | After the switch (Dec 7)                          |
+| #120 | Dependabot: Supabase CLI 3.2.0                         | HOLD until backup and deploy are tested with it   |
 
-The three may need a rebase after one another (same lock file).
+The Dependabot ones change the same lock file: one at a time, green before the next; the
+others may need a rebase. #99 and #101 were closed by Dependabot (replaced by #119 and #120).
 
-## Step 11: decisions waiting to be built (owner's answers of Nov 23, 2026)
+**Release freeze:** until the switch on Dec 7, `dev` only takes work for the v1.4.0 release
+(fixes, docs, Dependabot on its dates). Post-go-live features wait on their own pull requests.
+
+## Step 11: the owner's answers of Nov 23, 2026 (built in #115)
 
 The owner accepted every recommendation. These are in SRS ATT-01, ATT-11, ATT-12 and ATT-14,
-and D to H are built in one small fix pull request:
+and D to H were built in #115:
 
 - **D.** A clock tap saved offline more than 24 hours earlier is refused (it would land on the
   wrong day). The phone keeps it as "needs attention", the Owner sees it in the audit log, and
@@ -85,12 +95,13 @@ yet.
 
 ## Next, in order
 
-1. The small D-H fix pull request (above), then any fixes from the step 11 staging test, on one
-   small pull request.
-2. **Restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), only after the step 11 test:
-   it wipes the newer staging test data.
+1. #122 (offline indicator) merged after step 11 test part E; then the step 11 test's fixes,
+   on one small pull request (the full report is due about Nov 26).
+2. **Restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), when the owner says so, after
+   the step 11 test.
 3. **Release Nov 28**: steps 7-11 and the new look go to production ([GO-LIVE.md](GO-LIVE.md),
-   "Release").
+   "Release"; notes in [RELEASE-NOTES.md](RELEASE-NOTES.md)). Claude opens the `dev` to `main`
+   pull request; the owner merges, tags and approves.
 4. **Production setup Nov 28-29** ([GO-LIVE.md](GO-LIVE.md)), including the real store
    location set from a phone inside the store.
 5. **Trial week from Mon Nov 30**, beside the store's current method.
