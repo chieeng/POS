@@ -29,8 +29,8 @@ interface ConnectionPillProps {
 }
 
 /**
- * Online, offline or waiting to sync. Reads the browser's online/offline events only: no
- * polling and no network calls.
+ * Online, offline or waiting to sync, from the app's one connection status (useOnline: the
+ * browser's network link plus the connection check in lib/connection.ts).
  */
 export function ConnectionPill({ variant, pending = 0, className }: ConnectionPillProps) {
   const online = useOnline();

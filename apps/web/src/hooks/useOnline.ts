@@ -1,6 +1,16 @@
 import { useSyncExternalStore } from 'react';
+import { isOnline, subscribeConnection } from '@/lib/connection';
 
-function subscribe(callback: () => void) {
+/**
+ * Whether the app can reach the internet: the browser's network link and the connection
+ * check (lib/connection.ts), so Wi-Fi without internet reads as offline too. Every screen
+ * reads this one status.
+ */
+export function useOnline(): boolean {
+  return useSyncExternalStore(subscribeConnection, isOnline, () => true);
+}
+
+function subscribeBrowser(callback: () => void) {
   window.addEventListener('online', callback);
   window.addEventListener('offline', callback);
   return () => {
@@ -9,10 +19,13 @@ function subscribe(callback: () => void) {
   };
 }
 
-/** Whether the browser reports a network connection. */
-export function useOnline(): boolean {
+/**
+ * The browser's network link only. For the unlock screen, where a wrong "offline" would stop
+ * someone from unlocking: there the server's own answer decides.
+ */
+export function useBrowserOnline(): boolean {
   return useSyncExternalStore(
-    subscribe,
+    subscribeBrowser,
     () => navigator.onLine,
     () => true,
   );

@@ -39,9 +39,12 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // No .txt: the connection check (public/online.txt) must always go to the network.
         globPatterns: ['**/*.{js,css,html,woff2,svg,png}'],
+        globIgnores: ['online.txt'],
         // Every route is the single-page app (Cloudflare Pages does the same online).
         navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/online\.txt/],
         cleanupOutdatedCaches: true,
         // The main bundle is over Workbox's 2 MiB default once the app grows.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
