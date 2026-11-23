@@ -17,32 +17,41 @@ const server = vi.hoisted(() => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    // The Owner's staff list (profiles): one chain, any filters.
-    from: () => {
+    // The Owner's staff list (profiles), and no attendance days: one chain, any filters.
+    from: (table: string) => {
       const chain = {
         select: () => chain,
         neq: () => chain,
         eq: () => chain,
-        order: () =>
+        is: () => chain,
+        gte: () => chain,
+        lte: () => chain,
+        limit: () => chain,
+        range: () => chain,
+        order: () => chain,
+        then: (resolve: (value: unknown) => unknown) =>
           Promise.resolve({
-            data: [
-              {
-                id: 'u2',
-                display_name: 'Test Two',
-                role: 'sales',
-                active: true,
-                rest_weekday: null,
-              },
-              {
-                id: 'u5',
-                display_name: 'Test Special 5',
-                role: 'special_sales',
-                active: true,
-                rest_weekday: 0,
-              },
-            ],
+            data:
+              table !== 'profiles'
+                ? []
+                : [
+                    {
+                      id: 'u2',
+                      display_name: 'Test Two',
+                      role: 'sales',
+                      active: true,
+                      rest_weekday: null,
+                    },
+                    {
+                      id: 'u5',
+                      display_name: 'Test Special 5',
+                      role: 'special_sales',
+                      active: true,
+                      rest_weekday: 0,
+                    },
+                  ],
             error: null,
-          }),
+          }).then(resolve),
       };
       return chain;
     },
@@ -54,6 +63,7 @@ vi.mock('@/lib/supabase', () => ({
     },
   },
 }));
+vi.mock('@/lib/realtime', () => ({ watchTable: () => () => undefined }));
 vi.mock('@/lib/outbox', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/outbox')>()),
   watchOutboxClock: (_uid: string, onChange: (items: unknown[]) => void) => {
@@ -247,7 +257,8 @@ describe('My attendance (ATT-01)', () => {
   it('the Owner doesn’t clock in unless turned on, and fixes days instead', async () => {
     signInAs('owner');
     server.today = todayWith(null, { canClock: false });
-    renderPage();
+    const user = renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Fix a day' }));
     expect(await screen.findByRole('heading', { name: 'Fix a day' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clock in' })).toBeNull();
   });
@@ -300,7 +311,7 @@ describe('fixing a day (ATT-11)', () => {
     signInAs('owner');
     server.today = todayWith(null, { canClock: false });
     const user = renderPage();
-    await screen.findByRole('heading', { name: 'Fix a day' });
+    await user.click(await screen.findByRole('button', { name: 'Fix a day' }));
     await user.click(await screen.findByRole('radio', { name: 'Absent' }));
     await user.type(screen.getByLabelText('Reason'), 'Sick');
     await user.click(screen.getByRole('button', { name: 'Save' }));
@@ -310,7 +321,7 @@ describe('fixing a day (ATT-11)', () => {
       p_kind: 'absent',
       p_reason: 'Sick',
     });
-    expect(screen.getByLabelText('Test Special 5')).toHaveValue('0');
+    expect(await screen.findByLabelText('Test Special 5')).toHaveValue('0');
     await user.selectOptions(screen.getByLabelText('Test Two'), 'Saturday');
     expect(calls('set_rest_weekday')[0]?.args).toMatchObject({ p_user: 'u2', p_weekday: 6 });
   });

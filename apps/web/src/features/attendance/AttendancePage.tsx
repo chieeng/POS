@@ -12,9 +12,11 @@ import {
 } from '@/components/ui/dialog';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { useOnline } from '@/hooks/useOnline';
-import { ICON_STROKE } from '@/lib/utils';
+import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
-import { FixRequestForm, OwnerFixPanel } from './FixForms';
+import { FixRequestForm } from './FixForms';
+import { OwnerAttendance } from './OwnerAttendance';
+import { RecentDays } from './RecentDays';
 import {
   clock,
   clockText,
@@ -38,28 +40,45 @@ const today = () =>
 
 /**
  * My attendance (SRS ATT-01..05, ATT-11, ATT-12, ATT-15): today's time in and time out, one
- * tap each, at the store, and asking the Owner to fix a day. The Owner fixes or marks any day
- * here; the board, history and CSV come in the last step 11 PR.
+ * tap each, at the store, the last days, and asking the Owner to fix one. For the Owner it is
+ * the board, history, summary, CSV and fixing a day (ATT-14).
  */
 export function AttendancePage() {
   const user = useSession((s) => s.user);
   const isOwner = user?.role === 'owner';
   const state = useClockState(user?.uid, isOwner);
   return (
-    <div className="flex w-full max-w-[560px] flex-col gap-[16px] px-[16px] pt-[14px] pb-[24px] md:px-[26px] md:pt-[22px]">
+    <div
+      className={cn(
+        'flex w-full flex-col gap-[16px] px-[16px] pt-[14px] pb-[24px] md:px-[26px] md:pt-[22px]',
+        isOwner ? 'max-w-[1180px]' : 'max-w-[560px]',
+      )}
+    >
       <div>
         <h1 className="text-[28px] md:text-[30px]">Attendance</h1>
         <p className="m-0 text-[14.5px] text-neutral-700">{today()}</p>
       </div>
-      {state.loading ? (
+      {/* The Owner's board doesn't wait for their own clock. */}
+      {state.loading && !isOwner ? (
         <p role="status" className="text-neutral-700">
           Loading…
         </p>
       ) : (
         <>
-          {state.canClock && <ClockPanel state={state} />}
+          {state.canClock && (
+            <div className="w-full max-w-[560px]">
+              <ClockPanel state={state} />
+            </div>
+          )}
           {state.canClock && !isOwner && <FixRequestForm />}
-          {isOwner && <OwnerFixPanel />}
+          {!isOwner && user && (
+            <RecentDays
+              uid={user.uid}
+              // A tap that reached the server changes today's line.
+              version={`${state.record?.inAt?.getTime() ?? ''}-${state.record?.outAt?.getTime() ?? ''}`}
+            />
+          )}
+          {isOwner && <OwnerAttendance />}
         </>
       )}
     </div>
@@ -182,7 +201,7 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
           {record && record.flags.length > 0 && (
             <div className="flex flex-wrap gap-[6px]">
               {record.flags.map((flag) => (
-                <StatusBadge key={flag} tone="warn">
+                <StatusBadge key={flag} tone="warn" className="max-w-full whitespace-normal">
                   {flagText(flag, record)}
                 </StatusBadge>
               ))}

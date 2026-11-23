@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { getDeviceTag } from '@/lib/device';
 import { supabase } from '@/lib/supabase';
+import { manilaDay } from './clock';
+import type { Person } from './report';
 
 /**
  * Fixing a day (SRS ATT-11; the owner's decisions of Nov 21, 2026): staff ask the Owner with
@@ -94,15 +96,9 @@ export const WEEKDAYS = [
   'Saturday',
 ];
 
-export interface StaffMember {
-  id: string;
-  name: string;
-  restWeekday: number | null;
-}
-
-/** The people who clock in (staff, active), with their usual rest day: for the Owner. */
-export function useStaff(reloadKey = 0): { data: StaffMember[]; loading: boolean; error: boolean } {
-  const [state, setState] = useState<{ data: StaffMember[]; loading: boolean; error: boolean }>({
+/** The staff, deactivated ones too (their days stay in history), for the Owner. */
+export function useStaff(reloadKey = 0): { data: Person[]; loading: boolean; error: boolean } {
+  const [state, setState] = useState<{ data: Person[]; loading: boolean; error: boolean }>({
     data: [],
     loading: true,
     error: false,
@@ -111,9 +107,8 @@ export function useStaff(reloadKey = 0): { data: StaffMember[]; loading: boolean
     let cancelled = false;
     void supabase
       .from('profiles')
-      .select('id, display_name, role, active, rest_weekday')
+      .select('id, display_name, role, active, rest_weekday, created_at')
       .neq('role', 'owner')
-      .eq('active', true)
       .order('display_name')
       .then(({ data, error }) => {
         if (cancelled) return;
@@ -123,6 +118,8 @@ export function useStaff(reloadKey = 0): { data: StaffMember[]; loading: boolean
           data: ((data ?? []) as Record<string, unknown>[]).map((row) => ({
             id: String(row.id),
             name: String(row.display_name ?? ''),
+            active: row.active === true,
+            since: row.created_at ? manilaDay(new Date(String(row.created_at))) : '',
             restWeekday:
               row.rest_weekday === null || row.rest_weekday === undefined
                 ? null
