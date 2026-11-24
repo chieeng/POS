@@ -78,6 +78,7 @@ export function AttendancePage() {
               uid={user.uid}
               // A tap that reached the server changes today's line.
               version={`${state.record?.inAt?.getTime() ?? ''}-${state.record?.outAt?.getTime() ?? ''}`}
+              person={state.person}
             />
           )}
           {isOwner && <OwnerAttendance />}

@@ -80,8 +80,8 @@ export async function fetchDays(
 }
 
 /**
- * Days from..to, every page. Live only for the board's today (about 40 messages a day); the
- * other lists load once when opened (SRS 7.1). Give a component a `key` of its range: the
+ * Days from..to, every page. Live only for the board's today (about 40 messages a day) and a
+ * staff member's own days (a few a day); the other lists load once when opened (SRS 7.1). Give a component a `key` of its range: the
  * rows of another range must never be added up as this one's.
  */
 export function useDays(
@@ -99,7 +99,14 @@ export function useDays(
     queryKey: `${from}|${to}|${userId ?? ''}|${version}|${openOnly}`,
     load: () => fetchDays(from, to, userId, openOnly),
     map: toDayRow,
-    filter: live && from === to ? `work_date=eq.${from}` : undefined,
+    // One person's days (staff, ATT-15): only their own changes arrive, a few a day.
+    filter: !live
+      ? undefined
+      : userId
+        ? `user_id=eq.${userId}`
+        : from === to
+          ? `work_date=eq.${from}`
+          : undefined,
     live,
   });
 }

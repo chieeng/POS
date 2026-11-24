@@ -468,15 +468,56 @@ describe('staff’s own days (ATT-15)', () => {
       }),
       worked('five', '2026-11-19', '08:00', '18:00'),
     ];
-    render(<RecentDays uid="two" version="" />);
+    render(<RecentDays uid="two" version="" person={null} />);
     const list = within(await screen.findByRole('region', { name: 'My days' }));
     expect(list.getAllByRole('listitem')).toHaveLength(7);
     expect(list.getByText('Not in yet')).toBeInTheDocument();
     expect(list.getByText('No time out')).toBeInTheDocument();
     expect(list.getByText('Late deduction ₱50.00')).toBeInTheDocument();
     expect(list.getAllByText('Whole day')).toHaveLength(1);
+    // Before the server has answered once, nothing is known: no day is called absent.
     expect(list.queryByText('Absent')).toBeNull();
     await userEvent.setup().click(list.getByRole('button', { name: 'Load more' }));
     expect(list.getAllByRole('listitem')).toHaveLength(30);
+  });
+
+  it('works each day out as the Owner’s board does (the Nov 24 step 11 test)', async () => {
+    db.attendance = [
+      worked('two', '2026-11-21', '08:00', null),
+      worked('two', '2026-11-20', '08:00', '18:00'),
+      // The Owner's mark: shown as Absent with its reason.
+      {
+        ...worked('two', '2026-11-17', '08:00', null),
+        kind: 'absent',
+        in_at: null,
+        note: 'Did not come',
+      },
+    ];
+    render(
+      <RecentDays
+        uid="two"
+        version=""
+        person={{ firstDay: '2026-11-17', restWeekday: 0, since: '2026-11-01' }}
+      />,
+    );
+    const list = within(await screen.findByRole('region', { name: 'My days' }));
+    const items = list.getAllByRole('listitem').map((item) => item.textContent);
+    expect(items[0]).toContain('Not in yet'); // Mon Nov 23, today
+    expect(items[1]).toContain('Rest day'); // Sun Nov 22, the usual rest day
+    expect(items[2]).toContain('No time out'); // Sat Nov 21
+    expect(items[3]).toContain('Whole day'); // Fri Nov 20
+    expect(items[4]).toContain('Absent'); // Thu Nov 19: a working day with no time in
+    expect(items[5]).toContain('Absent'); // Wed Nov 18
+    expect(items[6]).toContain('Absent'); // Tue Nov 17: the Owner's mark
+    expect(items[6]).toContain('Reason: Did not come');
+    await userEvent.setup().click(list.getByRole('button', { name: 'Load more' }));
+    // Before the store's first attendance day: no record, never absent.
+    expect(list.getAllByRole('listitem')[7]?.textContent).toContain('No record');
+  });
+
+  it('listens only to the staff member’s own days', async () => {
+    render(<RecentDays uid="two" version="" person={null} />);
+    await screen.findByRole('region', { name: 'My days' });
+    expect(db.watched.map((watch) => watch.filter)).toEqual(['user_id=eq.two']);
   });
 });
