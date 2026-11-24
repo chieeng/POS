@@ -360,13 +360,21 @@ describe('the drawer banner (POS-14)', () => {
     expect(screen.queryByRole('link', { name: 'Open the drawer' })).toBeNull();
   });
 
-  test('nothing is said with the drawer open, or offline', () => {
+  test('nothing is said with the drawer open', () => {
     renderSell();
     expect(screen.queryByText('Drawer not open.')).toBeNull();
+    expect(screen.queryByText('Offline.')).toBeNull();
+  });
+
+  test('offline: says sales still count, kept on the phone (the Nov 24 test)', () => {
     state.drawer = { ...OPEN, session: null };
     setOnline(false);
     renderSell();
     expect(screen.queryByText('Drawer not open.')).toBeNull();
+    expect(screen.getByText('Offline.')).toBeInTheDocument();
+    expect(
+      screen.getByText(/You can still sell. Sales are kept on this phone and join the drawer/),
+    ).toBeInTheDocument();
   });
 });
 

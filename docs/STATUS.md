@@ -95,8 +95,11 @@ yet.
 ## Next, in order
 
 1. The step 11 test's fixes on one small pull request, after the full report (about Nov 26).
-   Already fixed on its branch: the Owner's Fix a day shows the recorded times (part E
-   finding). #122 (offline indicator) was merged on Nov 24, after part E.
+   Already fixed on its branch (Nov 24 findings): the Owner's Fix a day shows the recorded
+   times; staff see their days as the board does, with two kinds of Absent and Ask to fix; a
+   clock tap certainly outside the store is refused; Sell says offline sales still count.
+   #122 (offline indicator) was merged on Nov 24, after part E; its follow-up for laptops
+   whose browser never reports offline is its own small pull request.
 2. **Restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), when the owner says so, after
    the step 11 test.
 3. **Release Nov 28**: steps 7-11 and the new look go to production ([GO-LIVE.md](GO-LIVE.md),
