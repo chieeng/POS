@@ -15,6 +15,8 @@ const server = vi.hoisted(() => ({
   error: null as { message: string; details?: string } | null,
   queued: [] as Json[],
   outbox: [] as Json[],
+  /** Attendance days the tables return (any filters). */
+  days: [] as Json[],
 }));
 
 vi.mock('@/lib/supabase', () => ({
@@ -34,24 +36,26 @@ vi.mock('@/lib/supabase', () => ({
         then: (resolve: (value: unknown) => unknown) =>
           Promise.resolve({
             data:
-              table !== 'profiles'
-                ? []
-                : [
-                    {
-                      id: 'u2',
-                      display_name: 'Test Two',
-                      role: 'sales',
-                      active: true,
-                      rest_weekday: null,
-                    },
-                    {
-                      id: 'u5',
-                      display_name: 'Test Special 5',
-                      role: 'special_sales',
-                      active: true,
-                      rest_weekday: 0,
-                    },
-                  ],
+              table === 'attendance'
+                ? server.days
+                : table !== 'profiles'
+                  ? []
+                  : [
+                      {
+                        id: 'u2',
+                        display_name: 'Test Two',
+                        role: 'sales',
+                        active: true,
+                        rest_weekday: null,
+                      },
+                      {
+                        id: 'u5',
+                        display_name: 'Test Special 5',
+                        role: 'special_sales',
+                        active: true,
+                        rest_weekday: 0,
+                      },
+                    ],
             error: null,
           }).then(resolve),
       };
@@ -141,6 +145,7 @@ beforeEach(() => {
   server.error = null;
   server.queued = [];
   server.outbox = [];
+  server.days = [];
   geo = 'ok';
   localStorage.clear();
   signInAs('sales');
@@ -374,6 +379,36 @@ describe('fixing a day (ATT-11)', () => {
     expect(await screen.findByLabelText('Test Special 5')).toHaveValue('0');
     await user.selectOptions(screen.getByLabelText('Test Two'), 'Saturday');
     expect(calls('set_rest_weekday')[0]?.args).toMatchObject({ p_user: 'u2', p_weekday: 6 });
+  });
+
+  it('the Owner’s fix shows the recorded time in, and sends only the time out added', async () => {
+    // The Nov 24 step 11 test: from "No time out", the time in was empty.
+    signInAs('owner');
+    server.today = todayWith(null, { canClock: false });
+    server.days = [
+      {
+        ...RECORD,
+        id: 'd1',
+        user_id: 'u2',
+        user_name: 'Test Two',
+        kind: 'worked',
+        in_at: `${day}T01:43:20+08:00`,
+      },
+    ];
+    const user = renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Fix a day' }));
+    expect(await screen.findByLabelText('Time in')).toHaveValue('01:43');
+    expect(screen.getByLabelText('Time out')).toHaveValue('');
+    expect(screen.getByText(/Recorded: in 1:43.*AM, no time out\./)).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Reason'), 'Forgot');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      screen.getByText('Nothing changed. Change the time in or the time out.'),
+    ).toBeInTheDocument();
+    expect(calls('fix_attendance')).toEqual([]);
+    await user.type(screen.getByLabelText('Time out'), '18:00');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(calls('fix_attendance')[0]?.args).toMatchObject({ p_in: null, p_out: '18:00' });
   });
 
   it('a poor location reading says how far and how precise', async () => {
