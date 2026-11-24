@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Segmented } from '@/components/ui/segmented';
-import { manilaDay } from './clock';
+import { manilaDay, timeText } from './clock';
+import { fetchDays, toDayRow } from './report';
 import {
   describeFixError,
   fixDay,
@@ -22,13 +23,42 @@ const daysAgo = (n: number) => {
   return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 };
 
+/** "01:43" for a time input, store time. */
+const inputTime = (at: Date) =>
+  at.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Manila',
+  });
+
+/** What a day holds now, for the Owner's fix form. */
+interface Recorded {
+  /** For the inputs ("HH:MM"); a time out after midnight can't be shown in one, so it's ''. */
+  timeIn: string;
+  timeOut: string;
+  /** In words, under the inputs. */
+  text: string;
+}
+
 const fieldClass = 'flex min-w-0 flex-col gap-[6px]';
 const panelClass = 'flex flex-col gap-[12px] rounded-[12px] bg-surface px-[16px] py-[14px]';
 
-/** ATT-11: staff ask the Owner to fix one of their days, with the real times and a reason. */
-export function FixRequestForm() {
-  const [open, setOpen] = useState(false);
-  const [day, setDay] = useState(daysAgo(0));
+/**
+ * ATT-11: staff ask the Owner to fix one of their days, with the real times and a reason.
+ * "Ask to fix" on a day of their list opens it for that day (with a new `key` each time).
+ */
+export function FixRequestForm({
+  initialDay,
+  initiallyOpen = false,
+}: { initialDay?: string; initiallyOpen?: boolean } = {}) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const [day, setDay] = useState(initialDay ?? daysAgo(0));
+  useEffect(() => {
+    if (!initiallyOpen) return;
+    document.getElementById('fix-heading')?.scrollIntoView?.({ block: 'start' });
+    document.getElementById('fix-in')?.focus({ preventScroll: true });
+  }, [initiallyOpen]);
   const [timeIn, setTimeIn] = useState('');
   const [timeOut, setTimeOut] = useState('');
   const [reason, setReason] = useState('');
@@ -180,13 +210,57 @@ export function OwnerFixPanel({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const chosen = person || members[0]?.id || '';
+  const [recorded, setRecorded] = useState<Recorded | null>(null);
+  const [saves, setSaves] = useState(0);
+
+  // The day's recorded times fill the form (the Nov 24 step 11 test: from the board's Fix
+  // button the time in was empty, inviting a retyped time and wrong late minutes).
+  useEffect(() => {
+    if (!chosen || !day) return undefined;
+    let cancelled = false;
+    void fetchDays(day, day, chosen).then(({ data }) => {
+      if (cancelled) return;
+      const row = data?.[0] ? toDayRow(data[0]) : null;
+      const worked = row?.kind === 'worked' ? row : null;
+      const outSameDay = worked?.outAt && manilaDay(worked.outAt) === day ? worked.outAt : null;
+      const next: Recorded = {
+        timeIn: worked?.inAt ? inputTime(worked.inAt) : '',
+        timeOut: outSameDay ? inputTime(outSameDay) : '',
+        text: !row
+          ? 'Nothing recorded for this day.'
+          : row.kind === 'absent'
+            ? 'Recorded: Absent.'
+            : row.kind === 'rest'
+              ? 'Recorded: Rest day.'
+              : `Recorded: in ${worked?.inAt ? timeText(worked.inAt) : '—'}, ${
+                  worked?.outAt
+                    ? `out ${timeText(worked.outAt)}${outSameDay ? '' : ' (next day)'}`
+                    : 'no time out'
+                }.`,
+      };
+      setRecorded(next);
+      setTimeIn(next.timeIn);
+      setTimeOut(next.timeOut);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [chosen, day, saves]);
+
+  // Only what the Owner changed is sent: an untouched time stays exactly as recorded.
+  const changedIn = timeIn === (recorded?.timeIn ?? '') ? '' : timeIn;
+  const changedOut = timeOut === (recorded?.timeOut ?? '') ? '' : timeOut;
 
   const submit = async () => {
     setError(null);
     setNotice(null);
     if (!chosen) return;
-    if (action === 'times' && !timeIn && !timeOut) {
-      setError('Give the time in, the time out, or both.');
+    if (action === 'times' && !changedIn && !changedOut) {
+      setError(
+        recorded?.timeIn || recorded?.timeOut
+          ? 'Nothing changed. Change the time in or the time out.'
+          : 'Give the time in, the time out, or both.',
+      );
       return;
     }
     if (!reason.trim()) {
@@ -195,8 +269,9 @@ export function OwnerFixPanel({
     }
     setBusy(true);
     try {
-      if (action === 'times') await fixDay(chosen, day, timeIn, timeOut, reason);
+      if (action === 'times') await fixDay(chosen, day, changedIn, changedOut, reason);
       else await markDay(chosen, day, action as DayMark, reason);
+      setSaves((n) => n + 1);
       setNotice(
         action === 'times'
           ? 'Saved. Late, early and overtime are worked out again.'
@@ -287,6 +362,11 @@ export function OwnerFixPanel({
               />
             </div>
           </div>
+        )}
+        {recorded && (
+          <p className="m-0 text-[13px] text-neutral-700" aria-live="polite">
+            {recorded.text}
+          </p>
         )}
         <div className={fieldClass}>
           <Label htmlFor="owner-fix-reason" className="text-[13px]">

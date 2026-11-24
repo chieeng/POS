@@ -850,15 +850,24 @@ function WeighDialog({
 
 /**
  * POS-14: online with no drawer open, selling is allowed; a banner says so and opens one.
- * Offline the drawer can't be checked, so nothing is said. An earlier drawer still open is
- * counted first by those who can count (SHIFT-01): opening today's would close it uncounted.
+ * Offline the drawer can't be checked, so the banner says what happens to the sales instead
+ * (the Nov 24, 2026 test: it disappeared offline). An earlier drawer still open is counted
+ * first by those who can count (SHIFT-01): opening today's would close it uncounted.
  */
 function DrawerBanner() {
   const online = useOnline();
   const drawer = useDrawerToday();
   const role = useSession((s) => s.user?.role);
   const canCount = role === 'owner' || role === 'special_sales';
-  if (!online || drawer.loading || drawer.error || !drawer.data) return null;
+  if (!online) {
+    return (
+      <Alert variant="offline">
+        <b>Offline.</b> You can still sell. Sales are kept on this phone and join the drawer when
+        they’re sent.
+      </Alert>
+    );
+  }
+  if (drawer.loading || drawer.error || !drawer.data) return null;
   const session = drawer.data.session;
   if (session?.status === 'open') return null;
   if (session) {

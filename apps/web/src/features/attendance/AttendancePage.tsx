@@ -49,6 +49,8 @@ export function AttendancePage() {
   const user = useSession((s) => s.user);
   const isOwner = user?.role === 'owner';
   const state = useClockState(user?.uid, isOwner);
+  // "Ask to fix" on a day of the list opens the request form for that day.
+  const [ask, setAsk] = useState<{ day: string; n: number } | null>(null);
   return (
     <div
       className={cn(
@@ -72,12 +74,20 @@ export function AttendancePage() {
               <ClockPanel state={state} />
             </div>
           )}
-          {state.canClock && !isOwner && <FixRequestForm />}
+          {state.canClock && !isOwner && (
+            <FixRequestForm key={ask?.n ?? 0} initialDay={ask?.day} initiallyOpen={!!ask} />
+          )}
           {!isOwner && user && (
             <RecentDays
               uid={user.uid}
               // A tap that reached the server changes today's line.
               version={`${state.record?.inAt?.getTime() ?? ''}-${state.record?.outAt?.getTime() ?? ''}`}
+              person={state.person}
+              onAskFix={
+                state.canClock
+                  ? (day) => setAsk((before) => ({ day, n: (before?.n ?? 0) + 1 }))
+                  : undefined
+              }
             />
           )}
           {isOwner && <OwnerAttendance />}

@@ -1,21 +1,36 @@
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { LoadMore } from '@/components/ui/load-more';
-import { manilaDay, timeText } from './clock';
+import { manilaDay, timeText, type ClockState } from './clock';
 import { DayBadges } from './DayBadges';
-import { addDays, dayName, daysBetween, outText, useDays, type DayState } from './report';
+import { addDays, dayName, daysBetween, outText, stateOf, useDays } from './report';
 
 const WEEK = 7;
 const MONTH = 30;
 
 /**
  * ATT-15: a staff member's own days, the last 7 first and up to 30, so they see a fix the
- * Owner approved and any day with no time out. A day with no record isn't called absent here:
- * only the Owner's report knows the rest days and when the store began.
+ * Owner approved and any day with no time out. Each day is worked out as on the Owner's board
+ * (ATT-14; the Nov 24, 2026 step 11 test): a working day with no time in is "Absent", the
+ * usual rest day is "Rest day", and days before the store's first attendance or before the
+ * account was made are "No record". The list is live: a fix or a mark shows at once.
  */
-export function RecentDays({ uid, version }: { uid: string; version: string }) {
+export function RecentDays({
+  uid,
+  version,
+  person,
+  onAskFix,
+}: {
+  uid: string;
+  version: string;
+  /** From the clock's answer; null until the server answered once (then no day is absent). */
+  person: ClockState['person'];
+  /** Opens the fix request for a day (a day with no time in or no time out). */
+  onAskFix?: (day: string) => void;
+}) {
   const today = manilaDay(new Date());
   const from = addDays(today, 1 - MONTH);
-  const rows = useDays(from, today, { userId: uid, version });
+  const rows = useDays(from, today, { userId: uid, version, live: true });
   const [shown, setShown] = useState(WEEK);
 
   if (rows.error) {
@@ -38,10 +53,20 @@ export function RecentDays({ uid, version }: { uid: string; version: string }) {
       <ul className="m-0 flex list-none flex-col p-0">
         {days.slice(0, shown).map((day) => {
           const row = byDay.get(day) ?? null;
-          let state: DayState = day === today ? 'not_in' : 'none';
-          if (row?.kind === 'absent' || row?.kind === 'rest') state = row.kind;
-          else if (row?.outAt) state = 'done';
-          else if (row) state = day === today ? 'in' : 'no_out';
+          // Unknown (never online yet): no day is called absent, as before.
+          const state = stateOf(
+            {
+              id: uid,
+              name: '',
+              active: true,
+              since: person?.since ?? today,
+              restWeekday: person?.restWeekday ?? null,
+            },
+            day,
+            row,
+            today,
+            person ? person.firstDay : today,
+          );
           return (
             <li key={day} className="flex flex-col gap-[5px] border-b border-divider py-[10px]">
               <span className="flex flex-wrap items-baseline justify-between gap-x-[10px] text-[14px]">
@@ -54,6 +79,17 @@ export function RecentDays({ uid, version }: { uid: string; version: string }) {
                 )}
               </span>
               <DayBadges state={state} row={row} />
+              {onAskFix && ((state === 'absent' && !row) || state === 'no_out') && (
+                <Button
+                  variant="quiet"
+                  size="touch"
+                  className="self-start"
+                  aria-label={`Ask to fix ${dayName(day)}`}
+                  onClick={() => onAskFix(day)}
+                >
+                  Ask to fix
+                </Button>
+              )}
               {row?.note && (
                 <span className="text-[13px] break-words text-neutral-700">Reason: {row.note}</span>
               )}

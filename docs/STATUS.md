@@ -57,7 +57,6 @@ Also after go-live, before step 12: **sale corrections** and the **archive of ol
 
 | PR   | What                                                   | When to merge                                     |
 | ---- | ------------------------------------------------------ | ------------------------------------------------- |
-| #122 | Offline indicator: a real connection check             | After step 11 test part E (owner says "done")     |
 | #100 | Dependabot: jsdom 31.0.1 (tests only)                  | From Nov 27                                       |
 | #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)      | From Dec 1, then check sign-in and settings forms |
 | #117 | Dependabot: dev-tooling group (tests and lint only)    | From Dec 4                                        |
@@ -95,8 +94,12 @@ yet.
 
 ## Next, in order
 
-1. #122 (offline indicator) merged after step 11 test part E; then the step 11 test's fixes,
-   on one small pull request (the full report is due about Nov 26).
+1. The step 11 test's fixes on one small pull request, after the full report (about Nov 26).
+   Already fixed on its branch (Nov 24 findings): the Owner's Fix a day shows the recorded
+   times; staff see their days as the board does, with two kinds of Absent and Ask to fix; a
+   clock tap certainly outside the store is refused; Sell says offline sales still count.
+   #122 (offline indicator) was merged on Nov 24, after part E; its follow-up for laptops
+   whose browser never reports offline is its own small pull request.
 2. **Restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), when the owner says so, after
    the step 11 test.
 3. **Release Nov 28**: steps 7-11 and the new look go to production ([GO-LIVE.md](GO-LIVE.md),
