@@ -13,12 +13,20 @@ import {
 
 // The Nov 23, 2026 step 11 test: a laptop on Wi-Fi with no internet still said "Online".
 
-type Answer = 'ok' | 'down' | 'portal';
+// 'hang': the Nov 24 test, Wi-Fi off on a laptop whose browser still says online: requests
+// neither answer nor fail, until they are given up (aborted).
+type Answer = 'ok' | 'down' | 'portal' | 'hang';
 let answer: Answer = 'ok';
 const fetchMock = vi.fn((url: string, init?: RequestInit) => {
   void url;
-  void init;
   if (answer === 'down') return Promise.reject(new TypeError('Failed to fetch'));
+  if (answer === 'hang') {
+    return new Promise<Response>((_, reject) => {
+      init?.signal?.addEventListener('abort', () =>
+        reject(new DOMException('Aborted', 'AbortError')),
+      );
+    });
+  }
   const body = answer === 'ok' ? 'ok\n' : '<html>Sign in to this Wi-Fi</html>';
   return Promise.resolve(new Response(body, { status: 200 }));
 });
@@ -115,20 +123,59 @@ describe('the connection check', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(isOnline()).toBe(true);
     answer = 'down';
-    await vi.advanceTimersByTimeAsync(60_000); // the next minute's check fails once
+    await vi.advanceTimersByTimeAsync(30_000); // the next check fails once
     expect(isOnline()).toBe(true);
-    await vi.advanceTimersByTimeAsync(5_000); // confirmed 5 seconds later
+    await vi.advanceTimersByTimeAsync(2_000); // confirmed 2 seconds later
     expect(isOnline()).toBe(false);
     answer = 'ok';
     await vi.advanceTimersByTimeAsync(10_000); // offline: checked every 10 seconds
     expect(isOnline()).toBe(true);
   });
 
-  it('light on data and battery: once a minute online, only while on screen', async () => {
+  describe('Wi-Fi off, but the browser still says online (the Nov 24 test)', () => {
+    it('idle app: offline within 45 seconds', async () => {
+      stop = startConnectionCheck();
+      await vi.advanceTimersByTimeAsync(0);
+      answer = 'hang';
+      // Next check at 30 s gets no answer in 5 s; confirmed 2 s later, again no answer in 5 s.
+      await vi.advanceTimersByTimeAsync(42_000);
+      expect(isOnline()).toBe(false);
+    });
+
+    it('app in use: a Supabase request with no answer checks at once, offline within 20 s', async () => {
+      stop = startConnectionCheck();
+      await vi.advanceTimersByTimeAsync(0);
+      noteServerAnswer(); // the app was just talking to the server
+      answer = 'hang';
+      const controller = new AbortController();
+      const request = trackedFetch('https://x.supabase.co/rest/v1/x', {
+        signal: controller.signal,
+      }).catch(() => undefined);
+      await vi.advanceTimersByTimeAsync(5_000); // still waiting: check now
+      expect(fetchMock.mock.calls.some(([url]) => String(url).startsWith(CHECK_URL))).toBe(true);
+      await vi.advanceTimersByTimeAsync(15_000);
+      expect(isOnline()).toBe(false);
+      controller.abort();
+      await request;
+    });
+
+    it('and back online by itself when the internet answers again', async () => {
+      stop = startConnectionCheck();
+      await vi.advanceTimersByTimeAsync(0);
+      answer = 'hang';
+      await vi.advanceTimersByTimeAsync(42_000);
+      expect(isOnline()).toBe(false);
+      answer = 'ok';
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(isOnline()).toBe(true);
+    });
+  });
+
+  it('light on data and battery: every 30 seconds online, only while on screen', async () => {
     stop = startConnectionCheck();
     await vi.advanceTimersByTimeAsync(0);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(59_000);
+    await vi.advanceTimersByTimeAsync(29_000);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1_000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
