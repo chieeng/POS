@@ -19,7 +19,7 @@ today is in [STATUS.md](STATUS.md).
 ## Before the release (staging)
 
 - [x] The D-H attendance fixes merged (#115).
-- [ ] The offline indicator fix merged (#122, after step 11 test part E).
+- [x] The offline indicator fix merged (#122, Nov 24, after step 11 test part E).
 - [ ] Every step up to step 11 tested on staging, and the step 11 test's fixes merged.
 - [ ] Restore rehearsal done on staging (see [RESTORE.md](RESTORE.md), "Restore rehearsal on
       staging"), when the owner says so, after the step 11 test. It goes back only to a backup
