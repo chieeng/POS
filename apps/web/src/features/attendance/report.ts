@@ -242,8 +242,10 @@ export function stateLabel({ state, row }: Pick<PersonDay, 'state' | 'row'>): st
       return 'In';
     case 'no_out':
       return 'No time out';
+    // Two kinds, told apart (the owner, Nov 24, 2026): the Owner's mark, or a working day with
+    // no time in that may still be fixed by request.
     case 'absent':
-      return 'Absent';
+      return row?.kind === 'absent' ? 'Absent · marked by the Owner' : 'Absent · no time in';
     case 'rest':
       return 'Rest day';
     case 'not_in':

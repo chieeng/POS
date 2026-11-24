@@ -44,10 +44,21 @@ interface Recorded {
 const fieldClass = 'flex min-w-0 flex-col gap-[6px]';
 const panelClass = 'flex flex-col gap-[12px] rounded-[12px] bg-surface px-[16px] py-[14px]';
 
-/** ATT-11: staff ask the Owner to fix one of their days, with the real times and a reason. */
-export function FixRequestForm() {
-  const [open, setOpen] = useState(false);
-  const [day, setDay] = useState(daysAgo(0));
+/**
+ * ATT-11: staff ask the Owner to fix one of their days, with the real times and a reason.
+ * "Ask to fix" on a day of their list opens it for that day (with a new `key` each time).
+ */
+export function FixRequestForm({
+  initialDay,
+  initiallyOpen = false,
+}: { initialDay?: string; initiallyOpen?: boolean } = {}) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const [day, setDay] = useState(initialDay ?? daysAgo(0));
+  useEffect(() => {
+    if (!initiallyOpen) return;
+    document.getElementById('fix-heading')?.scrollIntoView?.({ block: 'start' });
+    document.getElementById('fix-in')?.focus({ preventScroll: true });
+  }, [initiallyOpen]);
   const [timeIn, setTimeIn] = useState('');
   const [timeOut, setTimeOut] = useState('');
   const [reason, setReason] = useState('');

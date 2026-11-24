@@ -329,6 +329,26 @@ describe('the owner’s decisions of Nov 23 (D, E, H)', () => {
   });
 });
 
+describe('a day with no time in, on the staff list (the Nov 24 test)', () => {
+  it('“Ask to fix” opens the request for that day', async () => {
+    const yesterday = manilaDay(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    server.today = todayWith(null, {
+      firstDay: '2026-01-01',
+      restWeekday: null,
+      since: '2026-01-01',
+    });
+    const user = renderPage();
+    const asks = await screen.findAllByRole('button', { name: /^Ask to fix / });
+    expect(screen.getAllByText('Absent · no time in').length).toBeGreaterThan(0);
+    // The first is the newest day before today: yesterday.
+    await user.click(asks[0]!);
+    expect(
+      await screen.findByRole('heading', { name: 'Ask the Owner to fix a day' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Day')).toHaveValue(yesterday);
+  });
+});
+
 describe('clock in before selling (ATT-16)', () => {
   it('Sell shows the clock until the day’s time in', async () => {
     const { SellPage } = await import('@/features/sales/SellPage');

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { LoadMore } from '@/components/ui/load-more';
 import { manilaDay, timeText, type ClockState } from './clock';
 import { DayBadges } from './DayBadges';
@@ -18,11 +19,14 @@ export function RecentDays({
   uid,
   version,
   person,
+  onAskFix,
 }: {
   uid: string;
   version: string;
   /** From the clock's answer; null until the server answered once (then no day is absent). */
   person: ClockState['person'];
+  /** Opens the fix request for a day (a day with no time in or no time out). */
+  onAskFix?: (day: string) => void;
 }) {
   const today = manilaDay(new Date());
   const from = addDays(today, 1 - MONTH);
@@ -75,6 +79,17 @@ export function RecentDays({
                 )}
               </span>
               <DayBadges state={state} row={row} />
+              {onAskFix && ((state === 'absent' && !row) || state === 'no_out') && (
+                <Button
+                  variant="quiet"
+                  size="touch"
+                  className="self-start"
+                  aria-label={`Ask to fix ${dayName(day)}`}
+                  onClick={() => onAskFix(day)}
+                >
+                  Ask to fix
+                </Button>
+              )}
               {row?.note && (
                 <span className="text-[13px] break-words text-neutral-700">Reason: {row.note}</span>
               )}
