@@ -78,6 +78,16 @@ describe('installable app with an offline shell (NFR-03)', () => {
     expect(headersFor('/manifest.webmanifest').get('cache-control')).toBe('no-cache');
   });
 
+  test('the connection check is never a stored copy (host, browser and service worker)', () => {
+    expect(readFileSync(`${publicDir}online.txt`, 'utf8').trim()).toBe('ok');
+    expect(headersFor('/online.txt').get('cache-control')).toBe('no-store');
+    const config = readFileSync(
+      fileURLToPath(new URL('../../vite.config.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(config).toContain("globIgnores: ['online.txt']");
+  });
+
   test.each(['icon.svg', 'pwa-192.png', 'pwa-512.png', 'maskable-512.png', 'apple-touch-icon.png'])(
     'the %s icon is published',
     (name) => {

@@ -25,3 +25,8 @@
 
 /manifest.webmanifest
   Cache-Control: no-cache
+
+# The connection check (src/lib/connection.ts): never a stored copy, or it would always say
+# online.
+/online.txt
+  Cache-Control: no-store

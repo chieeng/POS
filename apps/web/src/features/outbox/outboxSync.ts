@@ -1,5 +1,6 @@
 import { registerClockSenders } from '@/features/attendance/clock';
 import { registerSaleSender } from '@/features/sales/data';
+import { onReconnect } from '@/lib/connection';
 import { syncOutbox } from '@/lib/outbox';
 import { useSession } from '@/stores/session';
 
@@ -18,6 +19,8 @@ export function startOutboxSync(): () => void {
   run();
   const timer = setInterval(run, OUTBOX_SYNC_MS);
   window.addEventListener('online', run);
+  // Wi-Fi whose internet comes back fires no `online` event: the connection check tells us.
+  const stopReconnect = onReconnect(run);
   const unsubscribe = useSession.subscribe((state, before) => {
     if (state.status === 'signedIn' && state.user?.uid !== before.user?.uid) run();
   });
@@ -26,6 +29,7 @@ export function startOutboxSync(): () => void {
     stopClock();
     clearInterval(timer);
     window.removeEventListener('online', run);
+    stopReconnect();
     unsubscribe();
   };
 }

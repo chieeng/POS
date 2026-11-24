@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
+import { trackedFetch } from './connection';
 
 export interface AppEnv {
   supabaseUrl: string;
@@ -112,6 +113,8 @@ export const supabase = createClient(env.supabaseUrl, env.supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
   },
+  // Every answer from Supabase also tells the connection status the internet works.
+  global: { fetch: trackedFetch },
 });
 
 /**

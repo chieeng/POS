@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import type { SessionUser } from '@/stores/session';
 import { describeAuthError, type AuthErrorMessage } from './authErrors';
 import { requestSignOut } from '@/features/outbox/signOut';
-import { useOnline } from '@/hooks/useOnline';
+import { useBrowserOnline } from '@/hooks/useOnline';
 import { confirmPassword, signOutUser } from './authService';
 import { checkOfflinePassword, hasOfflineUnlock } from './offlineUnlock';
 import { initialsOf, ROLE_LABELS } from './roles';
@@ -43,7 +43,9 @@ export function IdleLock({ user, minutes }: IdleLockProps) {
     defaultValues: { password: '' },
   });
 
-  const online = useOnline();
+  // The browser's own signal, as the unlock below uses: a wrong "offline" from the connection
+  // check must never stop someone unlocking (the server's answer decides).
+  const online = useBrowserOnline();
   const offlineReady = hasOfflineUnlock(user.uid);
 
   // AUTH-05: without internet, the password is checked against the hash kept on this device.
