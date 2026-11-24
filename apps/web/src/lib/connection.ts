@@ -9,8 +9,15 @@
  * - The browser saying offline counts at once.
  * - A check that fails twice in a row counts as offline; any check that works, or any answer
  *   from Supabase (see lib/supabase.ts), counts as online again at once.
- * - Checks run only while the app is on screen: every 60 seconds while online (skipped when
- *   Supabase answered in the last 60 seconds), every 10 seconds while offline.
+ * - Checks run only while the app is on screen: every 30 seconds while online (skipped when
+ *   Supabase answered in the last 30 seconds), every 10 seconds while offline. A check that
+ *   fails is confirmed 2 seconds later, and a check that gets no answer in 5 seconds fails.
+ * - A request to Supabase that fails, or still has no answer after 5 seconds, checks at once.
+ *
+ * Some laptops never report "offline", even with Wi-Fi turned off (the Nov 24, 2026 test: a
+ * Windows laptop, probably because of a virtual network adapter from Docker, WSL or a VPN),
+ * and requests then hang instead of failing. The checks alone find that out: within about 15
+ * to 20 seconds while the app is in use, at most about 45 seconds when it sits idle.
  *
  * The check never reads a cached copy: the file is not in the service worker's cache, the
  * request asks for no cache and has a new address each time, and the host sends it with
@@ -22,10 +29,12 @@
  */
 
 export const CHECK_URL = '/online.txt';
-export const ONLINE_EVERY_MS = 60_000;
+export const ONLINE_EVERY_MS = 30_000;
 export const OFFLINE_EVERY_MS = 10_000;
-export const CONFIRM_AFTER_MS = 5_000;
-export const CHECK_TIMEOUT_MS = 8_000;
+export const CONFIRM_AFTER_MS = 2_000;
+export const CHECK_TIMEOUT_MS = 5_000;
+/** A Supabase request still waiting this long makes the app check the connection. */
+export const SLOW_REQUEST_MS = 5_000;
 
 let reachable = true;
 let failures = 0;
@@ -163,8 +172,12 @@ export function startConnectionCheck(): () => void {
   };
 }
 
-/** Wraps fetch for the Supabase client: its answers and failures feed the status. */
+/**
+ * Wraps fetch for the Supabase client: its answers and failures feed the status, and a request
+ * still waiting after 5 seconds (a dead connection hangs instead of failing) checks at once.
+ */
 export const trackedFetch: typeof fetch = async (input, init) => {
+  const slow = setTimeout(noteNetworkFailure, SLOW_REQUEST_MS);
   try {
     const response = await fetch(input, init);
     noteServerAnswer();
@@ -172,6 +185,8 @@ export const trackedFetch: typeof fetch = async (input, init) => {
   } catch (error) {
     if (!(error instanceof DOMException && error.name === 'AbortError')) noteNetworkFailure();
     throw error;
+  } finally {
+    clearTimeout(slow);
   }
 };
 
