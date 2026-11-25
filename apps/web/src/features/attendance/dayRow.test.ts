@@ -56,14 +56,19 @@ describe('one tag and "+N" (cleanup round 1, SRS 7.2)', () => {
     expect(dayText({ state: 'no_out', row: open }).title).toBe('8:00 AM – ?');
   });
 
-  it('shows today’s deduction while the person is in, never on a day with no time out', () => {
-    const rules = { lateRule: 'flat', lateFlat: 50 };
-    const inNow = day({ out_at: null, day_type: null, late_minutes: 40, rules });
+  it('shows an amount only where Summary and the CSV count one', () => {
+    const flat = { lateRule: 'flat', lateFlat: 50 };
+    const inNow = day({ out_at: null, day_type: null, late_minutes: 40, rules: flat });
     expect(dayParts({ state: 'in', row: inNow }).tags.map((tag) => tag.text)).toEqual([
-      'Late 40 min · −₱50.00',
+      'Late 40 min',
     ]);
     expect(dayParts({ state: 'no_out', row: inNow }).tags.map((tag) => tag.text)).toEqual([
       'No time out',
+    ]);
+    // Per-minute deduction: priced in payroll (step 14), so no amount on the row.
+    const minutes = day({ late_minutes: 40, rules: { lateRule: 'minutes', lateFlat: 0 } });
+    expect(dayParts({ state: 'done', row: minutes }).tags.map((tag) => tag.text)).toEqual([
+      'Late 40 min',
     ]);
   });
 

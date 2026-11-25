@@ -35,10 +35,10 @@ export function dayParts({ state, row }: Day): DayParts {
   const worked = row?.kind === 'worked' ? row : null;
 
   if (worked && worked.lateMinutes > 0) {
-    // Today's deduction shows while the person is still in (the owner, Nov 23, 2026: "show the
-    // late-deduction amount on the row"); a day with no time out counts for nothing, so none.
-    const deduction =
-      state === 'in' && worked.lateRule === 'flat' ? worked.lateFlat : flatDeduction(row);
+    // The amount comes only from flatDeduction, the same one Summary and the CSV use (the
+    // owner, Nov 25, 2026), so it always matches. A day still in shows none yet: no
+    // amount is worked out on the screen.
+    const deduction = flatDeduction(row);
     if (deduction > 0) {
       // Money first, and the amount is never hidden (SRS 7.2).
       keep.push({
