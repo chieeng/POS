@@ -117,15 +117,11 @@ yet.
    demo).
 7. After go-live: sale corrections, the archive of old sales, then steps 12 to 15.
 
-## Question waiting for the owner
+## Answered: Q-ATT-1 (Nov 25, 2026)
 
-- **Q-ATT-1. When attendance "begins" for counting Absent days** (Nov 25, 2026 re-test). A
-  working day with no time in counts as "Absent" from the store's first attendance record on
-  (ATT-14). Today any record counts, an Owner's Absent mark too: marking Nov 19 moved the
-  start back a day, so Nov 20 became "Absent" for Test Two. On production, marking a day before
-  the real start would make every staff member absent on the days in between. Recommended:
-  count from the first **clock-in** (a time in), not from marks; payroll (step 14) will read
-  the same rule.
+"Absent · no time in" counts from each person's own first clock-in, not from the store's
+first record; an Owner's mark shows on its day but never moves anyone's start (SRS ATT-14).
+Built on the branch for the part F fixes pull request.
 
 ## Other open items
 

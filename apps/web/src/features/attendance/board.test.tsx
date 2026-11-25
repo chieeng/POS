@@ -82,6 +82,23 @@ vi.mock('@/lib/supabase', () => ({
       };
       return chain;
     },
+    // attendance_first_days(): each person's first worked day, as the SQL does it.
+    rpc: (fn: string) => {
+      if (fn !== 'attendance_first_days' || db.failing) {
+        return Promise.resolve({ data: null, error: { message: 'Failed to fetch' } });
+      }
+      const first = new Map<string, string>();
+      for (const row of db.attendance) {
+        if (row.kind !== 'worked') continue;
+        const user = String(row.user_id);
+        const day = String(row.work_date);
+        if (!first.has(user) || day < first.get(user)!) first.set(user, day);
+      }
+      return Promise.resolve({
+        data: [...first].map(([user_id, first_day]) => ({ user_id, first_day })),
+        error: null,
+      });
+    },
   },
 }));
 vi.mock('@/lib/realtime', () => ({
@@ -200,6 +217,33 @@ describe('a day with or without a record', () => {
     expect(of({ user_id: 'two', work_date: TODAY, kind: 'absent' })).toBe('absent');
   });
 
+  it('each person starts at their own first clock-in; a mark never moves it (Q-ATT-1)', () => {
+    // Test Two first clocked in Fri Nov 20; Test Special 5 is a new hire who never has; the
+    // Owner marked Test Two absent on Mon Nov 16, before their first clock-in.
+    db.attendance = [
+      worked('two', '2026-11-20', '08:00', '18:00'),
+      { ...worked('two', '2026-11-16', '08:00', null), kind: 'absent', in_at: null },
+    ];
+    const rows = db.attendance.map(toDayRow);
+    const firstIns = new Map([['two', '2026-11-20']]);
+    const five = person({ id: 'five', name: 'Test Special 5', restWeekday: null });
+    const days = personDays(
+      [person(), five],
+      rows,
+      { from: '2026-11-16', to: TODAY },
+      TODAY,
+      firstIns,
+    );
+    const of = (who: string, day: string) =>
+      days.find((each) => each.person.id === who && each.day === day)?.state;
+    expect(of('two', '2026-11-16')).toBe('absent'); // the mark shows on its day
+    expect(of('two', '2026-11-17')).toBe('none'); // but the start stays Nov 20
+    expect(of('two', '2026-11-19')).toBe('none');
+    expect(of('two', '2026-11-21')).toBe('absent'); // a working day after the start
+    expect(of('five', '2026-11-21')).toBe('none'); // never clocked in: never "no time in"
+    expect(of('five', TODAY)).toBe('not_in');
+  });
+
   it('keeps a deactivated person who has days in the range', () => {
     const gone = person({ id: 'gone', name: 'Old Staff', active: false });
     expect(peopleIn([person(), gone], [])).toEqual([person()]);
@@ -237,7 +281,13 @@ describe('totals and CSV', () => {
       }),
     ].map(toDayRow);
   const days = () =>
-    personDays([person()], rows(), { from: '2026-11-17', to: TODAY }, TODAY, '2026-11-18');
+    personDays(
+      [person()],
+      rows(),
+      { from: '2026-11-17', to: TODAY },
+      TODAY,
+      new Map([[person().id, '2026-11-18']]),
+    );
 
   it('adds the days up; no time out counts for nothing', () => {
     expect(totalsFor(person(), days())).toEqual({
@@ -274,7 +324,7 @@ describe('totals and CSV', () => {
       [row],
       { from: row.workDate, to: row.workDate },
       TODAY,
-      row.workDate,
+      new Map([[row.userId, row.workDate]]),
     );
     expect(totalsFor(person(), one)).toMatchObject({ minutesToPrice: 16, flatDeductions: 0 });
   });
@@ -310,7 +360,7 @@ describe('totals and CSV', () => {
         [toDayRow(row)],
         { from: '2026-11-20', to: '2026-11-20' },
         TODAY,
-        null,
+        new Map(),
       ),
     );
     expect(text).toContain('12:10 AM (next day)');
@@ -497,7 +547,7 @@ describe('staff’s own days (ATT-15)', () => {
       <RecentDays
         uid="two"
         version=""
-        person={{ firstDay: '2026-11-17', restWeekday: 0, since: '2026-11-01' }}
+        person={{ firstIn: '2026-11-20', restWeekday: 0, since: '2026-11-01' }}
       />,
     );
     const list = within(await screen.findByRole('region', { name: 'My days' }));
@@ -506,12 +556,14 @@ describe('staff’s own days (ATT-15)', () => {
     expect(items[1]).toContain('Rest day'); // Sun Nov 22, the usual rest day
     expect(items[2]).toContain('No time out'); // Sat Nov 21
     expect(items[3]).toContain('Whole day'); // Fri Nov 20
-    expect(items[4]).toContain('Absent · no time in'); // Thu Nov 19: a working day, no time in
-    expect(items[5]).toContain('Absent · no time in'); // Wed Nov 18
+    // Before the first clock-in (Fri Nov 20): no record, never absent (Q-ATT-1, Nov 25).
+    expect(items[4]).toContain('No record'); // Thu Nov 19
+    expect(items[5]).toContain('No record'); // Wed Nov 18
+    expect(items[4]).not.toContain('Absent');
     expect(items[6]).toContain('Absent · marked by the Owner'); // Tue Nov 17: the Owner's mark
     expect(items[6]).toContain('Reason: Did not come');
     await userEvent.setup().click(list.getByRole('button', { name: 'Load more' }));
-    // Before the store's first attendance day: no record, never absent.
+    // The mark shows on its own day, but never moves the start: earlier days stay no record.
     expect(list.getAllByRole('listitem')[7]?.textContent).toContain('No record');
   });
 

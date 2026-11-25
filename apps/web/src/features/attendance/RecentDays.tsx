@@ -12,8 +12,8 @@ const MONTH = 30;
  * ATT-15: a staff member's own days, the last 7 first and up to 30, so they see a fix the
  * Owner approved and any day with no time out. Each day is worked out as on the Owner's board
  * (ATT-14; the Nov 24, 2026 step 11 test): a working day with no time in is "Absent", the
- * usual rest day is "Rest day", and days before the store's first attendance or before the
- * account was made are "No record". The list is live: a fix or a mark shows at once.
+ * usual rest day is "Rest day", and days before their own first clock-in or before the account
+ * was made are "No record" (Q-ATT-1, Nov 25, 2026). The list is live: a fix or a mark shows at once.
  */
 export function RecentDays({
   uid,
@@ -65,7 +65,7 @@ export function RecentDays({
             day,
             row,
             today,
-            person ? person.firstDay : today,
+            person ? person.firstIn : today,
           );
           return (
             <li key={day} className="flex flex-col gap-[5px] border-b border-divider py-[10px]">

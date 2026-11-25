@@ -58,11 +58,11 @@ export interface AttendanceToday {
   rules: ClockRules | null;
   storeLocationSet: boolean;
   /**
-   * For the staff member's own list of days, worked out as on the Owner's board (ATT-14): the
-   * store's first day with attendance, their usual rest day (0 = Sunday), and the day their
-   * account was made. Null when unknown.
+   * For the staff member's own list of days, worked out as on the Owner's board (ATT-14):
+   * their own first clock-in, their usual rest day (0 = Sunday), and the day their account was
+   * made. Null when unknown.
    */
-  firstDay: string | null;
+  firstIn: string | null;
   restWeekday: number | null;
   since: string | null;
 }
@@ -113,7 +113,7 @@ export function toToday(raw: unknown): AttendanceToday {
         }
       : null,
     storeLocationSet: data.storeLocationSet === true,
-    firstDay: typeof data.firstDay === 'string' ? data.firstDay : null,
+    firstIn: typeof data.firstIn === 'string' ? data.firstIn : null,
     restWeekday:
       data.restWeekday === null || data.restWeekday === undefined ? null : Number(data.restWeekday),
     since: typeof data.since === 'string' ? data.since : null,
@@ -335,7 +335,7 @@ export interface ClockState {
   rules: ClockRules | null;
   storeLocationSet: boolean;
   /** For the list of own days (null until the server has answered once). */
-  person: Pick<AttendanceToday, 'firstDay' | 'restWeekday' | 'since'> | null;
+  person: Pick<AttendanceToday, 'firstIn' | 'restWeekday' | 'since'> | null;
   /** A tap waiting on this phone, today. */
   waitingIn: Date | null;
   waitingOut: Date | null;
@@ -419,7 +419,7 @@ export function useClockState(uid: string | undefined, isOwner: boolean): ClockS
     rules: server?.rules ?? null,
     storeLocationSet: server?.storeLocationSet ?? true,
     person: server
-      ? { firstDay: server.firstDay, restWeekday: server.restWeekday, since: server.since }
+      ? { firstIn: server.firstIn, restWeekday: server.restWeekday, since: server.since }
       : null,
     waitingIn,
     waitingOut,

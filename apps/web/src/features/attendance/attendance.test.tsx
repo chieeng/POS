@@ -333,7 +333,7 @@ describe('a day with no time in, on the staff list (the Nov 24 test)', () => {
   it('“Ask to fix” opens the request for that day', async () => {
     const yesterday = manilaDay(new Date(Date.now() - 24 * 60 * 60 * 1000));
     server.today = todayWith(null, {
-      firstDay: '2026-01-01',
+      firstIn: '2026-01-01',
       restWeekday: null,
       since: '2026-01-01',
     });

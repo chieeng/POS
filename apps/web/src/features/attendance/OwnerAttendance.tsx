@@ -28,7 +28,7 @@ import {
   toReview,
   totalsFor,
   useDays,
-  useFirstDay,
+  useFirstClockIns,
   type DayRow,
   type Person,
   type PersonDay,
@@ -107,16 +107,19 @@ function NeedsInternet() {
 /** What every view needs before it can tell "absent" from "no record". */
 function Loaded({ tab }: { tab: 'today' | 'history' | 'summary' }) {
   const staff = useStaff();
-  const first = useFirstDay();
+  const first = useFirstClockIns();
   if (staff.error || first.error) return <NeedsInternet />;
   if (staff.loading || first.loading) return <Loading />;
-  const props = { staff: staff.data, firstDay: first.data[0] ?? null };
+  const props = {
+    staff: staff.data,
+    firstIns: new Map(first.data.map((each) => [each.userId, each.day])),
+  };
   return tab === 'today' ? <Board {...props} /> : <Ranged view={tab} {...props} />;
 }
 
 interface ViewProps {
   staff: Person[];
-  firstDay: string | null;
+  firstIns: ReadonlyMap<string, string>;
 }
 
 // ---- Today ----------------------------------------------------------------------------------------
@@ -133,7 +136,7 @@ function order({ state, row }: PersonDay): number {
   return { in: 1, done: 2, no_out: 2, not_in: 3, absent: 4, rest: 5, none: 6 }[state];
 }
 
-function BoardOf({ today, staff, firstDay }: ViewProps & { today: string }) {
+function BoardOf({ today, staff, firstIns }: ViewProps & { today: string }) {
   const todays = useDays(today, today, { live: true });
   const before = useDays(addDays(today, -LOOK_BACK), addDays(today, -1), { openOnly: true });
   if (todays.error || before.error) return <NeedsInternet />;
@@ -144,7 +147,7 @@ function BoardOf({ today, staff, firstDay }: ViewProps & { today: string }) {
     todays.data,
     { from: today, to: today },
     today,
-    firstDay,
+    firstIns,
   ).sort((a, b) => order(a) - order(b));
   const noOut = [...before.data].reverse();
   const count = (test: (day: PersonDay) => boolean) => days.filter(test).length;
@@ -262,7 +265,7 @@ function Times({ row }: { row: DayRow | null }) {
 
 // ---- History and summary --------------------------------------------------------------------------
 
-function Ranged({ view, staff, firstDay }: ViewProps & { view: 'history' | 'summary' }) {
+function Ranged({ view, staff, firstIns }: ViewProps & { view: 'history' | 'summary' }) {
   const [params, setParams] = useSearchParams();
   const me = useSession((s) => s.user);
   const today = manilaDay(new Date());
@@ -335,10 +338,10 @@ function Ranged({ view, staff, firstDay }: ViewProps & { view: 'history' | 'summ
       ) : view === 'history' ? (
         <History
           key={`${person}|${from}|${to}`}
-          {...{ staff, firstDay, today, from, to, person }}
+          {...{ staff, firstIns, today, from, to, person }}
         />
       ) : (
-        <Summary key={`${from}|${to}`} {...{ staff, firstDay, today, from, to }} />
+        <Summary key={`${from}|${to}`} {...{ staff, firstIns, today, from, to }} />
       )}
     </>
   );
@@ -371,7 +374,7 @@ interface RangeProps extends ViewProps {
   to: string;
 }
 
-function History({ staff, firstDay, today, from, to, person }: RangeProps & { person: string }) {
+function History({ staff, firstIns, today, from, to, person }: RangeProps & { person: string }) {
   const rows = useDays(from, to, { userId: person });
   const [shown, setShown] = useState(DAYS_SHOWN);
   if (rows.error) return <NeedsInternet />;
@@ -381,7 +384,7 @@ function History({ staff, firstDay, today, from, to, person }: RangeProps & { pe
     peopleIn([], rows.data).find((each) => each.id === person);
   if (!who) return <p className="text-neutral-700">No one to show.</p>;
 
-  const days = personDays([who], rows.data, { from, to }, today, firstDay);
+  const days = personDays([who], rows.data, { from, to }, today, firstIns);
   const totals = totalsFor(who, days);
   const newest = [...days].reverse();
   return (
@@ -418,12 +421,12 @@ function History({ staff, firstDay, today, from, to, person }: RangeProps & { pe
 
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-function Summary({ staff, firstDay, today, from, to }: RangeProps) {
+function Summary({ staff, firstIns, today, from, to }: RangeProps) {
   const rows = useDays(from, to);
   if (rows.error) return <NeedsInternet />;
   if (rows.loading) return <Loading />;
   const people = peopleIn(staff, rows.data);
-  const days = personDays(people, rows.data, { from, to }, today, firstDay);
+  const days = personDays(people, rows.data, { from, to }, today, firstIns);
   const totals = people.map((person) => totalsFor(person, days));
   const unfixed = totals.reduce((sum, t) => sum + t.noOut, 0);
   const stillOpen = to === today && days.some((d) => d.state === 'in');
