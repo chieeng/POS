@@ -55,14 +55,15 @@ Also after go-live, before step 12: **sale corrections** and the **archive of ol
 
 ## Open pull requests (Nov 23, 2026)
 
-| PR   | What                                                   | When to merge                                                   |
-| ---- | ------------------------------------------------------ | --------------------------------------------------------------- |
-| #100 | Dependabot: jsdom 31.0.1 (tests only)                  | From Nov 27, after the step 11 fixes pull request               |
-| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)      | After the switch (Dec 9), then check sign-in and settings forms |
-| #117 | Dependabot: dev-tooling group (tests and lint only)    | From Dec 4                                                      |
-| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)   | From Dec 4                                                      |
-| #116 | Dependabot: runtime group (supabase-js, router, icons) | After the switch (Dec 9)                                        |
-| #120 | Dependabot: Supabase CLI 3.2.0                         | HOLD until backup and deploy are tested with it                 |
+| PR   | What                                                    | When to merge                                                                                                                                                                        |
+| ---- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| #130 | One source for the late deduction (board, Summary, CSV) | Into `dev` after the release (about Nov 30); no release of its own: it reaches production with the next release that is needed anyway. Then tell the design side (#129 waits for it) |
+| #100 | Dependabot: jsdom 31.0.1 (tests only)                   | From Nov 27, after the step 11 fixes pull request                                                                                                                                    |
+| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)       | After the switch (Dec 9), then check sign-in and settings forms                                                                                                                      |
+| #117 | Dependabot: dev-tooling group (tests and lint only)     | From Dec 4                                                                                                                                                                           |
+| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)    | From Dec 4                                                                                                                                                                           |
+| #116 | Dependabot: runtime group (supabase-js, router, icons)  | After the switch (Dec 9)                                                                                                                                                             |
+| #120 | Dependabot: Supabase CLI 3.2.0                          | HOLD until backup and deploy are tested with it                                                                                                                                      |
 
 The Dependabot ones change the same lock file: one at a time, green before the next; the
 others may need a rebase. #99 and #101 were closed by Dependabot (replaced by #119 and #120).
