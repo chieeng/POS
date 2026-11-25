@@ -56,6 +56,17 @@ describe('one tag and "+N" (cleanup round 1, SRS 7.2)', () => {
     expect(dayText({ state: 'no_out', row: open }).title).toBe('8:00 AM – ?');
   });
 
+  it('shows today’s deduction while the person is in, never on a day with no time out', () => {
+    const rules = { lateRule: 'flat', lateFlat: 50 };
+    const inNow = day({ out_at: null, day_type: null, late_minutes: 40, rules });
+    expect(dayParts({ state: 'in', row: inNow }).tags.map((tag) => tag.text)).toEqual([
+      'Late 40 min · −₱50.00',
+    ]);
+    expect(dayParts({ state: 'no_out', row: inNow }).tags.map((tag) => tag.text)).toEqual([
+      'No time out',
+    ]);
+  });
+
   it('calls a flagged day "Flagged" and lists why behind "+N"', () => {
     const row = day({ flags: ['location_not_read', 'sent_late'], overtime_minutes: 98 });
     const parts = dayParts({ state: 'done', row });

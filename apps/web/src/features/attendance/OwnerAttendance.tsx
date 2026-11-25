@@ -8,11 +8,20 @@ import { FilterChip, FilterChips } from '@/components/ui/filter-chips';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LoadMore } from '@/components/ui/load-more';
+import { StatusBadge } from '@/components/ui/status-badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { download } from '@/features/catalog/export';
 import { formatPeso } from '@/lib/money';
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
-import { manilaDay, timeText } from './clock';
+import { flagText, manilaDay, timeText } from './clock';
 import { DayMore, DayTags } from './DayBadges';
 import { dayParts, dayText, useMore } from './dayRow';
 import { OwnerFixPanel } from './FixForms';
@@ -152,106 +161,283 @@ function BoardOf({ today, staff, firstIns }: ViewProps & { today: string }) {
     firstIns,
   ).sort((a, b) => order(a) - order(b));
   const noOut = [...before.data].reverse();
+  const flagged = days.filter(({ row }) => toReview(row).length > 0);
   const count = (test: (day: PersonDay) => boolean) => days.filter(test).length;
-  const tiles: [label: string, value: number, attention?: 'warn' | 'danger'][] = [
-    ['Clocked in', count(({ row }) => row?.kind === 'worked')],
-    ['Late', count(({ row }) => !!row && row.lateMinutes > 0), 'warn'],
-    ['Flagged', count(({ row }) => toReview(row).length > 0), 'warn'],
-    ['Not in yet', count(({ state }) => state === 'not_in')],
-    ['Left early', count(({ row }) => !!row && row.earlyMinutes > 0), 'warn'],
-    ['No time out', noOut.length, 'danger'],
-    ['Rest day', count(({ state }) => state === 'rest')],
-    ['Absent', count(({ state }) => state === 'absent')],
-  ];
+  const late = count(({ row }) => !!row && row.lateMinutes > 0);
 
   return (
     <>
-      <dl aria-label="Today’s counts" className="m-0 grid grid-cols-4 gap-[6px] md:gap-[10px]">
-        {tiles.map(([label, value, attention]) => (
-          <div
-            key={label}
-            className={cn(
-              'flex min-w-0 flex-col-reverse justify-end rounded-[12px] bg-surface px-[4px] py-[10px] text-center',
-              value > 0 && attention === 'warn' && 'bg-warn-bg text-warn-fg',
-              value > 0 && attention === 'danger' && 'bg-danger-bg text-danger-fg',
-            )}
-          >
-            <dt className="text-[11.5px] leading-[1.2] font-bold md:text-[13px]">{label}</dt>
-            <dd className="m-0 font-heading text-[24px] tabular-nums">{value}</dd>
-          </div>
-        ))}
-      </dl>
+      {/* One summary line (cleanup round 1): how many are in, then only what needs a look. */}
+      <section
+        aria-label="Today’s counts"
+        className="flex flex-col gap-[8px] md:flex-row md:flex-wrap md:items-center md:gap-x-[18px]"
+      >
+        <p className="m-0 flex items-baseline gap-[8px]">
+          <span className="font-heading text-[40px] leading-none tabular-nums md:text-[44px]">
+            {count(({ row }) => row?.kind === 'worked')}
+          </span>
+          <span className="text-[16px] font-bold">of {days.length} in</span>
+        </p>
+        {(late > 0 || flagged.length > 0 || noOut.length > 0) && (
+          <span className="flex flex-wrap gap-[6px]">
+            {late > 0 && <SummaryTag tone="warn">{late} late</SummaryTag>}
+            {flagged.length > 0 && <SummaryTag tone="warn">{flagged.length} flagged</SummaryTag>}
+            {noOut.length > 0 && <SummaryTag tone="danger">{noOut.length} no time out</SummaryTag>}
+          </span>
+        )}
+        <p className="m-0 text-[15px]">
+          Not in yet <b>{count(({ state }) => state === 'not_in')}</b> · Rest day{' '}
+          <b>{count(({ state }) => state === 'rest')}</b> · Absent{' '}
+          <b>{count(({ state }) => state === 'absent')}</b> · Left early{' '}
+          <b>{count(({ row }) => !!row && row.earlyMinutes > 0)}</b>
+        </p>
+      </section>
 
-      {noOut.length > 0 && <NoTimeOut rows={noOut} />}
+      {noOut.length + flagged.length > 0 && <NeedsYou noOut={noOut} flagged={flagged} />}
 
-      <section aria-label="Today’s board" className="flex flex-col">
-        <h2 className="pb-[2px] font-body text-[13px] font-bold text-neutral-700">
-          {dayName(today)} · {days.length} {days.length === 1 ? 'person' : 'people'}
+      <section
+        aria-label="Today’s board"
+        className="flex flex-col rounded-[12px] bg-surface px-[14px] pt-[10px] pb-[4px] md:px-[18px]"
+      >
+        <h2 className="m-0 pb-[4px] font-body text-[15px] font-extrabold">
+          Everyone · {dayName(today)}
         </h2>
         {days.length === 0 ? (
-          <p className="text-neutral-700">No staff yet. Add them in Settings &gt; Users.</p>
+          <p className="pb-[8px] text-neutral-700">
+            No staff yet. Add them in Settings &gt; Users.
+          </p>
         ) : (
-          <ul className="m-0 flex list-none flex-col p-0">
-            {days.map(({ person, row, state }) => (
-              <li key={person.id}>
-                <Link
-                  to={`/attendance?tab=history&person=${person.id}`}
-                  className="flex min-h-[64px] flex-col justify-center gap-[5px] border-b border-divider py-[10px] text-text hover:bg-text/4"
-                >
-                  <span className="flex flex-wrap items-baseline justify-between gap-x-[10px]">
-                    <span className="min-w-0 text-[15px] font-bold [overflow-wrap:anywhere]">
-                      {person.name}
-                    </span>
-                    <Times row={row} />
-                  </span>
-                  <DayKind state={state} row={row} />
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="m-0 flex list-none flex-col p-0 md:hidden">
+              {days.map((day) => (
+                <PersonLine key={day.person.id} day={day} today={today} />
+              ))}
+            </ul>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>In</TableHead>
+                    <TableHead>Out</TableHead>
+                    <TableHead>Day</TableHead>
+                    <TableHead>Note</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {days.map((day) => (
+                    <PersonRow key={day.person.id} day={day} today={today} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </section>
     </>
   );
 }
 
-function NoTimeOut({ rows }: { rows: DayRow[] }) {
-  const [shown, setShown] = useState(5);
+function SummaryTag({ tone, children }: { tone: 'warn' | 'danger'; children: ReactNode }) {
   return (
-    <Card asChild>
-      <section aria-label="No time out">
-        <h2 className="m-0 font-body text-[15px] font-bold">No time out · last {LOOK_BACK} days</h2>
-        <p className="m-0 text-[13px] text-neutral-700">
-          These days count for nothing until they’re fixed.
+    <StatusBadge tone={tone} className="px-[10px] py-[5px] text-[13px]">
+      {children}
+    </StatusBadge>
+  );
+}
+
+const historyOf = (id: string) => `/attendance?tab=history&person=${id}`;
+const fixOf = (id: string, day: string) => `/attendance?tab=fix&person=${id}&day=${day}`;
+
+/** The day's kind in words, for the Day column and the phone line. */
+function dayWord({ state, row }: Pick<PersonDay, 'state' | 'row'>): string {
+  const text = dayText({ state, row });
+  if (state === 'in') return 'Working';
+  if (state === 'done' || state === 'absent') return text.sub ?? text.title;
+  return text.title;
+}
+
+/** A person not in yet is marked from here: absent or rest day, on the Fix tab. */
+function MarkLink({
+  day,
+  today,
+  short = false,
+}: {
+  day: PersonDay;
+  today: string;
+  short?: boolean;
+}) {
+  return (
+    <Link
+      to={fixOf(day.person.id, today)}
+      aria-label={`Mark ${day.person.name} absent or rest day`}
+      className="inline-flex min-h-[44px] items-center text-[14px] font-bold text-text"
+    >
+      {short ? 'Mark ›' : 'Mark absent or rest day ›'}
+    </Link>
+  );
+}
+
+/** Laptop: one table row, and the details of "+N" in a row under it. */
+function PersonRow({ day, today }: { day: PersonDay; today: string }) {
+  const more = useMore();
+  const parts = dayParts(day);
+  const { person, row, state } = day;
+  const worked = row?.kind === 'worked' ? row : null;
+  const quiet = !worked;
+  return (
+    <>
+      <TableRow {...more.rowProps}>
+        <TableCell>
+          <Link to={historyOf(person.id)} className="font-bold text-text hover:underline">
+            {person.name}
+          </Link>
+        </TableCell>
+        <TableCell
+          className={cn('whitespace-nowrap tabular-nums', !worked?.inAt && 'text-neutral-700')}
+        >
+          {worked?.inAt ? timeText(worked.inAt) : '–'}
+        </TableCell>
+        <TableCell
+          className={cn('whitespace-nowrap tabular-nums', !worked?.outAt && 'text-neutral-700')}
+        >
+          {worked?.outAt ? outText(worked) : '–'}
+        </TableCell>
+        <TableCell className={cn(quiet && 'text-neutral-700')}>{dayWord(day)}</TableCell>
+        <TableCell>
+          {state === 'not_in' ? (
+            <MarkLink day={day} today={today} />
+          ) : (
+            <DayTags parts={parts} open={more.open} onToggle={more.toggle} label={person.name} />
+          )}
+        </TableCell>
+      </TableRow>
+      {more.open && parts.more.length > 0 && (
+        <TableRow {...more.rowProps}>
+          <TableCell colSpan={5} className="pt-0">
+            <DayMore parts={parts} />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
+
+/** Phone: name, time, one tag and "+N"; the whole list scrolls, nobody is cut off. */
+function PersonLine({ day, today }: { day: PersonDay; today: string }) {
+  const more = useMore();
+  const parts = dayParts(day);
+  const { person, row, state } = day;
+  const worked = row?.kind === 'worked' && row.inAt ? row : null;
+  return (
+    <li className="flex flex-col border-b border-divider last:border-b-0" {...more.rowProps}>
+      <div className="flex min-h-[52px] flex-wrap items-center gap-x-[10px] gap-y-[4px] py-[6px]">
+        <Link
+          to={historyOf(person.id)}
+          className="min-w-0 text-[15px] font-bold text-text [overflow-wrap:anywhere]"
+        >
+          {person.name}
+        </Link>
+        <span
+          className={cn(
+            'text-[14px] tabular-nums',
+            worked ? 'whitespace-nowrap' : 'text-neutral-700',
+          )}
+        >
+          {worked ? dayText(day).title : dayWord(day)}
+        </span>
+        <span className="ml-auto flex items-center gap-[6px]">
+          {state === 'not_in' ? (
+            <MarkLink day={day} today={today} short />
+          ) : (
+            <DayTags parts={parts} open={more.open} onToggle={more.toggle} label={person.name} />
+          )}
+        </span>
+      </div>
+      {more.open && parts.more.length > 0 && <DayMore parts={parts} className="mb-[8px]" />}
+    </li>
+  );
+}
+
+const NEEDS_SHOWN = 5;
+
+/**
+ * What the Owner must act on, in one list (cleanup round 1): days with no time out in the
+ * last 30 days (Fix), then today's flagged days (View).
+ */
+function NeedsYou({ noOut, flagged }: { noOut: DayRow[]; flagged: PersonDay[] }) {
+  const [shown, setShown] = useState(NEEDS_SHOWN);
+  const items = [
+    ...noOut.map((row) => ({
+      key: row.id,
+      name: row.userName,
+      tag: <StatusBadge tone="danger">No time out</StatusBadge>,
+      when: `${dayName(row.workDate)}${row.inAt ? ` · in ${timeText(row.inAt)}` : ''}`,
+      action: (
+        <Button asChild variant="secondary" size="md" className="flex-none">
+          <Link
+            to={fixOf(row.userId, row.workDate)}
+            aria-label={`Fix ${row.userName}, ${dayName(row.workDate)}`}
+          >
+            Fix
+          </Link>
+        </Button>
+      ),
+    })),
+    ...flagged.map(({ person, row }) => {
+      const worked = row?.kind === 'worked' ? row : null;
+      const why = worked ? toReview(row).map((flag) => flagText(flag, worked)) : [];
+      return {
+        key: `flag-${person.id}`,
+        name: person.name,
+        tag: <StatusBadge tone="warn">Flagged</StatusBadge>,
+        when: [`today${worked?.inAt ? ` · in ${timeText(worked.inAt)}` : ''}`, ...why].join(' · '),
+        action: (
+          <Button asChild variant="secondary" size="md" className="flex-none">
+            <Link to={historyOf(person.id)} aria-label={`View ${person.name}, today`}>
+              View
+            </Link>
+          </Button>
+        ),
+      };
+    }),
+  ];
+  return (
+    <section
+      aria-label="Needs you"
+      className="flex flex-col rounded-[12px] bg-surface px-[14px] pt-[10px] md:px-[18px]"
+    >
+      <h2 className="m-0 font-body text-[15px] font-extrabold">Needs you · {items.length}</h2>
+      {/* Money: a day with no time out isn't paid until it's fixed (ATT-11). */}
+      {noOut.length > 0 && (
+        <p className="m-0 pb-[6px] text-[13px] text-neutral-700">
+          A day with no time out counts for nothing until it’s fixed.
         </p>
-        <ul className="m-0 flex list-none flex-col p-0">
-          {rows.slice(0, shown).map((row) => (
-            <li
-              key={row.id}
-              className="flex min-h-11 items-center justify-between gap-[10px] border-t border-divider py-[6px] text-[14px]"
-            >
-              <span className="min-w-0 [overflow-wrap:anywhere]">
-                <b>{row.userName}</b> · {dayName(row.workDate)}
-                {row.inAt && ` · in ${timeText(row.inAt)}`}
+      )}
+      <ul className="m-0 flex list-none flex-col p-0">
+        {items.slice(0, shown).map((item) => (
+          <li
+            key={item.key}
+            className="flex min-h-[56px] items-center gap-[12px] border-t border-divider py-[6px] text-[14.5px]"
+          >
+            <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-[8px] gap-y-[4px]">
+              <b className="w-full [overflow-wrap:anywhere] md:order-2 md:w-auto">{item.name}</b>
+              <span className="md:order-1">{item.tag}</span>
+              <span className="min-w-0 text-neutral-700 [overflow-wrap:anywhere] md:order-3">
+                <span className="hidden md:inline">· </span>
+                {item.when}
               </span>
-              <Button asChild variant="secondary" size="md" className="flex-none">
-                <Link
-                  to={`/attendance?tab=fix&person=${row.userId}&day=${row.workDate}`}
-                  aria-label={`Fix ${row.userName}, ${dayName(row.workDate)}`}
-                >
-                  Fix
-                </Link>
-              </Button>
-            </li>
-          ))}
-        </ul>
-        <LoadMore
-          shown={Math.min(shown, rows.length)}
-          total={rows.length}
-          onLoadMore={() => setShown((n) => n + 20)}
-        />
-      </section>
-    </Card>
+            </span>
+            {item.action}
+          </li>
+        ))}
+      </ul>
+      <LoadMore
+        shown={Math.min(shown, items.length)}
+        total={items.length}
+        onLoadMore={() => setShown((n) => n + 20)}
+      />
+    </section>
   );
 }
 
