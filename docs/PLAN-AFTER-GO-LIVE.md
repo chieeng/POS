@@ -125,6 +125,14 @@ and the [POLISH.md](POLISH.md) list.
 
 **Pull requests:** one per item; the POLISH.md list in small groups.
 
+**Also for this step (asked by the design side, Nov 25, 2026; the owner said after the
+release):**
+
+- **"Fix asked" on a staff day.** On My attendance, "Last 7 days" shows "Fix asked" on a day
+  with a fix request still waiting for the Owner. It needs a new query: the person's own waiting
+  `attendance_fix` requests (their own only, by Row Level Security; a few rows), matched to the
+  day. Ask to fix is hidden on that day while it waits.
+
 **Questions for the owner:**
 
 - S1. Held sales: how long is a held sale kept, and may another salesperson finish it?
