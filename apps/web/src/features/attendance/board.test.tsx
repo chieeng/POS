@@ -488,7 +488,9 @@ describe('the Owner’s board, history and summary (ATT-14)', () => {
     const shown = board.getAllByRole('link');
     expect(shown).toHaveLength(2); // not the deactivated one
     expect(shown[0]).toHaveTextContent('Test Special 5');
-    expect(shown[0]).toHaveTextContent('Late by 16 min');
+    // One tag, then "+1" for the location flag (cleanup round 1).
+    expect(shown[0]).toHaveTextContent('Late 16 min+1');
+    expect(shown[0]).not.toHaveTextContent('Location not read');
     expect(tile('Clocked in')).toHaveTextContent('1');
     expect(tile('Late')).toHaveTextContent('1');
     expect(tile('Flagged')).toHaveTextContent('1');
@@ -520,9 +522,12 @@ describe('the Owner’s board, history and summary (ATT-14)', () => {
     const days = within(await screen.findByRole('list', { name: 'Days' }));
     expect(screen.getByLabelText('Person')).toHaveValue('two');
     expect(days.getAllByRole('listitem')).toHaveLength(15);
-    expect(days.getByText('Reason: Forgot')).toBeInTheDocument();
+    expect(days.queryByText('Changed by the Owner: “Forgot”')).toBeNull();
+    await user.click(days.getByRole('button', { name: '1 more for Fri, Nov 20' }));
+    expect(days.getByText('Changed by the Owner: “Forgot”')).toBeInTheDocument();
     expect(days.getAllByText('Whole day')).toHaveLength(1);
-    expect(days.getByText('Absent · no time in')).toBeInTheDocument(); // Sat Nov 21
+    expect(days.getByText('No time in')).toBeInTheDocument(); // Sat Nov 21, with its red tag
+    expect(days.getByText('Absent')).toBeInTheDocument();
     expect(days.getByText('Rest day')).toBeInTheDocument(); // Sun Nov 22
     expect(days.getAllByText('No record')).toHaveLength(11);
     await user.click(screen.getByRole('button', { name: 'Download this history (CSV)' }));
@@ -574,7 +579,8 @@ describe('staff’s own days (ATT-15)', () => {
     expect(list.getAllByRole('listitem')).toHaveLength(7);
     expect(list.getByText('Not in yet')).toBeInTheDocument();
     expect(list.getByText('No time out')).toBeInTheDocument();
-    expect(list.getByText('Late deduction ₱50.00')).toBeInTheDocument();
+    // Money is never folded into "+N".
+    expect(list.getByText('Late 16 min · −₱50.00')).toBeInTheDocument();
     expect(list.getAllByText('Whole day')).toHaveLength(1);
     // Before the server has answered once, nothing is known: no day is called absent.
     expect(list.queryByText(/Absent/)).toBeNull();
@@ -611,9 +617,12 @@ describe('staff’s own days (ATT-15)', () => {
     expect(items[4]).toContain('No record'); // Thu Nov 19
     expect(items[5]).toContain('No record'); // Wed Nov 18
     expect(items[4]).not.toContain('Absent');
-    expect(items[6]).toContain('Absent · marked by the Owner'); // Tue Nov 17: the Owner's mark
-    expect(items[6]).toContain('Reason: Did not come');
-    await userEvent.setup().click(list.getByRole('button', { name: 'Load more' }));
+    expect(items[6]).toContain('AbsentMarked by the Owner'); // Tue Nov 17: the Owner's mark
+    expect(items[6]).not.toContain('Did not come');
+    const user = userEvent.setup();
+    await user.click(list.getByRole('button', { name: '1 more for Tue, Nov 17' }));
+    expect(list.getByText('Reason: “Did not come”')).toBeInTheDocument();
+    await user.click(list.getByRole('button', { name: 'Load more' }));
     // The mark shows on its own day, but never moves the start: earlier days stay no record.
     expect(list.getAllByRole('listitem')[7]?.textContent).toContain('No record');
   });

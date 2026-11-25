@@ -65,7 +65,7 @@ export function RequestDetails({
             {recorded(day.out)} → <b>{timeOut}</b>
           </p>
         )}
-        <p className="text-neutral-700">The day is worked out again from the times.</p>
+        <p className="text-neutral-700">Late, early and overtime are worked out again.</p>
       </div>
     );
   }

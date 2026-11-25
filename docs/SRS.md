@@ -404,6 +404,7 @@ The UI reference is the design canvas **POS redesign proposal** (a private claud
   - One main action per screen.
   - A row shows its times or amounts big, the day or item in plain words, and at most one coloured tag, then "+N" for the rest, opened by a tap (and on hover on a laptop). Tag order: money (a late deduction) first, then red (No time out, Absent), then amber (late, early out, location). A money amount or a red tag is never folded into "+N".
   - Standing rules (the day's times) sit behind "How days count", not on the screen.
+  - Attendance rows (built Nov 25, 2026): a staff day shows the date, the times with AM/PM ("8:21 AM – 6:04 PM", "8:02 AM – ?" with no time out), the kind of day in words ("Whole day", "Absent" with "No time in" or "Marked by the Owner"), and its one tag. A late deduction reads "Late 40 min · −₱50.00". Overtime, location reasons, the Owner's change and the reason are details behind "+N". The same tags are used on the Owner's board (where "+N" is only a count, since the row opens the person's history) and in History. In dark mode red tags and muted text are brighter (red #5C1F15 / #FFCFC6, muted #BCC4B9; the owner, Nov 24, 2026).
   - Helper text is one short line at most, and each message is shown once.
   - Money, stock, legal and safety information stays visible and correct: amounts, the late-deduction warning, "This is not an official receipt", the blind count.
   - One word for one thing: "Flagged" for a day to review, on the board, in History and in the CSV.

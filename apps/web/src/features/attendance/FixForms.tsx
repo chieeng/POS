@@ -100,7 +100,14 @@ export function FixRequestForm({
       setTimeOut('');
       setReason('');
     } catch (caught) {
-      setError(describeFixError(caught));
+      // The only invalid_input left after the checks above: no time in, recorded or given.
+      // Say just that (the owner's note, Nov 24, 2026), not every rule at once.
+      const message = (caught as { message?: unknown } | null)?.message;
+      setError(
+        message === 'invalid_input'
+          ? 'This day has no time in. Add one.'
+          : describeFixError(caught),
+      );
     } finally {
       setBusy(false);
     }

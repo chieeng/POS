@@ -188,6 +188,9 @@ describe('the day’s rules', () => {
 describe('My attendance (ATT-01)', () => {
   it('shows today’s times and clocks in with the location', async () => {
     const user = renderPage();
+    // The day's rules are behind "How days count" (cleanup round 1).
+    expect(screen.queryByRole('region', { name: 'Today’s times' })).toBeNull();
+    await user.click(await screen.findByRole('button', { name: 'How days count' }));
     const rules = within(await screen.findByRole('region', { name: 'Today’s times' }));
     expect(rules.getByText(/in by 8:00 AM, 15-minute grace/)).toBeInTheDocument();
     expect(rules.getByText(/in from 12:00 PM, by 1:00 PM/)).toBeInTheDocument();
@@ -242,7 +245,7 @@ describe('My attendance (ATT-01)', () => {
   it('clocks out after a confirmation, then shows the day', async () => {
     server.today = todayWith({ ...RECORD, late_minutes: 16 });
     const user = renderPage();
-    expect(await screen.findByText('Late by 16 min')).toBeInTheDocument();
+    expect(await screen.findByText('Late 16 min')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Clock out' }));
     const dialog = within(screen.getByRole('dialog'));
     expect(
@@ -387,7 +390,7 @@ describe('a day with no time in, on the staff list (the Nov 24 test)', () => {
     });
     const user = renderPage();
     const asks = await screen.findAllByRole('button', { name: /^Ask to fix / });
-    expect(screen.getAllByText('Absent · no time in').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('No time in').length).toBeGreaterThan(0);
     // The first is the newest day before today: yesterday.
     await user.click(asks[0]!);
     expect(
@@ -428,6 +431,18 @@ describe('fixing a day (ATT-11)', () => {
       p_reason: 'Forgot to clock out',
     });
     expect(await screen.findByText(/Request sent. The Owner will decide/)).toBeInTheDocument();
+  });
+
+  it('a day with no time in says only that (the owner’s note, Nov 24)', async () => {
+    server.today = todayWith(RECORD);
+    const user = renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Ask the Owner to fix a day' }));
+    server.error = { message: 'invalid_input' };
+    await user.type(screen.getByLabelText('Time out'), '18:05');
+    await user.type(screen.getByLabelText('Reason'), 'Forgot to clock in');
+    await user.click(screen.getByRole('button', { name: 'Send to the Owner' }));
+    expect(await screen.findByText('This day has no time in. Add one.')).toBeInTheDocument();
+    expect(screen.queryByText(/the times in order/)).toBeNull();
   });
 
   it('the Owner marks a day absent, and sets a usual rest day', async () => {
