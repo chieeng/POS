@@ -97,17 +97,16 @@ yet.
 
 ## Next, in order
 
-1. **Fri Nov 27:** step 11 part F in the store, the owner's full report, then the fixes on one
-   small pull request the same day (the dates moved to the fallback on Nov 26).
-   Already fixed on its branch (Nov 24 findings): the Owner's Fix a day shows the recorded
-   times; staff see their days as the board does, with two kinds of Absent and Ask to fix; a
-   clock tap certainly outside the store is refused; Sell says offline sales still count.
-   #122 (offline indicator) was merged on Nov 24, after part E; its follow-up for laptops
-   whose browser never reports offline is its own small pull request.
-2. **Restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), when the owner says so, after
-   the step 11 test.
+1. **Step 11, in this order (the owner's order of Nov 25, with the fallback dates of Nov 26):**
+   **Fri Nov 27** part F in the store → the owner's full step 11 report → one small fixes pull
+   request the same day (with the per-person absent rule, Q-ATT-1, already on its branch) →
+   **Sat Nov 28 - Sun Nov 29** the owner's re-test → the owner writes "step 11 test finished".
+   The re-test needs today's staging test data (the Nov 19 mark, Test Two's days), so nothing
+   resets staging before it.
+2. **Restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), only after "step 11 test
+   finished" (Nov 28-29).
 3. **Release about Mon Nov 30**, once the re-test, "step 11 test finished" and the restore
-   rehearsal are done (Sat Nov 28 - Sun Nov 29): steps 7-11 and the new look go to production ([GO-LIVE.md](GO-LIVE.md),
+   rehearsal are done: steps 7-11 and the new look go to production ([GO-LIVE.md](GO-LIVE.md),
    "Release"; notes in [RELEASE-NOTES.md](RELEASE-NOTES.md)). Claude opens the `dev` to `main`
    pull request; the owner merges, tags and approves.
 4. **Production setup Nov 30 - Dec 1** ([GO-LIVE.md](GO-LIVE.md)), including the real store
