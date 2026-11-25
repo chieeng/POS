@@ -112,6 +112,16 @@ yet.
    demo).
 7. After go-live: sale corrections, the archive of old sales, then steps 12 to 15.
 
+## Question waiting for the owner
+
+- **Q-ATT-1. When attendance "begins" for counting Absent days** (Nov 25, 2026 re-test). A
+  working day with no time in counts as "Absent" from the store's first attendance record on
+  (ATT-14). Today any record counts, an Owner's Absent mark too: marking Nov 19 moved the
+  start back a day, so Nov 20 became "Absent" for Test Two. On production, marking a day before
+  the real start would make every staff member absent on the days in between. Recommended:
+  count from the first **clock-in** (a time in), not from marks; payroll (step 14) will read
+  the same rule.
+
 ## Other open items
 
 - **Design copy before Dec 14, 2026**, when standalone Claude Design closes: the canvas boards
