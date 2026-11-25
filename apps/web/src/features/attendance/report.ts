@@ -239,11 +239,31 @@ export function personDays(
 export const toReview = (row: DayRow | null) =>
   row?.kind === 'worked' ? row.flags.filter((flag) => flag !== 'edited') : [];
 
-/** The flat late deduction of a finished day; "minutes only" is priced in payroll (step 14). */
-export const flatDeduction = (row: DayRow | null) =>
-  row?.kind === 'worked' && row.outAt && row.lateMinutes > 0 && row.lateRule === 'flat'
-    ? row.lateFlat
-    : 0;
+/**
+ * What a late day costs, by the Owner's late deduction setting kept with the day (ATT-06,
+ * ATT-09): nothing, a flat amount in pesos, or minutes late that payroll prices later (daily
+ * rate ÷ paid minutes per day × minutes; daily rates arrive in step 14, so there is no peso
+ * amount for them before). The one source for the board, the history, Summary and the CSV.
+ *
+ * A day counts once it has a time out (ATT-01). `{ open: true }` also gives what a day still
+ * in will cost when it is closed ("expected"), for showing; totals never use it.
+ */
+export type LateCost =
+  { kind: 'none' } | { kind: 'flat'; amount: number } | { kind: 'minutes'; minutes: number };
+
+export function lateCost(row: DayRow | null, { open = false } = {}): LateCost {
+  if (row?.kind !== 'worked' || row.lateMinutes <= 0) return { kind: 'none' };
+  if (!row.outAt && !open) return { kind: 'none' };
+  if (row.lateRule === 'flat') return { kind: 'flat', amount: row.lateFlat };
+  if (row.lateRule === 'minutes') return { kind: 'minutes', minutes: row.lateMinutes };
+  return { kind: 'none' };
+}
+
+/** The flat late deduction of a finished day, in pesos (0 for none or minutes). */
+export const flatDeduction = (row: DayRow | null) => {
+  const cost = lateCost(row);
+  return cost.kind === 'flat' ? cost.amount : 0;
+};
 
 export function stateLabel({ state, row }: Pick<PersonDay, 'state' | 'row'>): string {
   switch (state) {
@@ -336,8 +356,9 @@ export function totalsFor(person: Person, days: readonly PersonDay[]): Totals {
       totals.earlyMinutes += row.earlyMinutes;
     }
     totals.overtimeMinutes += row.overtimeMinutes;
-    centavos += Math.round(flatDeduction(row) * 100);
-    if (row.lateRule === 'minutes') totals.minutesToPrice += row.lateMinutes;
+    const cost = lateCost(row);
+    if (cost.kind === 'flat') centavos += Math.round(cost.amount * 100);
+    if (cost.kind === 'minutes') totals.minutesToPrice += cost.minutes;
   }
   totals.flatDeductions = centavos / 100;
   return totals;
