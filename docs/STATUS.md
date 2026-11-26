@@ -26,7 +26,7 @@ Last updated: Nov 23, 2026.
 | Production            | https://pos-duz.pages.dev (Supabase project `pos-prod`), at v1.3.0 (steps 0-5)   |
 | Requirements          | [SRS.md](SRS.md) (WHAT the app does)                                             |
 | Go-live checklist     | [GO-LIVE.md](GO-LIVE.md)                                                         |
-| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0 ready for Nov 28)                   |
+| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0, release about Nov 30)              |
 | Plan after go-live    | [PLAN-AFTER-GO-LIVE.md](PLAN-AFTER-GO-LIVE.md) (with the owner's open questions) |
 | Backups, restore      | [RESTORE.md](RESTORE.md)                                                         |
 | Polish list           | [POLISH.md](POLISH.md) (build step 15)                                           |
@@ -55,20 +55,23 @@ Also after go-live, before step 12: **sale corrections** and the **archive of ol
 
 ## Open pull requests (Nov 23, 2026)
 
-| PR   | What                                                   | When to merge                                     |
-| ---- | ------------------------------------------------------ | ------------------------------------------------- |
-| #100 | Dependabot: jsdom 31.0.1 (tests only)                  | From Nov 27                                       |
-| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)      | From Dec 1, then check sign-in and settings forms |
-| #117 | Dependabot: dev-tooling group (tests and lint only)    | From Dec 4                                        |
-| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)   | From Dec 4                                        |
-| #116 | Dependabot: runtime group (supabase-js, router, icons) | After the switch (Dec 7)                          |
-| #120 | Dependabot: Supabase CLI 3.2.0                         | HOLD until backup and deploy are tested with it   |
+| PR   | What                                                   | When to merge                                                   |
+| ---- | ------------------------------------------------------ | --------------------------------------------------------------- |
+| #100 | Dependabot: jsdom 31.0.1 (tests only)                  | From Nov 27, after the step 11 fixes pull request               |
+| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)      | After the switch (Dec 9), then check sign-in and settings forms |
+| #117 | Dependabot: dev-tooling group (tests and lint only)    | From Dec 4                                                      |
+| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)   | From Dec 4                                                      |
+| #116 | Dependabot: runtime group (supabase-js, router, icons) | After the switch (Dec 9)                                        |
+| #120 | Dependabot: Supabase CLI 3.2.0                         | HOLD until backup and deploy are tested with it                 |
 
 The Dependabot ones change the same lock file: one at a time, green before the next; the
 others may need a rebase. #99 and #101 were closed by Dependabot (replaced by #119 and #120).
 
-**Release freeze:** until the switch on Dec 7, `dev` only takes work for the v1.4.0 release
+**Release freeze:** until the switch on Wed Dec 9 (moved from Dec 7 on Nov 26), `dev` only takes work for the v1.4.0 release
 (fixes, docs, Dependabot on its dates). Post-go-live features wait on their own pull requests.
+
+The design session's cleanup pull requests (#127, #129) are not merged before the release
+(about Nov 30); #129 also waits for #130.
 
 ## Step 11: the owner's answers of Nov 23, 2026 (built in #115)
 
@@ -94,7 +97,8 @@ yet.
 
 ## Next, in order
 
-1. The step 11 test's fixes on one small pull request, after the full report (about Nov 26).
+1. **Fri Nov 27:** step 11 part F in the store, the owner's full report, then the fixes on one
+   small pull request the same day (the dates moved to the fallback on Nov 26).
    Already fixed on its branch (Nov 24 findings): the Owner's Fix a day shows the recorded
    times; staff see their days as the board does, with two kinds of Absent and Ask to fix; a
    clock tap certainly outside the store is refused; Sell says offline sales still count.
@@ -102,13 +106,14 @@ yet.
    whose browser never reports offline is its own small pull request.
 2. **Restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), when the owner says so, after
    the step 11 test.
-3. **Release Nov 28**: steps 7-11 and the new look go to production ([GO-LIVE.md](GO-LIVE.md),
+3. **Release about Mon Nov 30**, once the re-test, "step 11 test finished" and the restore
+   rehearsal are done (Sat Nov 28 - Sun Nov 29): steps 7-11 and the new look go to production ([GO-LIVE.md](GO-LIVE.md),
    "Release"; notes in [RELEASE-NOTES.md](RELEASE-NOTES.md)). Claude opens the `dev` to `main`
    pull request; the owner merges, tags and approves.
-4. **Production setup Nov 28-29** ([GO-LIVE.md](GO-LIVE.md)), including the real store
+4. **Production setup Nov 30 - Dec 1** ([GO-LIVE.md](GO-LIVE.md)), including the real store
    location set from a phone inside the store.
-5. **Trial week from Mon Nov 30**, beside the store's current method.
-6. **Switch Mon Dec 7** (Dec 2 / Dec 9 if something slips; dates may move after the store-owner
+5. **Trial week from Wed Dec 2**, beside the store's current method.
+6. **Switch Wed Dec 9** (the fallback dates, chosen Nov 26; dates may move after the store-owner
    demo).
 7. After go-live: sale corrections, the archive of old sales, then steps 12 to 15.
 
