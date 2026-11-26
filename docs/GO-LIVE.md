@@ -4,17 +4,16 @@ The steps to take the app from staging to the store, in order. No secrets, links
 projects or passwords belong in this file (the repository is public). Where the project stands
 today is in [STATUS.md](STATUS.md).
 
-## Dates (accepted Nov 21, 2026; may move after the store-owner demo)
+## Dates (moved to the fallback on Nov 26, 2026; may move again after the store-owner demo)
 
-| When           | What                                                 |
-| -------------- | ---------------------------------------------------- |
-| until Nov 26   | Step 11 tested on staging and in the store; fixes    |
-| Nov 26-27      | Restore rehearsal on staging, after the step 11 test |
-| Nov 27         | Buffer                                               |
-| **Fri Nov 28** | Release steps 7-11 to production                     |
-| Nov 28-29      | Production setup                                     |
-| **Mon Nov 30** | Trial week starts, beside the store's current method |
-| **Mon Dec 7**  | Switch (Dec 2 / Dec 9 if something slips)            |
+| When                    | What                                                                     |
+| ----------------------- | ------------------------------------------------------------------------ |
+| Fri Nov 27              | Step 11 part F in the store, the owner's report, the fixes pull request  |
+| Sat Nov 28 - Sun Nov 29 | The owner's re-test, "step 11 test finished", then the restore rehearsal |
+| **about Mon Nov 30**    | Release steps 7-11 to production, once the above is done                 |
+| Nov 30 - Dec 1          | Production setup                                                         |
+| **Wed Dec 2**           | Trial week starts, beside the store's current method                     |
+| **Wed Dec 9**           | Switch                                                                   |
 
 ## Before the release (staging)
 
@@ -24,7 +23,7 @@ today is in [STATUS.md](STATUS.md).
 - [ ] Restore rehearsal done on staging (see [RESTORE.md](RESTORE.md), "Restore rehearsal on
       staging"), when the owner says so, after the step 11 test. It goes back only to a backup
       taken minutes before, so only the rehearsal's own test change is undone.
-- [ ] Dependabot: #100 (jsdom, tests only) merged from Nov 27; the others wait until after the
+- [ ] Dependabot: #100 (jsdom, tests only) merged from Nov 27, after the step 11 fixes; the others wait until after the
       release (dates in [STATUS.md](STATUS.md)); #120, the Supabase CLI 3, waits until backup
       and deploy are tested with it.
 - [ ] Release notes up to date ([RELEASE-NOTES.md](RELEASE-NOTES.md), v1.4.0).

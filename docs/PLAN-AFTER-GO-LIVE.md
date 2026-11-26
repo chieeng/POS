@@ -1,6 +1,6 @@
 # Plan after go-live
 
-The work after the switch (Mon Dec 7, 2026), in order: sale corrections, the archive of old
+The work after the switch (Wed Dec 9, 2026), in order: sale corrections, the archive of old
 sales (by the end of January 2027), then build steps 12 to 15 (SRS 8). For each: what the SRS
 already decides (built without asking), how it is split into pull requests, and the questions
 only the owner can answer. Questions are never guessed: the parts that need them wait, and
