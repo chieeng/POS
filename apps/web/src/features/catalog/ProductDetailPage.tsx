@@ -10,6 +10,8 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tag } from '@/components/ui/tag';
 import { RequestChangePanel } from '@/features/approvals/RequestChangePanel';
 import { PageHeader } from '@/features/settings/PageHeader';
@@ -25,6 +27,7 @@ import {
   useCategories,
   usePriceChanges,
   useProducts,
+  type PriceFilter,
   type Product,
 } from './data';
 import { toFields } from './helpers';
@@ -275,7 +278,8 @@ function ProductDetail({ product }: { product: Product }) {
 }
 
 function PriceHistory({ productId }: { productId: string }) {
-  const history = usePriceChanges(productId);
+  const [filter, setFilter] = useState<PriceFilter>({ from: '', to: '' });
+  const history = usePriceChanges(productId, filter);
   return (
     <section className="flex flex-col gap-[6px]" aria-labelledby="price-history">
       <h2
@@ -284,11 +288,41 @@ function PriceHistory({ productId }: { productId: string }) {
       >
         Price history
       </h2>
+      <div className="flex flex-wrap items-end gap-[10px] px-[4px]">
+        <div>
+          <Label htmlFor="price-from" className="text-[12.5px]">
+            From
+          </Label>
+          <Input
+            id="price-from"
+            type="date"
+            value={filter.from}
+            onChange={(event) => setFilter((current) => ({ ...current, from: event.target.value }))}
+            className="min-h-[40px] bg-surface text-[14px]"
+          />
+        </div>
+        <div>
+          <Label htmlFor="price-to" className="text-[12.5px]">
+            To
+          </Label>
+          <Input
+            id="price-to"
+            type="date"
+            value={filter.to}
+            onChange={(event) => setFilter((current) => ({ ...current, to: event.target.value }))}
+            className="min-h-[40px] bg-surface text-[14px]"
+          />
+        </div>
+      </div>
       {history.error ? (
         <Alert variant="danger">Couldn&apos;t load the price history.</Alert>
       ) : history.loading ? (
         <p className="px-[4px] text-neutral-700" role="status">
           Loading…
+        </p>
+      ) : history.data.length === 0 ? (
+        <p className="px-[4px] text-[14px] text-neutral-700">
+          {filter.from || filter.to ? 'No price changes in these days.' : 'No price changes yet.'}
         </p>
       ) : (
         <ul className="rounded-[30px] bg-surface px-[14px] py-[6px] md:px-[22px]">

@@ -7,7 +7,13 @@ import { selectClass } from '@/features/catalog/helpers';
 import { formatPeso } from '@/lib/money';
 import { formatQty, signedQty } from '@/lib/quantity';
 import { cn } from '@/lib/utils';
-import { MOVEMENT_LABELS, useStockHistory, type HistoryFilter, type MovementType } from './data';
+import {
+  ADJUSTMENT_LABELS,
+  MOVEMENT_LABELS,
+  useStockHistory,
+  type HistoryFilter,
+  type MovementType,
+} from './data';
 import { formatWhen } from './format';
 
 const TYPES: MovementType[] = [
@@ -17,6 +23,7 @@ const TYPES: MovementType[] = [
   'sale',
   'void',
   'return',
+  'damaged',
   'count',
 ];
 
@@ -116,21 +123,42 @@ export function StockHistory({
                 ) : (
                   MOVEMENT_LABELS[movement.type]
                 )}
+                {movement.adjustmentType && ` · ${ADJUSTMENT_LABELS[movement.adjustmentType]}`}
               </span>
-              <span
-                className={cn(
-                  'font-semibold',
-                  movement.qtyChange > 0 ? 'text-accent-2-800' : 'text-danger-fg',
-                )}
-              >
-                {signedQty(movement.qtyChange)} {unit}
-              </span>
+              {movement.type === 'damaged' ? (
+                <span className="font-semibold">
+                  {formatQty(movement.damagedQty ?? 0)} {unit} · stock ±0
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    'font-semibold',
+                    movement.qtyChange > 0 ? 'text-accent-2-800' : 'text-danger-fg',
+                  )}
+                >
+                  {signedQty(movement.qtyChange)} {unit}
+                </span>
+              )}
               <span className="text-neutral-700">
-                → {formatQty(movement.stockAfter)} · {movement.userName}
+                {movement.stockAfter !== null && `→ ${formatQty(movement.stockAfter)} · `}
+                {movement.userName}
                 {showCost &&
                   movement.unitCost !== null &&
                   ` · ${formatPeso(movement.unitCost)} / ${unit}`}
               </span>
+              {movement.receiptNo && (
+                <span className="text-neutral-700">
+                  ·{' '}
+                  {movement.canOpenSale && movement.refId ? (
+                    <Link to={`/sales/${movement.refId}`}>{movement.receiptNo}</Link>
+                  ) : (
+                    movement.receiptNo
+                  )}
+                </span>
+              )}
+              {movement.reason && (
+                <span className="basis-full text-[13px] text-neutral-700">{movement.reason}</span>
+              )}
             </li>
           ))}
         </ul>
