@@ -207,18 +207,33 @@ export function useProducts({ live = false }: { live?: boolean } = {}) {
   });
 }
 
-/** One product's price history, newest first. Row Level Security: Owner and Special Sales. */
-export function usePriceChanges(productId: string) {
+/** "YYYY-MM-DD" Manila days, inclusive; empty for no limit. */
+export interface PriceFilter {
+  from?: string;
+  to?: string;
+}
+
+/** Manila midnight of a "YYYY-MM-DD" day, plus `days`, as an instant. */
+const manilaDay = (day: string, days = 0) =>
+  new Date(new Date(`${day}T00:00:00+08:00`).getTime() + days * 86_400_000).toISOString();
+
+/**
+ * One product's price history (PROD-05), newest first, optionally between two days. Row Level
+ * Security: Owner and Special Sales.
+ */
+export function usePriceChanges(productId: string, filter: PriceFilter = {}) {
   return useLiveRows({
     table: 'price_changes',
-    queryKey: productId,
-    load: () =>
-      supabase
+    queryKey: `${productId}:${filter.from ?? ''}:${filter.to ?? ''}`,
+    load: () => {
+      let query = supabase
         .from('price_changes')
         .select('id, old_price, new_price, source, changed_by_name, created_at')
-        .eq('product_id', productId)
-        .order('created_at', { ascending: false })
-        .limit(100),
+        .eq('product_id', productId);
+      if (filter.from) query = query.gte('created_at', manilaDay(filter.from));
+      if (filter.to) query = query.lt('created_at', manilaDay(filter.to, 1));
+      return query.order('created_at', { ascending: false }).limit(100);
+    },
     map: toPriceChange,
     filter: `product_id=eq.${productId}`,
   });

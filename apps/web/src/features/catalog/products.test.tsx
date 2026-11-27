@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -24,6 +24,7 @@ const state = vi.hoisted(() => ({
   categories: [] as Category[],
   products: [] as Product[],
   history: [] as PriceChange[],
+  priceFilter: undefined as { from?: string; to?: string } | undefined,
   requests: [] as ApprovalRequest[],
   savedAt: null as Date | null,
 }));
@@ -52,7 +53,10 @@ vi.mock('./data', async (importOriginal) => ({
     error: false,
     savedAt: state.savedAt,
   }),
-  usePriceChanges: () => ({ data: state.history, loading: false, error: false }),
+  usePriceChanges: (_id: string, filter?: { from?: string; to?: string }) => {
+    state.priceFilter = filter;
+    return { data: state.history, loading: false, error: false };
+  },
   createProduct: vi.fn(),
   updateProduct: vi.fn(),
 }));
@@ -427,6 +431,14 @@ describe('Product page', () => {
     expect(screen.queryByRole('button', { name: 'Edit product' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Deactivate' })).toBeNull();
     expect(screen.getByRole('heading', { name: 'Price history' })).toBeInTheDocument();
+  });
+
+  test('the price history filters by From and To days', () => {
+    signInAs('owner');
+    renderAt('/products/p1');
+    fireEvent.change(document.getElementById('price-from')!, { target: { value: '2026-11-01' } });
+    fireEvent.change(document.getElementById('price-to')!, { target: { value: '2026-11-27' } });
+    expect(state.priceFilter).toEqual({ from: '2026-11-01', to: '2026-11-27' });
   });
 
   test('“Photo added.” goes once Special Sales starts a request', async () => {

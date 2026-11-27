@@ -25,8 +25,19 @@ export interface ReceiptLine {
   unitCost: number;
 }
 
+/**
+ * A stock movement's type, or "damaged": returned units marked Damaged (POS-10), which never
+ * move stock but are listed in the history as a write-off.
+ */
 export type MovementType =
-  'stock_in' | 'stock_in_reversal' | 'adjustment' | 'sale' | 'void' | 'return' | 'count';
+  | 'stock_in'
+  | 'stock_in_reversal'
+  | 'adjustment'
+  | 'sale'
+  | 'void'
+  | 'return'
+  | 'damaged'
+  | 'count';
 
 export const MOVEMENT_LABELS: Record<MovementType, string> = {
   stock_in: 'Stock-in',
@@ -35,6 +46,7 @@ export const MOVEMENT_LABELS: Record<MovementType, string> = {
   sale: 'Sale',
   void: 'Void',
   return: 'Return',
+  damaged: 'Damaged',
   count: 'Count',
 };
 
@@ -44,12 +56,23 @@ export interface Movement {
   createdAt: Date;
   type: MovementType;
   qtyChange: number;
-  stockAfter: number;
+  /** Null on a damaged row (it never moved stock). */
+  stockAfter: number | null;
   /** The Owner only; null for everyone else. */
   unitCost: number | null;
   userName: string;
   refType: string | null;
   refId: string | null;
+  /** The sale's receipt number on sale, void, return and damaged rows. */
+  receiptNo: string | null;
+  /** The caller may open that sale: the Owner, or the salesperson who made it. */
+  canOpenSale: boolean;
+  /** On adjustment rows. */
+  adjustmentType: AdjustmentType | null;
+  /** The adjustment's reason, or the return's on a damaged row. */
+  reason: string | null;
+  /** On a damaged row: how many units were written off. */
+  damagedQty: number | null;
 }
 
 type Row = Record<string, unknown>;
@@ -78,12 +101,22 @@ const toMovement = (row: Row): Movement => ({
   createdAt: new Date(String(row.created_at)),
   type: (row.type as MovementType) ?? 'stock_in',
   qtyChange: Number(row.qty_change ?? 0),
-  stockAfter: Number(row.stock_after ?? 0),
-  unitCost: row.unit_cost === null || row.unit_cost === undefined ? null : Number(row.unit_cost),
+  stockAfter: numberOrNull(row.stock_after),
+  unitCost: numberOrNull(row.unit_cost),
   userName: String(row.user_name ?? ''),
   refType: typeof row.ref_type === 'string' ? row.ref_type : null,
   refId: typeof row.ref_id === 'string' ? row.ref_id : null,
+  receiptNo: typeof row.receipt_no === 'string' ? row.receipt_no : null,
+  canOpenSale: row.can_open_sale === true,
+  adjustmentType:
+    typeof row.adjustment_type === 'string' ? (row.adjustment_type as AdjustmentType) : null,
+  reason: typeof row.reason === 'string' ? row.reason : null,
+  damagedQty: numberOrNull(row.damaged_qty),
 });
+
+function numberOrNull(value: unknown): number | null {
+  return value === null || value === undefined ? null : Number(value);
+}
 
 const RECEIPT_COLUMNS =
   'id, supplier_id, reference, received_by_name, created_at, corrects_receipt_id, is_deletion, corrected_by_name, stock_receipt_items(line_no, product_id, qty, unit_cost)';

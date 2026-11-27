@@ -107,7 +107,10 @@ after Round 3 ([GO-LIVE.md](GO-LIVE.md)). Staging keeps its test data; **no rest
 yet**.
 
 1. **Round 3, Sat Nov 28 - Fri Dec 4:** the design session's small pull requests; the owner
-   tests the Owner screens; the design session says "Round 3 done".
+   tests the Owner screens; the design session says "Round 3 done". The product History pop-up
+   (the owner's request of Nov 27; SRS PROD-05, INV-06) is part of it: Claude's read-only data
+   pull request first (receipt numbers, damaged rows, adjustment reasons, a date filter on price
+   history), then the design session's Products pull request draws the pop-up on it.
 2. **Fri Dec 4: feature checklist.** After "Round 3 done", Claude gives the owner every SRS
    requirement against what is built: ID, short name, priority (Must / Should / Could), status
    (Built + tested by the owner / Built, not tested yet / Partly built / Not built / Moved to

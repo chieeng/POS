@@ -310,8 +310,105 @@ describe('Stock history (INV-06)', () => {
         userName: 'Maria',
         refType: 'stock_receipt',
         refId: 'r1',
+        receiptNo: null,
+        canOpenSale: false,
+        adjustmentType: null,
+        reason: null,
+        damagedQty: null,
       },
     ];
+  });
+
+  const base = () => state.history[0]!;
+
+  test('sale, void and return rows show the receipt number, a link only when the sale opens', () => {
+    state.history = [
+      {
+        ...base(),
+        id: '5',
+        type: 'sale',
+        qtyChange: -2,
+        stockAfter: 38,
+        refType: 'sale',
+        refId: 's1',
+        receiptNo: 'S1-20261128-A1B2-1',
+        canOpenSale: true,
+      },
+      {
+        ...base(),
+        id: '6',
+        type: 'void',
+        qtyChange: 1,
+        stockAfter: 39,
+        refType: 'sale',
+        refId: 's2',
+        receiptNo: 'S1-20261128-A1B2-2',
+        canOpenSale: false,
+      },
+    ];
+    render(
+      <MemoryRouter>
+        <StockHistory productId="p1" unit="pack" showCost={false} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'S1-20261128-A1B2-1' })).toHaveAttribute(
+      'href',
+      '/sales/s1',
+    );
+    expect(screen.getByText(/S1-20261128-A1B2-2/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'S1-20261128-A1B2-2' })).toBeNull();
+  });
+
+  test('a damaged write-off shows its quantity at stock ±0, with the receipt and the reason', () => {
+    state.history = [
+      {
+        ...base(),
+        id: 'damaged:r1:1',
+        type: 'damaged',
+        qtyChange: 0,
+        stockAfter: null,
+        unitCost: null,
+        refType: 'sale',
+        refId: 's1',
+        receiptNo: 'S1-20261128-A1B2-1',
+        canOpenSale: true,
+        reason: 'Torn pack',
+        damagedQty: 1,
+      },
+    ];
+    render(
+      <MemoryRouter>
+        <StockHistory productId="p1" unit="pack" showCost />
+      </MemoryRouter>,
+    );
+    expect(within(screen.getByRole('list')).getByText('Damaged')).toBeInTheDocument();
+    expect(screen.getByText('1 pack · stock ±0')).toBeInTheDocument();
+    expect(screen.queryByText(/→/)).toBeNull();
+    expect(screen.getByRole('link', { name: 'S1-20261128-A1B2-1' })).toBeInTheDocument();
+    expect(screen.getByText('Torn pack')).toBeInTheDocument();
+  });
+
+  test('an adjustment shows its type and reason', () => {
+    state.history = [
+      {
+        ...base(),
+        id: '7',
+        type: 'adjustment',
+        qtyChange: -2,
+        stockAfter: 36,
+        refType: 'adjustment',
+        refId: 'a1',
+        adjustmentType: 'damage',
+        reason: 'Crushed in delivery',
+      },
+    ];
+    render(
+      <MemoryRouter>
+        <StockHistory productId="p1" unit="pack" showCost={false} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Adjustment · Damage')).toBeInTheDocument();
+    expect(screen.getByText('Crushed in delivery')).toBeInTheDocument();
   });
 
   test('the Owner sees the cost; the change links to its stock-in', () => {
