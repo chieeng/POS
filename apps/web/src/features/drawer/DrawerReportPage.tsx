@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { InfoTip } from '@/components/ui/info-tip';
 import {
   Dialog,
   DialogActions,
@@ -119,7 +120,7 @@ export function DrawerReportPage() {
             onChange={(event) => {
               if (event.target.value) setParams({ date: event.target.value }, { replace: true });
             }}
-            className="h-[40px] rounded-full bg-surface px-[14px] text-[14px]"
+            className="h-[40px] rounded-[10px] bg-neutral-200 px-[14px] text-[14px]"
           />
           <Button
             variant="secondary"
@@ -205,7 +206,11 @@ function Report({
 
   return (
     <>
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-[14px] sm:grid-cols-2 xl:grid-cols-4">
+      {/* Round 3: the day's result is the main thing, one raised card. */}
+      <section
+        aria-label="Drawer result"
+        className="grid grid-cols-[minmax(0,1fr)] gap-[8px] rounded-[16px] bg-surface p-[12px] shadow-[var(--shadow-md)] sm:grid-cols-2 xl:grid-cols-4"
+      >
         <SummaryCard
           icon={difference === 0 ? LockOpen : TriangleAlert}
           tone={difference === 0 ? 'plain' : 'warn'}
@@ -223,7 +228,8 @@ function Report({
           icon={Calculator}
           label={record.status === 'open' ? 'Expected so far' : 'Expected'}
           value={expected === null ? pending : formatPeso(expected)}
-          sub="Opening + cash sales + cash in − cash out − refunds"
+          sub=""
+          tip="Opening + cash sales + cash in − cash out − refunds"
         />
         <SummaryCard
           icon={HandCoins}
@@ -240,7 +246,7 @@ function Report({
           }
         />
         <OverShortCard overShort={record.overShort} status={record.status} earlier={earlier} />
-      </div>
+      </section>
 
       {record.status === 'not_counted' && (
         <Alert variant="warn">
@@ -253,7 +259,7 @@ function Report({
       )}
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-[16px] xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <div className="min-w-0 rounded-[30px] bg-surface px-[14px] py-[10px] md:px-[22px]">
+        <div className="min-w-0 rounded-[16px] bg-surface px-[14px] py-[10px] md:px-[22px]">
           <Table>
             <TableHeader>
               <TableRow>
@@ -309,7 +315,7 @@ function Report({
           </Table>
         </div>
 
-        <div className="flex min-w-0 flex-col gap-[8px] rounded-[30px] bg-neutral-100 p-[22px] text-[14.5px]">
+        <div className="flex min-w-0 flex-col gap-[8px] rounded-[16px] bg-neutral-100 p-[22px] text-[14.5px]">
           <h2 className="mb-[4px] text-[20px]">Expected cash</h2>
           <Line label="Opening cash" value={formatPeso(record.openingCash)} />
           <Line label="Cash sales" value={sales ? formatPeso(cashSales) : pending} />
@@ -408,7 +414,7 @@ function FixesSection({ sales }: { sales: DrawerSales }) {
       aria-label="Voids and returns"
       className="grid grid-cols-[minmax(0,1fr)] gap-[16px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)]"
     >
-      <div className="flex flex-col gap-[10px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+      <div className="flex flex-col gap-[10px] rounded-[16px] bg-surface p-[22px] text-[14.5px]">
         <h2 className="mb-[4px] text-[20px]">
           Voids{sales.voids.length > 0 ? ` · ${sales.voids.length}` : ''}
         </h2>
@@ -421,7 +427,7 @@ function FixesSection({ sales }: { sales: DrawerSales }) {
             </p>
             <ul className="flex flex-col gap-[10px]">
               {sales.voids.map((sale) => (
-                <li key={sale.id} className="flex flex-col gap-[4px] rounded-[20px] bg-bg p-[12px]">
+                <li key={sale.id} className="flex flex-col gap-[4px] rounded-[12px] bg-bg p-[12px]">
                   <div className="flex items-baseline justify-between gap-[8px]">
                     <span className="font-semibold break-all">{sale.receiptNo}</span>
                     <span className="font-bold text-danger-fg tabular-nums">
@@ -449,7 +455,7 @@ function FixesSection({ sales }: { sales: DrawerSales }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-[10px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+      <div className="flex flex-col gap-[10px] rounded-[16px] bg-surface p-[22px] text-[14.5px]">
         <h2 className="mb-[4px] text-[20px]">
           Returns{sales.returns.length > 0 ? ` · ${sales.returns.length}` : ''}
         </h2>
@@ -458,7 +464,7 @@ function FixesSection({ sales }: { sales: DrawerSales }) {
         ) : (
           <ul className="flex flex-col gap-[10px]">
             {sales.returns.map((ret) => (
-              <li key={ret.id} className="flex flex-col gap-[4px] rounded-[20px] bg-bg p-[12px]">
+              <li key={ret.id} className="flex flex-col gap-[4px] rounded-[12px] bg-bg p-[12px]">
                 <div className="flex items-baseline justify-between gap-[8px]">
                   <span className="font-semibold break-all">{ret.receiptNo}</span>
                   <span className="font-bold text-danger-fg tabular-nums">
@@ -478,7 +484,7 @@ function FixesSection({ sales }: { sales: DrawerSales }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-[8px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+      <div className="flex flex-col gap-[8px] rounded-[16px] bg-surface p-[22px] text-[14.5px]">
         <h2 className="mb-[4px] text-[20px]">Damaged</h2>
         {damaged.length === 0 ? (
           <p className="text-neutral-700">Nothing damaged.</p>
@@ -522,7 +528,7 @@ function SalesSection({ sales }: { sales: DrawerSales }) {
       aria-label="Sales"
       className="grid grid-cols-[minmax(0,1fr)] gap-[16px] xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.6fr)]"
     >
-      <div className="flex flex-col gap-[8px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+      <div className="flex flex-col gap-[8px] rounded-[16px] bg-surface p-[22px] text-[14.5px]">
         <h2 className="mb-[4px] text-[20px]">Sales</h2>
         <Line
           label={`${sales.count} ${sales.count === 1 ? 'sale' : 'sales'}`}
@@ -545,7 +551,7 @@ function SalesSection({ sales }: { sales: DrawerSales }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-[8px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+      <div className="flex flex-col gap-[8px] rounded-[16px] bg-surface p-[22px] text-[14.5px]">
         <h2 className="mb-[4px] text-[20px]">By salesperson</h2>
         {sales.salespeople.length === 0 ? (
           <p className="text-neutral-700">No sales in this drawer yet.</p>
@@ -560,7 +566,7 @@ function SalesSection({ sales }: { sales: DrawerSales }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-[10px] rounded-[30px] bg-surface p-[22px] text-[14.5px]">
+      <div className="flex flex-col gap-[10px] rounded-[16px] bg-surface p-[22px] text-[14.5px]">
         <h2 className="mb-[4px] text-[20px]">
           Sales to check{sales.flaggedCount > 0 ? ` · ${sales.flaggedCount}` : ''}
         </h2>
@@ -569,7 +575,7 @@ function SalesSection({ sales }: { sales: DrawerSales }) {
         ) : (
           <ul className="flex flex-col gap-[10px]">
             {sales.flagged.map((sale) => (
-              <li key={sale.id} className="flex flex-col gap-[4px] rounded-[20px] bg-bg p-[12px]">
+              <li key={sale.id} className="flex flex-col gap-[4px] rounded-[12px] bg-bg p-[12px]">
                 <div className="flex items-baseline justify-between gap-[8px]">
                   <span className="font-semibold break-all">{sale.receiptNo}</span>
                   <span className="font-bold tabular-nums">{formatPeso(sale.total)}</span>
@@ -610,19 +616,22 @@ function SummaryCard({
   label,
   value,
   sub,
+  tip,
   tone = 'plain',
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
   sub: string;
+  /** How the figure is worked out, behind (i). */
+  tip?: string;
   tone?: 'plain' | 'warn' | 'danger' | 'ok';
 }) {
   return (
     <div
       className={cn(
-        'flex flex-col gap-[4px] rounded-[30px] px-[20px] py-[18px]',
-        tone === 'plain' && 'bg-surface text-text',
+        'flex flex-col gap-[4px] rounded-[12px] px-[14px] py-[12px]',
+        tone === 'plain' && 'text-text',
         tone === 'warn' && 'bg-warn-bg text-warn-fg',
         tone === 'danger' && 'bg-danger-bg text-danger-fg',
         tone === 'ok' && 'bg-accent-2-100 text-accent-2-800',
@@ -631,6 +640,7 @@ function SummaryCard({
       <span className="flex items-center gap-[6px] text-[13.5px]">
         <Icon size={15} strokeWidth={ICON_STROKE} aria-hidden />
         {label}
+        {tip && <InfoTip label={`About ${label.toLowerCase()}`}>{tip}</InfoTip>}
       </span>
       <span className="font-heading text-[30px] leading-[1.15]">{value}</span>
       <span className="text-[12.5px]">{sub}</span>
@@ -746,7 +756,7 @@ function ReopenDialog({
             maxLength={200}
             rows={2}
             onChange={(event) => setReason(event.target.value)}
-            className="min-h-[64px] rounded-[22px] border border-divider bg-bg px-[14px] py-[10px] text-[14px] outline-none focus-visible:border-accent"
+            className="min-h-[64px] rounded-[12px] border-2 border-transparent bg-neutral-200 px-[14px] py-[10px] text-[14px] outline-none focus-visible:border-accent"
           />
         </div>
         {error && <Alert variant="danger">{error}</Alert>}

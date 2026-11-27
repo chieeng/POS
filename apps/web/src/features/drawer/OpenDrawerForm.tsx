@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { InfoTip } from '@/components/ui/info-tip';
 import { Label } from '@/components/ui/label';
 import { formatPeso } from '@/lib/money';
 import { useSession } from '@/stores/session';
@@ -92,48 +93,60 @@ export function OpenDrawerForm({
           </Alert>
         ))}
 
-      <p className="px-[4px] text-[14px] text-neutral-700">
-        Count the cash in the drawer, bill by bill. It is checked against the last count when you
-        open the drawer.
-      </p>
-      <DenominationList counts={counts} onChange={setCounts} />
-      <div className="flex justify-between px-[4px] text-[16px] font-bold">
-        <span>Opening cash</span>
-        <span className="tabular-nums" aria-label="Opening cash">
-          {formatPeso(counted)}
-        </span>
-      </div>
+      {/* Round 3 (pop-up set 2): one raised card; the count, its total and Open drawer. */}
+      <section
+        aria-label="Count the opening cash"
+        className="flex flex-col gap-[12px] rounded-[16px] bg-surface px-[16px] pt-[14px] pb-[16px] shadow-[var(--shadow-md)] md:px-[20px]"
+      >
+        <h2 className="flex items-center gap-[6px] font-body text-[16px] font-semibold">
+          Count the opening cash
+          <InfoTip label="About the opening count">
+            Count the cash in the drawer, bill by bill. It is checked against the last count when
+            you open the drawer.
+          </InfoTip>
+        </h2>
+        <DenominationList counts={counts} onChange={setCounts} />
+        <div className="flex items-baseline justify-between">
+          <span className="text-[16px] font-semibold">Opening cash</span>
+          <span className="font-heading text-[28px] tabular-nums" aria-label="Opening cash">
+            {formatPeso(counted)}
+          </span>
+        </div>
 
-      {shown && (
-        <>
-          <Alert variant="warn">
-            <b>
-              {formatPeso(Math.abs(shown.difference))} {shown.difference < 0 ? 'less' : 'more'} than{' '}
-              {lastCountText(shown.lastCount, drawer.today)}.
-            </b>{' '}
-            Count again, or say why. The Owner will see this on the drawer report.
-          </Alert>
-          <div className="flex flex-col gap-[6px]">
-            <Label htmlFor="opening-reason" className="text-[13px]">
-              Reason · required when it differs
-            </Label>
-            <textarea
-              id="opening-reason"
-              value={reason}
-              maxLength={200}
-              rows={3}
-              onChange={(event) => setReason(event.target.value)}
-              className="min-h-[80px] rounded-[24px] border-2 border-divider bg-surface px-[16px] py-[12px] text-[14.5px] leading-[1.45] outline-none focus-visible:border-accent"
-            />
-          </div>
-        </>
-      )}
+        {shown && (
+          <>
+            <Alert variant="warn">
+              <b>
+                {formatPeso(Math.abs(shown.difference))} {shown.difference < 0 ? 'less' : 'more'}{' '}
+                than {lastCountText(shown.lastCount, drawer.today)}.
+              </b>{' '}
+              Count again, or say why.
+              <InfoTip label="About the difference" className="ml-[6px]">
+                The Owner will see this on the drawer report.
+              </InfoTip>
+            </Alert>
+            <div className="flex flex-col gap-[6px]">
+              <Label htmlFor="opening-reason" className="text-[13px]">
+                Reason · required when it differs
+              </Label>
+              <textarea
+                id="opening-reason"
+                value={reason}
+                maxLength={200}
+                rows={3}
+                onChange={(event) => setReason(event.target.value)}
+                className="min-h-[80px] rounded-[12px] border-2 border-transparent bg-neutral-200 px-[14px] py-[12px] text-[14.5px] leading-[1.45] outline-none focus-visible:border-accent"
+              />
+            </div>
+          </>
+        )}
 
-      {error && <Alert variant="danger">{error}</Alert>}
+        {error && <Alert variant="danger">{error}</Alert>}
 
-      <Button needsInternet type="submit" variant="money" size="lg" disabled={busy}>
-        {busy ? 'Opening…' : 'Open drawer'}
-      </Button>
+        <Button needsInternet type="submit" variant="money" size="lg" disabled={busy}>
+          {busy ? 'Opening…' : 'Open drawer'}
+        </Button>
+      </section>
     </form>
   );
 }

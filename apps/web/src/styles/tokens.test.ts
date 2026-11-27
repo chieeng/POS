@@ -37,6 +37,8 @@ describe('design tokens', () => {
     expect(users).toEqual([
       'components/ui/button.tsx',
       'features/drawer/CountDrawerPage.tsx',
+      // Round 3: Close drawer sits inside the open drawer's card.
+      'features/drawer/DrawerPage.tsx',
       'features/drawer/OpenDrawerForm.tsx',
       'features/sales/PaymentSheet.tsx',
       'features/sales/SellPage.tsx',

@@ -9,7 +9,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { formatPeso } from '@/lib/money';
 import { ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
@@ -43,7 +42,12 @@ export function DrawerPage() {
           )}
         </div>
         {isOwner && (
-          <Button asChild variant="secondary" size="md">
+          <Button
+            asChild
+            variant="secondary"
+            size="md"
+            className="border-transparent bg-neutral-200"
+          >
             <Link to="report">
               <ClipboardList size={16} strokeWidth={ICON_STROKE} aria-hidden />
               Drawer report
@@ -76,23 +80,43 @@ export function DrawerPage() {
         />
       ) : session.status === 'open' ? (
         <>
-          <Card className="flex flex-row items-center gap-[12px] px-[18px] py-[16px]">
-            <LockOpen
-              size={20}
-              strokeWidth={ICON_STROKE}
-              className="flex-none text-accent-2-700"
-              aria-hidden
-            />
-            <p className="text-[15px] leading-[1.4]">
-              <b>Open</b> since {timeLabel(session.openedAt)}, by {session.openedByName}, with{' '}
-              {formatPeso(session.openingCash)}.
-            </p>
-          </Card>
+          {/* Round 3: the open drawer is the main thing, with its one money action inside. */}
+          <section
+            aria-label="Today’s drawer"
+            className="flex flex-col gap-[12px] rounded-[16px] bg-surface px-[18px] pt-[16px] pb-[18px] shadow-[var(--shadow-md)]"
+          >
+            <div className="flex items-center gap-[8px] text-[14px] text-neutral-700">
+              <LockOpen
+                size={17}
+                strokeWidth={ICON_STROKE}
+                className="flex-none text-accent-2-700"
+                aria-hidden
+              />
+              <span>
+                <b className="text-text">Open</b> since {timeLabel(session.openedAt)} ·{' '}
+                {session.openedByName}
+              </span>
+            </div>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[15px] font-semibold">Opening cash</span>
+              <span className="font-heading text-[30px] tabular-nums">
+                {formatPeso(session.openingCash)}
+              </span>
+            </div>
+            {canClose && (
+              <Button needsInternet asChild variant="money" size="lg">
+                <Link to="count">
+                  <Calculator size={19} strokeWidth={ICON_STROKE} aria-hidden />
+                  Close drawer
+                </Link>
+              </Button>
+            )}
+          </section>
           <div className="grid grid-cols-2 gap-[10px]">
             <Button
               needsInternet
               variant="secondary"
-              className="min-h-[56px] text-[16px]"
+              className="min-h-[52px] border-transparent bg-neutral-200 text-[16px]"
               onClick={() => {
                 setNotice(null);
                 setSheet('cash_in');
@@ -104,7 +128,7 @@ export function DrawerPage() {
             <Button
               needsInternet
               variant="secondary"
-              className="min-h-[56px] text-[16px]"
+              className="min-h-[52px] border-transparent bg-neutral-200 text-[16px]"
               onClick={() => {
                 setNotice(null);
                 setSheet('cash_out');
@@ -114,19 +138,24 @@ export function DrawerPage() {
               Cash out
             </Button>
           </div>
-          {canClose && (
-            <Button needsInternet asChild size="lg">
-              <Link to="count">
-                <Calculator size={19} strokeWidth={ICON_STROKE} aria-hidden />
-                Count and close
-              </Link>
-            </Button>
-          )}
         </>
       ) : (
-        <Card className="px-[18px] py-[16px] text-[15px] leading-[1.4]">
-          Today’s drawer is closed. Sales from now on go to tomorrow’s drawer.
-        </Card>
+        <section
+          aria-label="Today’s drawer"
+          className="flex flex-col gap-[12px] rounded-[16px] bg-surface px-[18px] py-[16px] shadow-[var(--shadow-md)]"
+        >
+          <p className="text-[15px] leading-[1.4]">
+            <b>Today’s drawer is closed.</b> Sales from now on go to tomorrow’s drawer.
+          </p>
+          {/* No dead end (Round 3 states board): selling goes on. */}
+          <Button
+            asChild
+            variant="secondary"
+            className="min-h-[48px] border-transparent bg-neutral-200"
+          >
+            <Link to="/sell">Back to Sell</Link>
+          </Button>
+        </section>
       )}
 
       <CashMoveSheet

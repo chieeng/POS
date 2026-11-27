@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -183,6 +183,8 @@ describe('the drawer’s sales (SHIFT-04, POS-14)', () => {
     state.sales = SALES;
     renderReport();
     expect(screen.getAllByText('₱1,318.00').length).toBe(2);
+    // Round 3: how the expected cash is worked out sits behind (i).
+    fireEvent.click(screen.getByRole('button', { name: 'About expected so far' }));
     expect(
       screen.getByText('Opening + cash sales + cash in − cash out − refunds'),
     ).toBeInTheDocument();

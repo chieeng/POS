@@ -72,9 +72,9 @@ beforeEach(() => {
 });
 
 describe('who counts the drawer (SHIFT-03)', () => {
-  it('offers Count and close to Special Sales and the Owner, not to Sales', async () => {
+  it('offers Close drawer to Special Sales and the Owner, not to Sales', async () => {
     renderAt(<DrawerPage />);
-    expect(await screen.findByRole('link', { name: 'Count and close' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Close drawer' })).toHaveAttribute(
       'href',
       '/count',
     );
@@ -84,7 +84,7 @@ describe('who counts the drawer (SHIFT-03)', () => {
     signInAs('sales');
     renderAt(<DrawerPage />);
     await screen.findByText(/since 7:52 AM/);
-    expect(screen.queryByRole('link', { name: 'Count and close' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Close drawer' })).toBeNull();
   });
 });
 
