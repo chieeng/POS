@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Segmented } from '@/components/ui/segmented';
 import { manilaDay, timeText } from './clock';
-import { fetchDays, toDayRow } from './report';
+import { dayName, fetchDays, toDayRow } from './report';
 import {
   describeFixError,
   fixDay,
@@ -272,14 +272,16 @@ export function OwnerFixPanel({
       if (action === 'times') await fixDay(chosen, day, changedIn, changedOut, reason);
       else await markDay(chosen, day, action as DayMark, reason);
       setSaves((n) => n + 1);
+      // Who and which day, so a fix saved to the wrong person is seen at once (the Nov 27 test).
+      const whom = `${members.find((member) => member.id === chosen)?.name ?? 'this person'}, ${dayName(day)}`;
       setNotice(
         action === 'times'
-          ? 'Saved. Late, early and overtime are worked out again.'
+          ? `Saved for ${whom}. Late, early and overtime are worked out again.`
           : action === 'absent'
-            ? 'Saved: marked Absent.'
+            ? `Saved for ${whom}: marked Absent.`
             : action === 'rest'
-              ? 'Saved: marked Rest day.'
-              : 'Saved: the mark is cleared.',
+              ? `Saved for ${whom}: marked Rest day.`
+              : `Saved for ${whom}: the mark is cleared.`,
       );
       setReason('');
     } catch (caught) {

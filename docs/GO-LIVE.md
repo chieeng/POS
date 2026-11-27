@@ -63,6 +63,10 @@ database (README, "Release order").
 4. [ ] **Store location, set from a phone standing inside the store** with GPS on (Settings >
        Store, "Use my current location"). A laptop's location comes from Wi-Fi and can be far
        off. Radius 100 m unless the store needs more.
+   - [ ] **Location check at the shop** (moved here from step 11 test part F, Nov 27, 2026): one
+         staff clock-in from a phone **inside** the shop works with no location flag; one from
+         **200 m or more away** is refused ("You're N m from the store..."), and nothing is
+         recorded.
 5. [ ] Staff accounts (each gets a one-time link to set a password), and their usual rest days.
 6. [ ] Products, then the opening stock as a stock-in with costs.
 7. [ ] **Each staff phone:** open the app, add it to the home screen, sign in, and on the first

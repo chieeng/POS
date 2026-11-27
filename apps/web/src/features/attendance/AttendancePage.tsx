@@ -142,7 +142,9 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
   const online = useOnline();
   const [busy, setBusy] = useState<ClockKind | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  // A tap saved offline remembers its kind, so the note follows it once it is sent (the Nov 27
+  // step 11 test: "saved on this phone" stayed after the time out was sent).
+  const [notice, setNotice] = useState<{ text: string; saved: ClockKind | null } | null>(null);
   const [confirmOut, setConfirmOut] = useState(false);
   const record = state.record;
 
@@ -159,13 +161,15 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
       }
       const { result, located } = await clock(kind, { uid: user.uid, branchId: user.branchId });
       const what = kind === 'clock_in' ? 'Time in' : 'Time out';
-      setNotice(
-        result === 'saved'
-          ? `${what} saved on this phone. It’s sent when you’re back online.`
-          : located
-            ? `${what} recorded.`
-            : `${what} recorded. Your location couldn’t be read, so the Owner will check it.`,
-      );
+      setNotice({
+        text:
+          result === 'saved'
+            ? `${what} saved on this phone. It’s sent when you’re back online.`
+            : located
+              ? `${what} recorded.`
+              : `${what} recorded. Your location couldn’t be read, so the Owner will check it.`,
+        saved: result === 'saved' ? kind : null,
+      });
       state.reload();
     } catch (caught) {
       setError(describeClockError(caught));
@@ -177,6 +181,16 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
 
   const inAt = record?.inAt ?? state.waitingIn;
   const outAt = record?.outAt ?? state.waitingOut;
+  // The saved tap reached the server: say so instead of "saved on this phone".
+  const sentNow =
+    notice?.saved === 'clock_in'
+      ? !state.waitingIn && !!record?.inAt
+      : notice?.saved === 'clock_out'
+        ? !state.waitingOut && !!record?.outAt
+        : false;
+  const noticeText = sentNow
+    ? `${notice?.saved === 'clock_in' ? 'Time in' : 'Time out'} sent.`
+    : notice?.text;
 
   return (
     <div className="flex flex-col gap-[14px]">
@@ -240,7 +254,7 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
 
       {notice && (
         <p role="status" className="m-0 text-[14px] text-neutral-800">
-          {notice}
+          {noticeText}
         </p>
       )}
       {error && <Alert variant="danger">{error}</Alert>}

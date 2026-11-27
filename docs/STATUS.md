@@ -34,21 +34,21 @@ Last updated: Nov 23, 2026.
 
 ## Build steps (SRS 8, "Build order")
 
-| Step | What                                                               | State                            |
-| ---- | ------------------------------------------------------------------ | -------------------------------- |
-| 1-4  | Settings, catalog, approvals, stock-in                             | Done, in production (v1.3.0)     |
-| 5    | Product photos, CSV export                                         | Done, in production (v1.3.0)     |
-| 6    | Push notifications                                                 | Dropped (Oct 31, 2026)           |
-| 7    | Installable app, offline product list                              | Done on staging, not released    |
-| 8    | Cash drawer (blind count, auto-close, overnight count)             | Done on staging, not released    |
-| 9    | Checkout, offline outbox, payments, slip, discounts, package deals | Done on staging, not released    |
-| 10   | Voids, returns, refunds, damaged items, drawer report lines        | Done and tested on staging       |
-| 11   | Attendance (#108-#113, #115; #110 drawer report fix)               | Merged; staging test in progress |
-| -    | New look "price card and peso note" (#92 and fixes)                | Done on staging                  |
-| 12   | Customer credit (utang)                                            | After go-live                    |
-| 13   | Owner dashboard and reports                                        | After go-live                    |
-| 14   | Payroll (computed pay, overtime pay)                               | After go-live                    |
-| 15   | Polish: held sales, physical count, CSV import, the POLISH.md list | After go-live                    |
+| Step | What                                                               | State                                                         |
+| ---- | ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| 1-4  | Settings, catalog, approvals, stock-in                             | Done, in production (v1.3.0)                                  |
+| 5    | Product photos, CSV export                                         | Done, in production (v1.3.0)                                  |
+| 6    | Push notifications                                                 | Dropped (Oct 31, 2026)                                        |
+| 7    | Installable app, offline product list                              | Done on staging, not released                                 |
+| 8    | Cash drawer (blind count, auto-close, overnight count)             | Done on staging, not released                                 |
+| 9    | Checkout, offline outbox, payments, slip, discounts, package deals | Done on staging, not released                                 |
+| 10   | Voids, returns, refunds, damaged items, drawer report lines        | Done and tested on staging                                    |
+| 11   | Attendance (#108-#113, #115, #124-#125; #110 drawer report fix)    | Tested Nov 27 (A-F pass); fixes pull request and re-test next |
+| -    | New look "price card and peso note" (#92 and fixes)                | Done on staging                                               |
+| 12   | Customer credit (utang)                                            | After go-live                                                 |
+| 13   | Owner dashboard and reports                                        | After go-live                                                 |
+| 14   | Payroll (computed pay, overtime pay)                               | After go-live                                                 |
+| 15   | Polish: held sales, physical count, CSV import, the POLISH.md list | After go-live                                                 |
 
 Also after go-live, before step 12: **sale corrections** and the **archive of old sales**
 (SRS 7.1; the archive by the end of January 2027), both the owner's decision of Nov 19, 2026.
