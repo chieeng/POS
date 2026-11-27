@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { InfoTip } from '@/components/ui/info-tip';
 import {
   Dialog,
   DialogActions,
@@ -18,13 +19,14 @@ import { cn, ICON_STROKE } from '@/lib/utils';
 import {
   closeDrawer,
   countedTotal,
+  DENOMINATIONS,
   describeDrawerError,
   emptyCounts,
   useDrawerToday,
   type CloseResult,
   type Counts,
 } from './data';
-import { DenominationList } from './DenominationList';
+import { BillChip, DenominationList } from './DenominationList';
 import { shortDay, timeLabel } from './format';
 
 /**
@@ -100,7 +102,7 @@ export function CountDrawerPage() {
         <div className="grid gap-[18px] md:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
           <DenominationList counts={counts} onChange={setCounts} />
 
-          <div className="flex flex-col gap-[10px] md:rounded-[30px] md:bg-neutral-100 md:p-[20px]">
+          <div className="flex flex-col gap-[10px] rounded-[16px] bg-surface p-[16px] shadow-[var(--shadow-md)] md:self-start md:p-[20px]">
             <h2 className="hidden text-[20px] md:block first-letter:uppercase">
               {target.day} drawer
             </h2>
@@ -118,12 +120,15 @@ export function CountDrawerPage() {
                 </Alert>
               )
             )}
-            <div className="flex justify-between text-[16px] font-bold md:border-t md:border-divider md:pt-[8px]">
-              <span>Counted</span>
-              <span className="tabular-nums">{formatPeso(counted)}</span>
+            <div className="flex items-baseline justify-between md:border-t md:border-divider md:pt-[8px]">
+              <span className="text-[16px] font-semibold">Counted</span>
+              <span className="font-heading text-[28px] tabular-nums">{formatPeso(counted)}</span>
             </div>
-            <p className="text-[13px] text-neutral-700">
-              Expected cash and any difference show after you close the drawer.
+            <p className="flex items-center gap-[6px] text-[13px] text-neutral-700">
+              Blind count
+              <InfoTip label="About the blind count">
+                Expected cash and any difference show after you close the drawer.
+              </InfoTip>
             </p>
             <div className="flex flex-col gap-[6px]">
               <Label htmlFor="closing-note" className="text-[13px]">
@@ -136,7 +141,7 @@ export function CountDrawerPage() {
                 rows={2}
                 placeholder="For example: one ₱500 bill looks torn"
                 onChange={(event) => setNote(event.target.value)}
-                className="min-h-[64px] rounded-[22px] border border-divider bg-bg px-[14px] py-[10px] text-[14px] outline-none focus-visible:border-accent"
+                className="min-h-[64px] rounded-[12px] border-2 border-transparent bg-neutral-200 px-[14px] py-[10px] text-[14px] outline-none focus-visible:border-accent"
               />
             </div>
             {error && <Alert variant="danger">{error}</Alert>}
@@ -158,6 +163,18 @@ export function CountDrawerPage() {
           <DialogTitle>
             Close {target?.day} drawer with {formatPeso(counted)} counted?
           </DialogTitle>
+          {/* Pop-up set 2: the count by bill under the amount. */}
+          <ul aria-label="Counted bills and coins" className="flex flex-col">
+            {DENOMINATIONS.filter((bill) => counts[bill] > 0).map((bill) => (
+              <li key={bill} className="flex items-center gap-[10px] py-[3px] text-[14px]">
+                <BillChip bill={bill} className="h-[26px] w-[56px] text-[12px]" />
+                <span className="text-neutral-700">× {counts[bill]}</span>
+                <span className="flex-1 text-right tabular-nums">
+                  {formatPeso(bill * counts[bill])}
+                </span>
+              </li>
+            ))}
+          </ul>
           <DialogDescription>
             {target?.opened
               ? 'The count can’t be changed after closing. Later sales go to tomorrow’s drawer.'
@@ -191,43 +208,59 @@ function Revealed({ result }: { result: CloseResult }) {
   const short = overShort < 0;
   const Icon = overShort === 0 ? CircleCheck : short ? CircleMinus : CirclePlus;
   return (
-    <div className="flex max-w-[480px] flex-col gap-[8px] text-[15px]">
+    <div className="flex max-w-[480px] flex-col gap-[12px] text-[15px]">
       <p role="status" className="px-[4px] text-neutral-800">
         {late ? 'The earlier drawer is closed. Open today’s drawer next.' : 'The drawer is closed.'}
       </p>
-      <div className="flex justify-between px-[4px]">
-        <span>Expected</span>
-        <span className="tabular-nums">{formatPeso(expected)}</span>
-      </div>
-      <div className="flex justify-between px-[4px] font-bold">
-        <span>Counted</span>
-        <span className="tabular-nums">{formatPeso(counted)}</span>
-      </div>
-      <div
-        className={cn(
-          'flex items-center justify-between rounded-full px-[16px] py-[10px] font-bold',
-          short ? 'bg-danger-bg text-danger-fg' : 'bg-accent-2-100 text-accent-2-800',
-        )}
+      {/* Round 3: the result is the main thing; the difference is the colour that matters. */}
+      <section
+        aria-label="Count result"
+        className="flex flex-col gap-[8px] rounded-[16px] bg-surface px-[18px] py-[16px] shadow-[var(--shadow-md)]"
       >
-        <span className="flex items-center gap-[6px]">
-          <Icon size={17} strokeWidth={ICON_STROKE} aria-hidden />
-          {overShort === 0 ? 'Exact' : short ? 'Short' : 'Over'}
-        </span>
-        <span className="font-heading text-[22px] font-normal">
-          {overShort === 0
-            ? formatPeso(0)
-            : `${short ? '−' : '+'}${formatPeso(Math.abs(overShort))}`}
-        </span>
-      </div>
+        <div className="flex items-baseline justify-between">
+          <span className="font-semibold">Counted</span>
+          <span className="font-heading text-[30px] tabular-nums">{formatPeso(counted)}</span>
+        </div>
+        <div className="flex justify-between text-neutral-700">
+          <span>Expected</span>
+          <span className="tabular-nums">{formatPeso(expected)}</span>
+        </div>
+        <div
+          className={cn(
+            'flex items-center justify-between rounded-[12px] px-[14px] py-[10px] font-bold',
+            short ? 'bg-danger-bg text-danger-fg' : 'bg-accent-2-100 text-accent-2-800',
+          )}
+        >
+          <span className="flex items-center gap-[6px]">
+            <Icon size={17} strokeWidth={ICON_STROKE} aria-hidden />
+            {overShort === 0 ? 'Exact' : short ? 'Short' : 'Over'}
+          </span>
+          <span className="font-heading text-[22px] font-normal">
+            {overShort === 0
+              ? formatPeso(0)
+              : `${short ? '−' : '+'}${formatPeso(Math.abs(overShort))}`}
+          </span>
+        </div>
+      </section>
       {late && waitingCash > 0 && (
         <Alert variant="info">
           {formatPeso(waitingCash)} in cash sales were made today before this count. If that cash is
           in the drawer, it explains an overage.
         </Alert>
       )}
-      <Button asChild variant="secondary" size="md" className="mt-[8px] self-start">
-        <Link to="/drawer">Done</Link>
+      {/* The next step is clear (Round 3): open today's drawer after a late count, else sell. */}
+      <Button asChild size="lg" className="mt-[4px]">
+        {late ? (
+          <Link to="/drawer">Open today’s drawer</Link>
+        ) : (
+          <Link to="/sell">Back to Sell</Link>
+        )}
       </Button>
+      {!late && (
+        <Button asChild variant="ghost" className="self-center underline underline-offset-[3px]">
+          <Link to="/drawer">Done</Link>
+        </Button>
+      )}
     </div>
   );
 }

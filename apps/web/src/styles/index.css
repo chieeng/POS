@@ -56,6 +56,17 @@
   --color-money: #c6f03a;
   --color-on-money: #121412;
 
+  /* Peso-bill colours, only where cash is counted (SRS 7.2); coins are grey. The same in both
+     themes, always with ink text on them. */
+  --color-bill-1000: #9db8e8;
+  --color-bill-500: #f2d46b;
+  --color-bill-200: #9fd49a;
+  --color-bill-100: #d3b5d8;
+  --color-bill-50: #f0a79b;
+  --color-bill-20: #f5be86;
+  --color-coin: #d9ddd5;
+  --color-on-bill: #121412;
+
   /* Status colors used by the screens. */
   --color-danger: #c2321c;
   --color-danger-bg: #fde0d9;

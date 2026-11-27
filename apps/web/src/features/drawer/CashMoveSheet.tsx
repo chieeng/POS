@@ -158,11 +158,11 @@ function CashMoveForm({
             <label
               key={option}
               className={cn(
-                'flex h-11 cursor-pointer items-center rounded-full px-[16px] text-[14.5px]',
+                'flex h-11 cursor-pointer items-center rounded-[10px] px-[16px] text-[14.5px]',
                 'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent',
                 reason === option
                   ? 'bg-text font-semibold text-bg'
-                  : 'border border-divider hover:bg-text/7',
+                  : 'bg-neutral-200 hover:bg-neutral-300',
               )}
             >
               <input

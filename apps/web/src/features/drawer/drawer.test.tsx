@@ -162,7 +162,7 @@ describe('opening the drawer (SHIFT-01)', () => {
     await user.type(screen.getByRole('spinbutton', { name: 'Number of ₱100' }), '3');
     await user.click(screen.getByRole('button', { name: 'Open drawer' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '₱200.00 less than yesterday’s closing count (₱2,000.00, Maricel, 8:14 PM). Count again, or say why. The Owner will see this on the drawer report.',
+      '₱200.00 less than yesterday’s closing count (₱2,000.00, Maricel, 8:14 PM). Count again, or say why.',
     );
     await user.click(screen.getByRole('button', { name: 'Open drawer' }));
     expect(screen.getByText('Say why the count differs from the last count.')).toBeInTheDocument();
@@ -256,9 +256,9 @@ describe('cash in and out (SHIFT-02)', () => {
 
   it('shows the open drawer, and records a cash-out with a reason', async () => {
     const user = renderPage();
-    expect(
-      await screen.findByText(/since 7:52 AM, by Maricel, with ₱1,800.00/),
-    ).toBeInTheDocument();
+    // Round 3: the open drawer is a card; its opening cash is the big number.
+    expect(await screen.findByText(/since 7:52 AM · Maricel/)).toBeInTheDocument();
+    expect(screen.getByText('₱1,800.00')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cash out' }));
     const sheet = within(screen.getByRole('dialog'));
     await user.type(sheet.getByLabelText('Amount'), '350');
