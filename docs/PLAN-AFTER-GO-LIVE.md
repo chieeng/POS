@@ -121,7 +121,7 @@ staff view; (5) history and CSV.
   recorded (ATT-06). Pay already waits: the flat deduction and the minutes payroll prices count
   only closed days. Recommended: payroll keeps using closed days only; Summary keeps the record
   but shows the minutes of open days apart ("168 min on a day with no time out").
-- P7. **Asked at the store-owner demo (Dec 8 - 9, proposed), with P1.** (Nov 27) Overtime on a short day: Test Special 5 worked 2 minutes (7:36-7:38 PM on Nov 23)
+- P7. **Asked at the store-owner demo (Dec 5 - 6), with P1.** (Nov 27) Overtime on a short day: Test Special 5 worked 2 minutes (7:36-7:38 PM on Nov 23)
   and got 98 minutes of overtime, counted from the earliest time out (6:00 PM). Recommended:
   payroll pays overtime only on a whole day (a time in by the morning start and a time out after
   the earliest time out); the minutes stay recorded either way.
