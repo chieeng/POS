@@ -4,7 +4,7 @@ What each production release changes for the store, in plain words. The release 
 (`dev` to `main`) copies its section. How to release is in [GO-LIVE.md](GO-LIVE.md),
 "Release".
 
-## v1.4.0: selling, cash drawer, returns and attendance (planned Thu Dec 3, 2026)
+## v1.4.0: selling, cash drawer, returns and attendance (planned Thu Dec 10, 2026)
 
 Production is on v1.3.0 (build steps 0 to 5: sign-in, users, settings, products, approvals,
 stock-in, photos and CSV export). v1.4.0 adds build steps 7 to 11 and the new look. It is the

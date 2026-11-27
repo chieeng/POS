@@ -151,7 +151,7 @@ Claude goes from task to task by itself and merges into `dev` (never `main`):
 - **Dependabot** is merged by Claude on the dates in docs/STATUS.md, one at a time, green
   before the next. Claude checks what it can after each; the reviewer checks what needs the
   owner's sign-in.
-- **Release freeze:** the release takes all of `dev`. Until the switch (Mon Dec 14, 2026, confirmed Nov 27), `dev` only
+- **Release freeze:** the release takes all of `dev`. Until the switch (Mon Dec 21, 2026, proposed Nov 27), `dev` only
   takes work meant for that release (fixes, docs, Dependabot on its dates). Post-go-live
   features are built on their own branches and their PRs stay open until after the switch, so
   a trial-week fix can still be released alone.
