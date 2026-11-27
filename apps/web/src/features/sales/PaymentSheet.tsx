@@ -261,7 +261,11 @@ export function PaymentSheet({
           </p>
         )}
 
-        <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-4 gap-[8px]">
+        <div
+          role="radiogroup"
+          aria-label="Payment method"
+          className="grid grid-cols-4 gap-[2px] rounded-[12px] bg-neutral-200 p-[3px]"
+        >
           {METHODS.map(({ value, label, icon: Icon }) => (
             <button
               key={value}
@@ -270,16 +274,15 @@ export function PaymentSheet({
               aria-checked={method === value}
               onClick={() => choose(value)}
               className={cn(
-                'flex h-[52px] items-center justify-center gap-[6px] rounded-full text-[14.5px]',
+                'flex h-[46px] items-center justify-center gap-[6px] rounded-[9px] text-[14.5px]',
                 method === value
-                  ? 'bg-text font-bold text-bg'
-                  : 'border border-divider hover:bg-text/7',
+                  ? 'bg-surface font-semibold text-text shadow-[var(--shadow-sm)]'
+                  : 'text-neutral-700 hover:text-text',
               )}
             >
               <Icon
                 size={17}
                 strokeWidth={ICON_STROKE}
-                className={method === value ? undefined : 'text-neutral-700'}
                 aria-hidden
               />
               {label}
@@ -303,7 +306,7 @@ export function PaymentSheet({
                   setTendered(event.target.value);
                   setProblem(null);
                 }}
-                className="min-h-[64px] rounded-full border-[1.5px] border-accent bg-surface px-[22px] font-heading text-[30px]"
+                className="min-h-[64px] rounded-[12px] border-transparent bg-neutral-200 px-[18px] font-heading text-[30px]"
               />
             </div>
             <div className="flex flex-wrap gap-[8px]">
@@ -315,13 +318,13 @@ export function PaymentSheet({
                     setTendered(amount.toFixed(2));
                     setProblem(null);
                   }}
-                  className="flex h-[44px] items-center rounded-full bg-surface px-[16px] text-[14.5px] font-semibold hover:bg-text/7"
+                  className="flex h-[44px] items-center rounded-[10px] bg-neutral-200 px-[16px] text-[14.5px] font-semibold hover:bg-neutral-300"
                 >
                   {index === 0 ? 'Exact' : formatPeso(amount).replace('.00', '')}
                 </button>
               ))}
             </div>
-            <div className="flex items-center justify-between rounded-[28px] bg-accent-2-100 px-[20px] py-[16px] text-accent-2-800">
+            <div className="flex items-center justify-between rounded-[16px] bg-accent-2-100 px-[20px] py-[16px] text-accent-2-800">
               <span className="flex items-center gap-[8px] text-[15px] font-bold">
                 <HandCoins size={20} strokeWidth={ICON_STROKE} aria-hidden />
                 Change
@@ -335,7 +338,7 @@ export function PaymentSheet({
 
         {(method === 'gcash' || method === 'maya') && (
           <>
-            <div className="flex justify-between rounded-[24px] bg-surface px-[18px] py-[14px] text-[15px]">
+            <div className="flex justify-between rounded-[12px] bg-neutral-200 px-[18px] py-[14px] text-[15px]">
               <span>{PROVIDER_LABELS[method]} amount</span>
               <b>{formatPeso(exact)}</b>
             </div>
@@ -363,7 +366,7 @@ export function PaymentSheet({
             {rows.map((row, index) => (
               <div
                 key={row.key}
-                className="flex flex-col gap-[10px] rounded-[26px] bg-surface px-[14px] py-[12px]"
+                className="flex flex-col gap-[10px] rounded-[16px] bg-surface px-[14px] py-[12px] shadow-[var(--shadow-sm)]"
               >
                 <div className="flex items-center gap-[10px]">
                   <select
@@ -384,7 +387,7 @@ export function PaymentSheet({
                       );
                       setProblem(null);
                     }}
-                    className="min-h-[48px] w-[110px] rounded-full border border-divider bg-bg px-[12px] text-[15px] font-bold"
+                    className="min-h-[48px] w-[110px] rounded-[12px] border border-divider bg-bg px-[12px] text-[15px] font-bold"
                   >
                     <option value="cash">Cash</option>
                     <option value="gcash">GCash</option>
@@ -470,7 +473,7 @@ export function PaymentSheet({
             <div
               role="status"
               className={cn(
-                'flex items-center justify-between rounded-[24px] px-[18px] py-[14px] font-bold',
+                'flex items-center justify-between rounded-[16px] px-[18px] py-[14px] font-bold',
                 rowsCovered ? 'bg-accent-2-100 text-accent-2-800' : 'bg-neutral-200 text-text',
               )}
             >
@@ -604,7 +607,7 @@ function ReferenceField({
         aria-invalid={!!problem || undefined}
         aria-describedby={problem ? `${id}-error` : undefined}
         className={cn(
-          'min-h-[56px] rounded-full bg-surface px-[20px] text-[19px] font-semibold tracking-[0.04em]',
+          'min-h-[56px] rounded-[12px] border-transparent bg-neutral-200 px-[18px] text-[19px] font-semibold tracking-[0.04em]',
           problem && 'border-2 border-danger',
         )}
       />

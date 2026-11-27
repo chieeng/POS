@@ -412,6 +412,7 @@ The UI reference is the design canvas **POS redesign proposal** (a private claud
   - One word for one thing: "Flagged" for a day to review, on the board, in History and in the CSV.
 - **Connection indicator, from the cleanup:** it will show only when the device is offline or has changes waiting ("1 to sync"), not "Online" on every screen (the owner's decision of Nov 23, 2026). This waits until the offline indicator is reliable on every screen: in the step 11 test the laptop sidebar still said "Online" while offline. Until then it stays as it is.
 - **Sell cart bar** is ink (black, white in dark mode); lime stays on the Pay button inside the cart (the owner's decision of Nov 23, 2026).
+- **Sell, round 3 (the owner's review of the pop-up drawings, Nov 27, 2026).** The cart is the raised card (on the right on a tablet or laptop, a sheet on a phone). Every cart line keeps −/+, Discount and remove. A line in an applied deal shows "In deal" and no Discount, so a line never gets both. The totals show Subtotal, then "Deals" and "Discount" on separate lines, then the Total; when the store rounds cash and the total has centavos, "Rounding if paid in cash" shows what cash would be (₱0.50 up). After a sale, the change to give is the big number and the slip is one tap away on a phone (beside it on a laptop); "This is not an official receipt" stays on the slip.
 
 **Standard values.** Where the screens disagree, the app uses these:
 

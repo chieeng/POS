@@ -225,7 +225,8 @@ describe('the cart (POS-02)', () => {
     ).toBeInTheDocument();
     await user.clear(amount);
     await user.type(amount, '1.25');
-    expect(within(dialog).getByText('1.25 kg = ₱65.00')).toBeInTheDocument();
+    // Round 3: the line total is the big number.
+    expect(within(dialog).getByText('₱65.00')).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Add to cart' }));
 
     const panel = cartPanel();
@@ -316,7 +317,7 @@ describe('the drawer banner (POS-14)', () => {
   test('no drawer open today: selling is allowed, with a banner and Open the drawer', () => {
     state.drawer = { ...OPEN, session: null };
     renderSell();
-    expect(screen.getByText('Drawer not open.')).toBeInTheDocument();
+    expect(screen.getByText('Drawer not open')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open the drawer' })).toHaveAttribute(
       'href',
       '/drawer',
@@ -333,7 +334,7 @@ describe('the drawer banner (POS-14)', () => {
     };
     useSession.setState({ user: { ...useSession.getState().user!, role: 'special_sales' } });
     renderSell();
-    expect(screen.getByText('Nov 4’s drawer was never counted.')).toBeInTheDocument();
+    expect(screen.getByText('Nov 4’s drawer was never counted')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Count Nov 4’s drawer' })).toHaveAttribute(
       'href',
       '/drawer/count',
@@ -349,7 +350,7 @@ describe('the drawer banner (POS-14)', () => {
       stale: { id: 's0', businessDate: '2026-11-04', openedByName: 'Test Two', openingCash: 1000 },
     };
     renderSell();
-    expect(screen.getByText('Drawer not open.')).toBeInTheDocument();
+    expect(screen.getByText('Drawer not open')).toBeInTheDocument();
     expect(screen.queryByText(/was never counted/)).toBeNull();
   });
 
@@ -362,18 +363,20 @@ describe('the drawer banner (POS-14)', () => {
 
   test('nothing is said with the drawer open', () => {
     renderSell();
-    expect(screen.queryByText('Drawer not open.')).toBeNull();
-    expect(screen.queryByText('Offline.')).toBeNull();
+    expect(screen.queryByText('Drawer not open')).toBeNull();
+    expect(screen.queryByText('Offline · you can still sell')).toBeNull();
   });
 
-  test('offline: says sales still count, kept on the phone (the Nov 24 test)', () => {
+  test('offline: says sales still count, kept on the phone (the Nov 24 test)', async () => {
     state.drawer = { ...OPEN, session: null };
     setOnline(false);
-    renderSell();
-    expect(screen.queryByText('Drawer not open.')).toBeNull();
-    expect(screen.getByText('Offline.')).toBeInTheDocument();
+    const user = renderSell();
+    expect(screen.queryByText('Drawer not open')).toBeNull();
+    expect(screen.getByText('Offline · you can still sell')).toBeInTheDocument();
+    // Round 3: what it means sits behind (i).
+    await user.click(screen.getByRole('button', { name: 'About selling offline' }));
     expect(
-      screen.getByText(/You can still sell. Sales are kept on this phone and join the drawer/),
+      screen.getByText(/Sales are kept on this phone and join the drawer when they’re sent/),
     ).toBeInTheDocument();
   });
 });

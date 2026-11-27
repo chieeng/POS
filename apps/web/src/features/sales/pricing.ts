@@ -1,7 +1,7 @@
 import { dealResult, inDeal, type DealRule } from '@/features/deals/rules';
 import { lineDiscount, type DiscountRule } from '@/features/discounts/rules';
 import type { CartLine } from './cart';
-import { lineTotalCents } from './totals';
+import { lineTotalCents, roundToPesoCents } from './totals';
 
 /**
  * POS-03: what each cart line pays, from the presets and deals staff picked. One deal or one
@@ -96,4 +96,23 @@ export function priceCart(
     discountCents += Math.round((perLine.get(line.productId)?.amount ?? 0) * 100);
   }
   return { perLine, applied, offers, subtotalCents, discountCents };
+}
+
+/**
+ * The cart's totals as the cart shows them (round 3, the owner's Nov 27 review): what deals
+ * save and what preset discounts take off, on their own lines, and what cash would round by.
+ */
+export function cartSummary(pricing: Pricing, roundCash: boolean) {
+  let dealsCents = 0;
+  for (const price of pricing.perLine.values()) {
+    if (price.kind === 'deal') dealsCents += Math.round(price.amount * 100);
+  }
+  const totalCents = pricing.subtotalCents - pricing.discountCents;
+  return {
+    dealsCents,
+    presetCents: pricing.discountCents - dealsCents,
+    totalCents,
+    // POS-04: cash is rounded to the peso (₱0.50 up) when the store rounds cash.
+    cashRoundingCents: roundCash ? roundToPesoCents(totalCents) - totalCents : 0,
+  };
 }

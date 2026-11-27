@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { priceCart } from '@/features/sales/pricing';
+import { cartSummary, priceCart } from '@/features/sales/pricing';
 import type { DiscountRule } from '@/features/discounts/rules';
 import { dealResult, dealSummary, type DealLine, type DealRule } from './rules';
 
@@ -143,6 +143,27 @@ describe('the cart (POS-03: one deal or preset per line; staff apply deals)', ()
     // ₱90 + ₱45 + ₱14 = ₱149; ₱35 + ₱1.40 off.
     expect(pricing.subtotalCents).toBe(14900);
     expect(pricing.discountCents).toBe(3640);
+  });
+
+  test('the cart shows deals and discounts apart, and what cash rounds by', () => {
+    const pricing = priceCart(
+      [
+        { productId: 'classic', qty: 2, dealId: 'q1' },
+        { productId: 'cheese', qty: 1, dealId: 'q1' },
+        { productId: 'coffee', qty: 1, discountId: 'd1' },
+      ],
+      byId,
+      [SUKI],
+      [CHIPS],
+    );
+    // ₱149.00 − ₱35.00 (deal) − ₱1.40 (Suki) = ₱112.60; cash ₱113.00, ₱0.50 up.
+    expect(cartSummary(pricing, true)).toEqual({
+      dealsCents: 3500,
+      presetCents: 140,
+      totalCents: 11260,
+      cashRoundingCents: 40,
+    });
+    expect(cartSummary(pricing, false).cashRoundingCents).toBe(0);
   });
 
   test('an applied deal that is no longer a full set gives nothing', () => {

@@ -214,7 +214,8 @@ describe('cash (POS-04)', () => {
       }),
     );
     const slip = await screen.findByRole('article', { name: /^Slip TT-/ });
-    expect(screen.getByText('₱376.00', { selector: 'b' })).toBeInTheDocument();
+    // Round 3: the change to give is the big number, first.
+    expect(screen.getByText('Give change').nextSibling).toHaveTextContent('₱376.00');
     // The receipt number has a line of its own and never wraps (reviewer, Nov 8).
     expect(within(slip).getByText(/^Receipt TT-\d{8}-A1B2-1$/)).toHaveClass('whitespace-nowrap');
     for (const text of [
@@ -415,7 +416,7 @@ describe('preset discounts (POS-03)', () => {
     const cart = await chipsInCart();
     await user.click(cart.getByRole('button', { name: 'Discount for Chips Classic' }));
     const picker = within(screen.getByRole('dialog'));
-    expect(picker.getByText('3 pack · ₱135.00 before any discount')).toBeInTheDocument();
+    expect(picker.getByText('Chips Classic · 3 pack · ₱135.00 before discount')).toBeInTheDocument();
     // Only the presets that fit chips: not the rice one.
     expect(picker.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
       'No discountThe regular price',
@@ -423,7 +424,7 @@ describe('preset discounts (POS-03)', () => {
     ]);
     await user.click(picker.getByRole('radio', { name: /Suki 10%/ }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(cart.getByText('−₱13.50 · Suki 10%')).toBeInTheDocument();
+    expect(cart.getByText('Suki 10% · −₱13.50')).toBeInTheDocument();
     expect(cart.getByText('Subtotal').nextSibling).toHaveTextContent('₱135.00');
     expect(cart.getByText('Discount', { selector: 'span' }).nextSibling).toHaveTextContent(
       '−₱13.50',
@@ -520,8 +521,11 @@ describe('package deals (POS-03)', () => {
     expect(cart.getByRole('button', { name: 'Pay ₱180.00' })).toBeInTheDocument();
 
     await user.click(deals.getByRole('button', { name: 'Apply Chips 3 for ₱100' }));
-    expect(deals.getByText('1 set · −₱35.00')).toBeInTheDocument();
-    expect(cart.getByText('−₱35.00 · Chips 3 for ₱100')).toBeInTheDocument();
+    expect(deals.getByText('1 set')).toBeInTheDocument();
+    expect(deals.getByText('−₱35.00')).toBeInTheDocument();
+    // Round 3: the saving shows once, as "Deals", and the line says it is in the deal.
+    expect(cart.getByText('Deals', { selector: 'span' }).nextSibling).toHaveTextContent('−₱35.00');
+    expect(cart.getByText('In deal')).toBeInTheDocument();
     // 4 packs: one set of 3 for ₱100 and one at ₱45.
     await user.click(cart.getByRole('button', { name: 'Pay ₱145.00' }));
     const sheet = within(screen.getByRole('dialog'));
@@ -538,7 +542,7 @@ describe('package deals (POS-03)', () => {
     expect(slip.getByText('Discount').nextSibling).toHaveTextContent('−₱35.00');
   });
 
-  test('Remove takes the deal off; a preset on the line takes it off that line', async () => {
+  test('Remove takes the deal off; a line in a deal offers no discount until then', async () => {
     state.deals = [DEAL];
     state.discounts = [
       {
@@ -562,6 +566,10 @@ describe('package deals (POS-03)', () => {
     expect(cart.getByRole('button', { name: 'Pay ₱135.00' })).toBeInTheDocument();
 
     act(() => useCart.getState().applyDeal('q1', ['p1']));
+    // No double discount (the owner, Nov 27): a line in a deal has no Discount button.
+    expect(cart.queryByRole('button', { name: 'Discount for Chips Classic' })).toBeNull();
+    expect(cart.getByText('In deal')).toBeInTheDocument();
+    await user.click(cart.getByRole('button', { name: 'Remove Chips 3 for ₱100' }));
     await user.click(cart.getByRole('button', { name: 'Discount for Chips Classic' }));
     await user.click(within(screen.getByRole('dialog')).getByRole('radio', { name: /Suki 10%/ }));
     expect(useCart.getState().lines[0]).toEqual({ productId: 'p1', qty: 3, discountId: 'd1' });

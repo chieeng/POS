@@ -1,4 +1,4 @@
-import { Check, CloudCheck, CloudOff } from 'lucide-react';
+import { ChevronDown, CloudCheck, CloudOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { watchOutboxItem } from '@/lib/outbox';
 import { Alert } from '@/components/ui/alert';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { PROVIDER_LABELS } from '@/features/store/data';
 import { formatPeso } from '@/lib/money';
 import { formatQty, isSoldByMeasure } from '@/lib/quantity';
-import { ICON_STROKE } from '@/lib/utils';
+import { cn, ICON_STROKE } from '@/lib/utils';
 import type { Slip } from './checkout';
 
 const when = (date: Date) =>
@@ -28,48 +28,83 @@ const signed = (amount: number) => `${amount < 0 ? '−' : '+'}${formatPeso(Math
  */
 export function SaleSlip({ slip, onNewSale }: { slip: Slip; onNewSale: () => void }) {
   const sending = useSending(slip);
+  // Round 3: the change to give is the main thing; the slip is one tap away on a phone and
+  // beside it on a tablet or laptop.
+  const [showSlip, setShowSlip] = useState(false);
+  const cash = slip.payments.find((payment) => payment.method === 'cash');
   return (
     <section
       aria-label="Sale complete"
-      className="mx-auto flex w-full max-w-[480px] flex-col gap-[14px] px-[18px] pt-[6px] pb-[24px] md:pt-[24px]"
+      className="mx-auto grid w-full max-w-[480px] content-start gap-[14px] px-[18px] pt-[6px] pb-[24px] md:max-w-[900px] md:grid-cols-[minmax(0,1fr)_minmax(0,400px)] md:gap-[32px] md:pt-[32px]"
     >
-      <div className="flex items-center gap-[12px]">
-        <span className="grid size-[52px] place-items-center rounded-full bg-accent-2-100 text-accent-2-800">
-          <Check size={28} strokeWidth={ICON_STROKE} aria-hidden />
-        </span>
-        <div className="leading-[1.25]">
-          <h1 className="font-heading text-[24px]">Sale complete</h1>
+      <div className="flex flex-col gap-[14px]">
+        <h1 className="text-[24px] md:text-[28px]">Sale complete</h1>
+        <div className="flex flex-col items-center gap-[2px] rounded-[16px] bg-surface px-[18px] py-[24px] text-center shadow-[var(--shadow-md)]">
           {slip.change > 0 ? (
-            <p className="text-[14px] text-neutral-700">
-              Give change: <b className="text-text">{formatPeso(slip.change)}</b>
-            </p>
+            <>
+              <span className="text-[15px] text-neutral-700">Give change</span>
+              <span className="font-heading text-[52px] leading-[1.1]">
+                {formatPeso(slip.change)}
+              </span>
+            </>
           ) : (
-            <p className="text-[14px] text-neutral-700">No change to give.</p>
+            <>
+              <span className="text-[15px] text-neutral-700">No change to give</span>
+              <span className="font-heading text-[40px] leading-[1.1]">
+                {formatPeso(slip.total)}
+              </span>
+            </>
           )}
+          <span className="text-[13.5px] text-neutral-700">
+            {cash && slip.tendered !== null
+              ? `Cash ${formatPeso(slip.tendered)} · total ${formatPeso(slip.total)}`
+              : `Total ${formatPeso(slip.total)}`}
+          </span>
         </div>
-      </div>
 
-      {sending === 'waiting' && (
-        <Alert variant="offline" icon={CloudOff}>
-          Saved on this phone. It is sent to the store as soon as there is a connection; don&apos;t
-          sign out until it has.
-        </Alert>
-      )}
-      {sending === 'sent' && (
-        <Alert variant="info" icon={CloudCheck}>
-          Sent to the store.
-        </Alert>
-      )}
-      {sending !== null && typeof sending === 'object' && (
-        <Alert variant="danger">
-          <b>The store refused this sale.</b> {sending.refused} It stays on this phone and the Owner
-          has been told.
-        </Alert>
-      )}
+        {sending === 'waiting' && (
+          <Alert variant="offline" icon={CloudOff}>
+            Saved on this phone. It is sent to the store as soon as there is a connection;
+            don&apos;t sign out until it has.
+          </Alert>
+        )}
+        {sending === 'sent' && (
+          <Alert variant="info" icon={CloudCheck}>
+            Sent to the store.
+          </Alert>
+        )}
+        {sending !== null && typeof sending === 'object' && (
+          <Alert variant="danger">
+            <b>The store refused this sale.</b> {sending.refused} It stays on this phone and the
+            Owner has been told.
+          </Alert>
+        )}
+
+        <button
+          type="button"
+          aria-expanded={showSlip}
+          onClick={() => setShowSlip((value) => !value)}
+          className="flex min-h-[48px] items-center gap-[8px] border-b border-divider text-left text-[15px] text-neutral-700 md:hidden"
+        >
+          <span className="flex-1">{showSlip ? 'Hide slip' : 'Show slip'}</span>
+          <ChevronDown
+            size={18}
+            strokeWidth={ICON_STROKE}
+            className={showSlip ? 'rotate-180' : undefined}
+            aria-hidden
+          />
+        </button>
+        <Button className="order-last min-h-[56px] w-full text-[18px] md:order-none" onClick={onNewSale}>
+          New sale
+        </Button>
+      </div>
 
       <article
         aria-label={`Slip ${slip.receiptNo}`}
-        className="flex flex-col gap-[10px] rounded-[28px] bg-neutral-100 px-[22px] pt-[22px] pb-[18px] shadow-[var(--shadow-sm)] [font-variant-numeric:tabular-nums]"
+        className={cn(
+          'flex-col gap-[10px] rounded-[12px] border border-divider bg-surface px-[20px] pt-[20px] pb-[16px] [font-variant-numeric:tabular-nums] md:flex',
+          showSlip ? 'flex' : 'hidden',
+        )}
       >
         <header className="text-center leading-[1.35]">
           <div className="font-heading text-[19px]">{slip.store.name}</div>
@@ -138,10 +173,6 @@ export function SaleSlip({ slip, onNewSale }: { slip: Slip; onNewSale: () => voi
           This is not an official receipt
         </div>
       </article>
-
-      <Button className="min-h-[56px] w-full text-[19px]" onClick={onNewSale}>
-        New sale
-      </Button>
     </section>
   );
 }
