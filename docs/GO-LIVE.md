@@ -4,16 +4,20 @@ The steps to take the app from staging to the store, in order. No secrets, links
 projects or passwords belong in this file (the repository is public). Where the project stands
 today is in [STATUS.md](STATUS.md).
 
-## Dates (moved to the fallback on Nov 26, 2026; may move again after the store-owner demo)
+## Dates (proposed Nov 27, 2026, after the owner's new order; may move after the store-owner demo)
 
-| When                    | What                                                                     |
-| ----------------------- | ------------------------------------------------------------------------ |
-| Fri Nov 27              | Step 11 part F in the store, the owner's report, the fixes pull request  |
-| Sat Nov 28 - Sun Nov 29 | The owner's re-test, "step 11 test finished", then the restore rehearsal |
-| **about Mon Nov 30**    | Release steps 7-11 to production, once the above is done                 |
-| Nov 30 - Dec 1          | Production setup                                                         |
-| **Wed Dec 2**           | Trial week starts, beside the store's current method                     |
-| **Wed Dec 9**           | Switch                                                                   |
+| When                    | What                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| Fri Nov 27 - Mon Nov 30 | The design cleanup, one pull request at a time, each tested by the owner: #127, #130, #129, then Sell |
+| **Tue Dec 1**           | The rest of the step 11 re-test (#132 checks 5-7), then "step 11 test finished"                       |
+| Wed Dec 2               | Restore rehearsal on staging (only after "step 11 test finished")                                     |
+| **Thu Dec 3**           | Release steps 7-11 and the new look to production                                                     |
+| Dec 3 - Dec 4           | Production setup, with the location check at the shop                                                 |
+| **Mon Dec 7**           | Trial week starts, beside the store's current method (Mon Dec 7 - Sun Dec 13)                         |
+| **Mon Dec 14**          | Switch                                                                                                |
+
+If something slips, each later date moves by the same number of days; the trial always runs a
+full week before the switch.
 
 ## Before the release (staging)
 

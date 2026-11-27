@@ -1,6 +1,6 @@
 # Plan after go-live
 
-The work after the switch (Wed Dec 9, 2026), in order: sale corrections, the archive of old
+The work after the switch (proposed Mon Dec 14, 2026), in order: sale corrections, the archive of old
 sales (by the end of January 2027), then build steps 12 to 15 (SRS 8). For each: what the SRS
 already decides (built without asking), how it is split into pull requests, and the questions
 only the owner can answer. Questions are never guessed: the parts that need them wait, and
@@ -116,6 +116,15 @@ staff view; (5) history and CSV.
 - P3. The flat late deduction amount, if the store uses one (ATT-06).
 - P4. Each person's daily rate (entered by the Owner in the app; never in the repository).
 - P5. Is a half day always half the daily rate?
+- P6. (the owner's step 11 test, Nov 27) Late minutes on a day with **no time out**: Summary's
+  "late" total counts them (Test Two 188 min, 168 of them on Nov 24), because lateness is always
+  recorded (ATT-06). Pay already waits: the flat deduction and the minutes payroll prices count
+  only closed days. Recommended: payroll keeps using closed days only; Summary keeps the record
+  but shows the minutes of open days apart ("168 min on a day with no time out").
+- P7. (Nov 27) Overtime on a short day: Test Special 5 worked 2 minutes (7:36-7:38 PM on Nov 23)
+  and got 98 minutes of overtime, counted from the earliest time out (6:00 PM). Recommended:
+  payroll pays overtime only on a whole day (a time in by the morning start and a time out after
+  the earliest time out); the minutes stay recorded either way.
 
 ## 6. Step 15: polish (SRS 8, Phase 5; docs/POLISH.md)
 
