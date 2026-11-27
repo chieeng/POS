@@ -34,35 +34,36 @@ Last updated: Nov 23, 2026.
 
 ## Build steps (SRS 8, "Build order")
 
-| Step | What                                                               | State                            |
-| ---- | ------------------------------------------------------------------ | -------------------------------- |
-| 1-4  | Settings, catalog, approvals, stock-in                             | Done, in production (v1.3.0)     |
-| 5    | Product photos, CSV export                                         | Done, in production (v1.3.0)     |
-| 6    | Push notifications                                                 | Dropped (Oct 31, 2026)           |
-| 7    | Installable app, offline product list                              | Done on staging, not released    |
-| 8    | Cash drawer (blind count, auto-close, overnight count)             | Done on staging, not released    |
-| 9    | Checkout, offline outbox, payments, slip, discounts, package deals | Done on staging, not released    |
-| 10   | Voids, returns, refunds, damaged items, drawer report lines        | Done and tested on staging       |
-| 11   | Attendance (#108-#113, #115; #110 drawer report fix)               | Merged; staging test in progress |
-| -    | New look "price card and peso note" (#92 and fixes)                | Done on staging                  |
-| 12   | Customer credit (utang)                                            | After go-live                    |
-| 13   | Owner dashboard and reports                                        | After go-live                    |
-| 14   | Payroll (computed pay, overtime pay)                               | After go-live                    |
-| 15   | Polish: held sales, physical count, CSV import, the POLISH.md list | After go-live                    |
+| Step | What                                                               | State                                                         |
+| ---- | ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| 1-4  | Settings, catalog, approvals, stock-in                             | Done, in production (v1.3.0)                                  |
+| 5    | Product photos, CSV export                                         | Done, in production (v1.3.0)                                  |
+| 6    | Push notifications                                                 | Dropped (Oct 31, 2026)                                        |
+| 7    | Installable app, offline product list                              | Done on staging, not released                                 |
+| 8    | Cash drawer (blind count, auto-close, overnight count)             | Done on staging, not released                                 |
+| 9    | Checkout, offline outbox, payments, slip, discounts, package deals | Done on staging, not released                                 |
+| 10   | Voids, returns, refunds, damaged items, drawer report lines        | Done and tested on staging                                    |
+| 11   | Attendance (#108-#113, #115, #124-#125; #110 drawer report fix)    | Tested Nov 27 (A-F pass); fixes pull request and re-test next |
+| -    | New look "price card and peso note" (#92 and fixes)                | Done on staging                                               |
+| 12   | Customer credit (utang)                                            | After go-live                                                 |
+| 13   | Owner dashboard and reports                                        | After go-live                                                 |
+| 14   | Payroll (computed pay, overtime pay)                               | After go-live                                                 |
+| 15   | Polish: held sales, physical count, CSV import, the POLISH.md list | After go-live                                                 |
 
 Also after go-live, before step 12: **sale corrections** and the **archive of old sales**
 (SRS 7.1; the archive by the end of January 2027), both the owner's decision of Nov 19, 2026.
 
 ## Open pull requests (Nov 23, 2026)
 
-| PR   | What                                                   | When to merge                                                   |
-| ---- | ------------------------------------------------------ | --------------------------------------------------------------- |
-| #100 | Dependabot: jsdom 31.0.1 (tests only)                  | From Nov 27, after the step 11 fixes pull request               |
-| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)      | After the switch (Dec 9), then check sign-in and settings forms |
-| #117 | Dependabot: dev-tooling group (tests and lint only)    | From Dec 4                                                      |
-| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)   | From Dec 4                                                      |
-| #116 | Dependabot: runtime group (supabase-js, router, icons) | After the switch (Dec 9)                                        |
-| #120 | Dependabot: Supabase CLI 3.2.0                         | HOLD until backup and deploy are tested with it                 |
+| PR   | What                                                    | When to merge                                                                                                                                                                        |
+| ---- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| #130 | One source for the late deduction (board, Summary, CSV) | Into `dev` after the release (about Nov 30); no release of its own: it reaches production with the next release that is needed anyway. Then tell the design side (#129 waits for it) |
+| #100 | Dependabot: jsdom 31.0.1 (tests only)                   | From Nov 27, after the step 11 fixes pull request                                                                                                                                    |
+| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)       | After the switch (Dec 9), then check sign-in and settings forms                                                                                                                      |
+| #117 | Dependabot: dev-tooling group (tests and lint only)     | From Dec 4                                                                                                                                                                           |
+| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)    | From Dec 4                                                                                                                                                                           |
+| #116 | Dependabot: runtime group (supabase-js, router, icons)  | After the switch (Dec 9)                                                                                                                                                             |
+| #120 | Dependabot: Supabase CLI 3.2.0                          | HOLD until backup and deploy are tested with it                                                                                                                                      |
 
 The Dependabot ones change the same lock file: one at a time, green before the next; the
 others may need a rebase. #99 and #101 were closed by Dependabot (replaced by #119 and #120).
@@ -97,17 +98,16 @@ yet.
 
 ## Next, in order
 
-1. **Fri Nov 27:** step 11 part F in the store, the owner's full report, then the fixes on one
-   small pull request the same day (the dates moved to the fallback on Nov 26).
-   Already fixed on its branch (Nov 24 findings): the Owner's Fix a day shows the recorded
-   times; staff see their days as the board does, with two kinds of Absent and Ask to fix; a
-   clock tap certainly outside the store is refused; Sell says offline sales still count.
-   #122 (offline indicator) was merged on Nov 24, after part E; its follow-up for laptops
-   whose browser never reports offline is its own small pull request.
-2. **Restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), when the owner says so, after
-   the step 11 test.
+1. **Step 11, in this order (the owner's order of Nov 25, with the fallback dates of Nov 26):**
+   **Fri Nov 27** part F in the store → the owner's full step 11 report → one small fixes pull
+   request the same day (with the per-person absent rule, Q-ATT-1, already on its branch) →
+   **Sat Nov 28 - Sun Nov 29** the owner's re-test → the owner writes "step 11 test finished".
+   The re-test needs today's staging test data (the Nov 19 mark, Test Two's days), so nothing
+   resets staging before it.
+2. **Restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), only after "step 11 test
+   finished" (Nov 28-29).
 3. **Release about Mon Nov 30**, once the re-test, "step 11 test finished" and the restore
-   rehearsal are done (Sat Nov 28 - Sun Nov 29): steps 7-11 and the new look go to production ([GO-LIVE.md](GO-LIVE.md),
+   rehearsal are done: steps 7-11 and the new look go to production ([GO-LIVE.md](GO-LIVE.md),
    "Release"; notes in [RELEASE-NOTES.md](RELEASE-NOTES.md)). Claude opens the `dev` to `main`
    pull request; the owner merges, tags and approves.
 4. **Production setup Nov 30 - Dec 1** ([GO-LIVE.md](GO-LIVE.md)), including the real store
@@ -117,15 +117,11 @@ yet.
    demo).
 7. After go-live: sale corrections, the archive of old sales, then steps 12 to 15.
 
-## Question waiting for the owner
+## Answered: Q-ATT-1 (Nov 25, 2026)
 
-- **Q-ATT-1. When attendance "begins" for counting Absent days** (Nov 25, 2026 re-test). A
-  working day with no time in counts as "Absent" from the store's first attendance record on
-  (ATT-14). Today any record counts, an Owner's Absent mark too: marking Nov 19 moved the
-  start back a day, so Nov 20 became "Absent" for Test Two. On production, marking a day before
-  the real start would make every staff member absent on the days in between. Recommended:
-  count from the first **clock-in** (a time in), not from marks; payroll (step 14) will read
-  the same rule.
+"Absent · no time in" counts from each person's own first clock-in, not from the store's
+first record; an Owner's mark shows on its day but never moves anyone's start (SRS ATT-14).
+Built on the branch for the part F fixes pull request.
 
 ## Other open items
 

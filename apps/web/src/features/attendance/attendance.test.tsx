@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession, type SessionUser } from '@/stores/session';
-import { AttendancePage } from './AttendancePage';
-import { clockText, manilaDay, refusalText, toToday } from './clock';
+import { AttendancePage, ClockPanel } from './AttendancePage';
+import { clockText, manilaDay, refusalText, toRecord, toToday, type ClockState } from './clock';
 import { describeFixError } from './fixes';
 
 type Json = Record<string, unknown>;
@@ -64,6 +64,8 @@ vi.mock('@/lib/supabase', () => ({
     rpc: (fn: string, args: Json) => {
       server.calls.push({ fn, args });
       if (fn === 'attendance_today') return Promise.resolve({ data: server.today, error: null });
+      // Each person's first clock-in: a list, as the real function returns.
+      if (fn === 'attendance_first_days') return Promise.resolve({ data: [], error: null });
       if (server.error) return Promise.resolve({ data: null, error: server.error });
       return Promise.resolve({ data: {}, error: null });
     },
@@ -329,11 +331,57 @@ describe('the owner’s decisions of Nov 23 (D, E, H)', () => {
   });
 });
 
+describe('a time out saved offline, then sent (the Nov 27 test)', () => {
+  it('the note says "sent" once it reaches the server, without reopening the screen', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    const base: ClockState = {
+      day,
+      loading: false,
+      canClock: true,
+      record: toRecord(RECORD),
+      rules: null,
+      storeLocationSet: true,
+      person: null,
+      waitingIn: null,
+      waitingOut: null,
+      refused: null,
+      clockedIn: true,
+      clockedOut: false,
+      reload: () => undefined,
+    };
+    const user = userEvent.setup();
+    const view = render(<ClockPanel state={base} compact />);
+    await user.click(screen.getByRole('button', { name: 'Clock out' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Clock out' }));
+    expect(
+      await screen.findByText('Time out saved on this phone. It’s sent when you’re back online.'),
+    ).toBeInTheDocument();
+    // Waiting on the phone: still "saved".
+    view.rerender(
+      <ClockPanel state={{ ...base, waitingOut: new Date(), clockedOut: true }} compact />,
+    );
+    expect(screen.getByText(/saved on this phone/)).toBeInTheDocument();
+    // Sent: the server's record has the time out, nothing waits.
+    view.rerender(
+      <ClockPanel
+        state={{
+          ...base,
+          record: toRecord({ ...RECORD, out_at: `${day}T18:00:00+08:00`, day_type: 'whole' }),
+          clockedOut: true,
+        }}
+        compact
+      />,
+    );
+    expect(screen.getByText('Time out sent.')).toBeInTheDocument();
+    expect(screen.queryByText(/saved on this phone/)).toBeNull();
+  });
+});
+
 describe('a day with no time in, on the staff list (the Nov 24 test)', () => {
   it('“Ask to fix” opens the request for that day', async () => {
     const yesterday = manilaDay(new Date(Date.now() - 24 * 60 * 60 * 1000));
     server.today = todayWith(null, {
-      firstDay: '2026-01-01',
+      firstIn: '2026-01-01',
       restWeekday: null,
       since: '2026-01-01',
     });
@@ -429,6 +477,10 @@ describe('fixing a day (ATT-11)', () => {
     await user.type(screen.getByLabelText('Time out'), '18:00');
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(calls('fix_attendance')[0]?.args).toMatchObject({ p_in: null, p_out: '18:00' });
+    // Says who and which day (the Nov 27 test: a fix was once saved to the wrong person).
+    expect(
+      await screen.findByText(/^Saved for Test Two, .+. Late, early and overtime/),
+    ).toBeInTheDocument();
   });
 
   it('a poor location reading says how far and how precise', async () => {

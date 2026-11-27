@@ -111,13 +111,17 @@ export function useDays(
   });
 }
 
-/** The store's first day with attendance: no day before it is anyone's "absent". */
-export function useFirstDay(): QueryState<string> {
+/**
+ * Each person's first clock-in (first day with a time in): no day before it is their
+ * "absent" (ATT-14; the owner's answer to Q-ATT-1, Nov 25, 2026). An Owner's Absent or Rest
+ * day mark never moves it. Row Level Security returns the store's people to the Owner.
+ */
+export function useFirstClockIns(): QueryState<{ userId: string; day: string }> {
   return useLiveRows({
     table: 'attendance',
-    queryKey: 'first-day',
-    load: () => supabase.from('attendance').select('work_date').order('work_date').limit(1),
-    map: (row: Json) => String(row.work_date),
+    queryKey: 'first-clock-ins',
+    load: () => supabase.rpc('attendance_first_days'),
+    map: (row: Json) => ({ userId: String(row.user_id), day: String(row.first_day) }),
     live: false,
   });
 }
@@ -194,7 +198,8 @@ export function stateOf(
   day: string,
   row: DayRow | null,
   today: string,
-  firstDay: string | null,
+  /** The person's first clock-in; null when they never clocked in. */
+  firstIn: string | null,
 ): DayState {
   if (row) {
     if (row.kind !== 'worked') return row.kind;
@@ -202,7 +207,7 @@ export function stateOf(
     return day < today ? 'no_out' : 'in';
   }
   if (!person.active || day > today || day < person.since) return 'none';
-  if (day < today && (firstDay === null || day < firstDay)) return 'none';
+  if (day < today && (firstIn === null || day < firstIn)) return 'none';
   if (person.restWeekday === weekdayOf(day)) return 'rest';
   return day === today ? 'not_in' : 'absent';
 }
@@ -213,13 +218,19 @@ export function personDays(
   rows: readonly DayRow[],
   range: { from: string; to: string },
   today: string,
-  firstDay: string | null,
+  /** Each person's first clock-in, by id. */
+  firstIns: ReadonlyMap<string, string>,
 ): PersonDay[] {
   const byKey = new Map(rows.map((row) => [`${row.userId}|${row.workDate}`, row]));
   return daysBetween(range.from, range.to).flatMap((day) =>
     people.map((person) => {
       const row = byKey.get(`${person.id}|${day}`) ?? null;
-      return { day, person, row, state: stateOf(person, day, row, today, firstDay) };
+      return {
+        day,
+        person,
+        row,
+        state: stateOf(person, day, row, today, firstIns.get(person.id) ?? null),
+      };
     }),
   );
 }
