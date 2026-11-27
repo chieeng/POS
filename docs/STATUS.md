@@ -55,16 +55,13 @@ Also after go-live, before step 12: **sale corrections** and the **archive of ol
 
 ## Open pull requests (Nov 23, 2026)
 
-| PR   | What                                                    | When to merge                                                                            |
-| ---- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| #127 | Design: one tag and "+N" on attendance rows             | The design session merges it first (owner tests)                                         |
-| #130 | One source for the late deduction (board, Summary, CSV) | Now, before the release (the owner, Nov 27); then the design session finishes #129 on it |
-| #129 | Design: Owner Today, one summary line and "Needs you"   | After #130 (owner tests); then the design Sell cleanup                                   |
-| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)       | After the switch (Dec 14), then check sign-in and settings forms                         |
-| #117 | Dependabot: dev-tooling group (tests and lint only)     | After the release (Dec 3)                                                                |
-| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)    | After the release (Dec 3)                                                                |
-| #116 | Dependabot: runtime group (supabase-js, router, icons)  | After the switch (Dec 14)                                                                |
-| #120 | Dependabot: Supabase CLI 3.2.0                          | HOLD until backup and deploy are tested with it                                          |
+| PR   | What                                                   | When to merge                                                    |
+| ---- | ------------------------------------------------------ | ---------------------------------------------------------------- |
+| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)      | After the switch (Dec 14), then check sign-in and settings forms |
+| #117 | Dependabot: dev-tooling group (tests and lint only)    | After the release (Dec 3)                                        |
+| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)   | After the release (Dec 3)                                        |
+| #116 | Dependabot: runtime group (supabase-js, router, icons) | After the switch (Dec 14)                                        |
+| #120 | Dependabot: Supabase CLI 3.2.0                         | HOLD until backup and deploy are tested with it                  |
 
 The Dependabot ones change the same lock file: one at a time, green before the next; the
 others may need a rebase. #99 and #101 were closed by Dependabot (replaced by #119 and #120).
@@ -98,6 +95,12 @@ Days already recorded are not recalculated by these fixes. Production has no att
 yet.
 
 ## Next, in order
+
+**Paused (the owner, Nov 27, 2026):** #127, #130 and #129 are merged and on staging. The owner's
+tests are paused while the design session does a full UI update first (mockups, then small pull
+requests). Staging keeps its test data; **no restore rehearsal yet**. The design session tells
+the owner the effect on the dates, and the owner confirms new dates; until then the dates below
+are on hold.
 
 The owner's new order of Nov 27, 2026 (the design cleanup goes in before the release); the dates in
 [GO-LIVE.md](GO-LIVE.md) were confirmed the same day:
