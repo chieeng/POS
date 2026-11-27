@@ -56,6 +56,27 @@ describe('one tag and "+N" (cleanup round 1, SRS 7.2)', () => {
     expect(dayText({ state: 'no_out', row: open }).title).toBe('8:00 AM – ?');
   });
 
+  it('shows the amount from the shared calculation, "expected" while still in', () => {
+    const flat = { lateRule: 'flat', lateFlat: 50 };
+    const inNow = day({ out_at: null, day_type: null, late_minutes: 40, rules: flat });
+    // Still in: the amount the shared calculation expects, marked so (ATT-14, Nov 25).
+    expect(dayParts({ state: 'in', row: inNow }).tags.map((tag) => tag.text)).toEqual([
+      'Late 40 min · −₱50.00 expected',
+    ]);
+    expect(dayParts({ state: 'no_out', row: inNow }).tags.map((tag) => tag.text)).toEqual([
+      'No time out',
+    ]);
+    // Per-minute deduction: priced in payroll (step 14), so only the minutes, in or out.
+    const minutes = { lateRule: 'minutes', lateFlat: 0 };
+    for (const [state, out] of [
+      ['done', '2026-11-20T18:00:00+08:00'],
+      ['in', null],
+    ] as const) {
+      const row = day({ late_minutes: 40, out_at: out, rules: minutes });
+      expect(dayParts({ state, row }).tags.map((tag) => tag.text)).toEqual(['Late 40 min']);
+    }
+  });
+
   it('calls a flagged day "Flagged" and lists why behind "+N"', () => {
     const row = day({ flags: ['location_not_read', 'sent_late'], overtime_minutes: 98 });
     const parts = dayParts({ state: 'done', row });

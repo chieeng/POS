@@ -2,7 +2,7 @@ import { useState, type PointerEvent } from 'react';
 import type { StatusTone } from '@/components/ui/status-badge';
 import { formatPeso } from '@/lib/money';
 import { DAY_TYPE_LABELS, flagText, timeText } from './clock';
-import { flatDeduction, outText, type PersonDay } from './report';
+import { lateCost, outText, type PersonDay } from './report';
 
 /**
  * One day as a row (cleanup round 1, SRS 7.2; the owner, Nov 23-24, 2026): at most ONE
@@ -35,11 +35,15 @@ export function dayParts({ state, row }: Day): DayParts {
   const worked = row?.kind === 'worked' ? row : null;
 
   if (worked && worked.lateMinutes > 0) {
-    const deduction = flatDeduction(row);
-    if (deduction > 0) {
+    // The amount comes only from lateCost, the one calculation Summary and the CSV use (the
+    // owner, Nov 25, 2026). While the person is still in it is "expected" (ATT-14); with
+    // "pay for minutes late" only the minutes show, priced in payroll (step 14).
+    const open = state === 'in';
+    const cost = lateCost(row, { open });
+    if (cost.kind === 'flat' && cost.amount > 0) {
       // Money first, and the amount is never hidden (SRS 7.2).
       keep.push({
-        text: `Late ${worked.lateMinutes} min · −${formatPeso(deduction)}`,
+        text: `Late ${worked.lateMinutes} min · −${formatPeso(cost.amount)}${open ? ' expected' : ''}`,
         tone: 'warn',
       });
     } else {

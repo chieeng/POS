@@ -473,9 +473,6 @@ function showOwner(url = '/attendance') {
   return userEvent.setup();
 }
 
-const tile = (label: string) =>
-  within(screen.getByLabelText('Today’s counts')).getByText(label).nextElementSibling;
-
 describe('the Owner’s board, history and summary (ATT-14)', () => {
   it('counts today and follows changes', async () => {
     db.attendance = [
@@ -484,24 +481,38 @@ describe('the Owner’s board, history and summary (ATT-14)', () => {
       worked('five', TODAY, '08:16', null, { late_minutes: 16, flags: ['location_not_read'] }),
     ];
     showOwner();
-    const board = within(await screen.findByRole('region', { name: 'Today’s board' }));
-    const shown = board.getAllByRole('link');
-    expect(shown).toHaveLength(2); // not the deactivated one
-    expect(shown[0]).toHaveTextContent('Test Special 5');
+    // The laptop table (the phone list holds the same rows; CSS shows one of them).
+    const table = within(await screen.findByRole('table'));
+    const rows = table.getAllByRole('row').slice(1);
+    expect(rows).toHaveLength(2); // not the deactivated one
+    expect(rows[0]).toHaveTextContent('Test Special 5');
     // One tag, then "+1" for the location flag (cleanup round 1).
-    expect(shown[0]).toHaveTextContent('Late 16 min+1');
-    expect(shown[0]).not.toHaveTextContent('Location not read');
-    expect(tile('Clocked in')).toHaveTextContent('1');
-    expect(tile('Late')).toHaveTextContent('1');
-    expect(tile('Flagged')).toHaveTextContent('1');
-    expect(tile('Not in yet')).toHaveTextContent('1');
-    expect(tile('No time out')).toHaveTextContent('1');
+    expect(rows[0]).toHaveTextContent('Late 16 min+1');
+    expect(rows[0]).not.toHaveTextContent('Location not read');
+    expect(
+      within(rows[1]!).getByRole('link', { name: 'Mark Test Two absent or rest day' }),
+    ).toHaveAttribute('href', `/attendance?tab=fix&person=two&day=${TODAY}`);
+    const counts = screen.getByRole('region', { name: 'Today’s counts' });
+    expect(counts).toHaveTextContent(/1\s*of 2 in/);
+    expect(counts).toHaveTextContent('1 late');
+    expect(counts).toHaveTextContent('1 flagged');
+    expect(counts).toHaveTextContent('1 no time out');
+    expect(counts).toHaveTextContent('Not in yet 1');
+    // What needs the Owner: the open day (Fix) and today's flag with its reason (View).
+    const needs = screen.getByRole('region', { name: 'Needs you' });
+    expect(
+      within(needs).getByRole('link', { name: 'Fix Test Two, Sat, Nov 21' }),
+    ).toBeInTheDocument();
+    expect(needs).toHaveTextContent('Location not read');
+    expect(
+      within(needs).getByRole('link', { name: 'View Test Special 5, today' }),
+    ).toBeInTheDocument();
     expect(db.watched.map((watch) => watch.filter)).toEqual([`work_date=eq.${TODAY}`]);
 
     db.attendance.push(worked('two', TODAY, '09:59', null));
     act(() => db.watched[0]!.change({ eventType: 'INSERT', new: {}, old: {} } as never));
-    await vi.waitFor(() => expect(tile('Not in yet')).toHaveTextContent('0'));
-    expect(tile('Clocked in')).toHaveTextContent('2');
+    await vi.waitFor(() => expect(counts).toHaveTextContent('Not in yet 0'));
+    expect(counts).toHaveTextContent(/2\s*of 2 in/);
   });
 
   it('Fix opens that person’s day', async () => {
@@ -518,7 +529,9 @@ describe('the Owner’s board, history and summary (ATT-14)', () => {
       worked('five', '2026-11-20', '08:00', '18:00'),
     ];
     const user = showOwner();
-    await user.click(await screen.findByRole('link', { name: /Test Two/ }));
+    await user.click(
+      within(await screen.findByRole('table')).getByRole('link', { name: 'Test Two' }),
+    );
     const days = within(await screen.findByRole('list', { name: 'Days' }));
     expect(screen.getByLabelText('Person')).toHaveValue('two');
     expect(days.getAllByRole('listitem')).toHaveLength(15);
