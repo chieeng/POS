@@ -64,6 +64,8 @@ vi.mock('@/lib/supabase', () => ({
     rpc: (fn: string, args: Json) => {
       server.calls.push({ fn, args });
       if (fn === 'attendance_today') return Promise.resolve({ data: server.today, error: null });
+      // Each person's first clock-in: a list, as the real function returns.
+      if (fn === 'attendance_first_days') return Promise.resolve({ data: [], error: null });
       if (server.error) return Promise.resolve({ data: null, error: server.error });
       return Promise.resolve({ data: {}, error: null });
     },
