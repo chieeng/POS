@@ -2,21 +2,20 @@ import {
   ChevronUp,
   CircleAlert,
   Minus,
-  Percent,
   Plus,
   Scale,
   Search,
-  ShoppingBasket,
   Tags,
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Alert, AlertAction } from '@/components/ui/alert';
+import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { FilterChip, FilterChips } from '@/components/ui/filter-chips';
+import { InfoTip } from '@/components/ui/info-tip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LoadMore } from '@/components/ui/load-more';
@@ -51,7 +50,7 @@ import {
   type SoldLine,
 } from './checkout';
 import { PaymentSheet } from './PaymentSheet';
-import { priceCart, type Pricing } from './pricing';
+import { cartSummary, priceCart, type Pricing } from './pricing';
 import { SaleSlip } from './SaleSlip';
 import { itemCount, lineWarning, sellResults, stockState, type StockState } from './sell';
 import { lineTotalCents } from './totals';
@@ -190,7 +189,7 @@ function SellScreen() {
     byId,
     rules: settings.discounts,
     pricing,
-    totalCents,
+    roundCash: settings.roundCash,
     onPay: () => startPayment(),
   };
   const startPayment = () => {
@@ -214,25 +213,30 @@ function SellScreen() {
   return (
     <div className="flex min-h-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col gap-[10px] px-[16px] pt-[2px] pb-[160px] md:px-[20px] md:pt-[16px] md:pb-[20px] xl:px-[24px] xl:pt-[22px]">
-        <DrawerBanner />
-        <div className="relative">
-          <Search
-            size={19}
-            strokeWidth={ICON_STROKE}
-            className="pointer-events-none absolute top-1/2 left-[16px] -translate-y-1/2 text-neutral-700"
-            aria-hidden
-          />
-          <Input
-            type="search"
-            aria-label="Search name or SKU"
-            placeholder="Search name or SKU"
-            autoFocus={wide}
-            autoComplete="off"
-            value={search}
-            onChange={(event) => changeSearch(event.target.value)}
-            className="min-h-[48px] rounded-full border-[1.5px] border-accent bg-surface pl-[44px] text-[15px]"
-          />
+        {/* Round 3: the title, then search (beside it on a laptop); the product list is the
+            working area, flat on the ground. */}
+        <div className="flex flex-col gap-[10px] xl:flex-row xl:items-center xl:gap-[20px]">
+          <h1 className="text-[24px] xl:flex-1 xl:text-[28px]">Sell</h1>
+          <div className="relative xl:w-[min(520px,50%)]">
+            <Search
+              size={19}
+              strokeWidth={ICON_STROKE}
+              className="pointer-events-none absolute top-1/2 left-[16px] -translate-y-1/2 text-neutral-700"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              aria-label="Search name or SKU"
+              placeholder="Search name or SKU"
+              autoFocus={wide}
+              autoComplete="off"
+              value={search}
+              onChange={(event) => changeSearch(event.target.value)}
+              className="min-h-[48px] rounded-[12px] border-transparent bg-neutral-200 pl-[44px] text-[15px]"
+            />
+          </div>
         </div>
+        <DrawerBanner />
         {chips.length > 0 && (
           <FilterChips label="Categories">
             <FilterChip selected={categoryId === null} onClick={() => changeCategory(null)}>
@@ -287,12 +291,22 @@ function SellScreen() {
       </div>
 
       {/* Tablet and laptop: the cart beside the products. */}
+      {/* Round 3: the cart is the main thing, a raised card on the right. */}
       <aside
         aria-label="Cart"
-        className="sticky top-0 hidden h-dvh w-[360px] flex-none flex-col gap-[10px] bg-neutral-100 px-[16px] pt-[16px] pb-[18px] md:flex xl:w-[400px] xl:px-[20px] xl:pt-[20px]"
+        className="sticky top-0 hidden h-dvh w-[360px] flex-none py-[14px] pr-[14px] md:flex xl:w-[420px] xl:py-[18px] xl:pr-[18px]"
       >
-        <h2 className="font-heading text-[22px]">Cart{count > 0 ? ` · ${count}` : ''}</h2>
-        <CartContents {...cartProps} />
+        <div className="flex min-h-0 flex-1 flex-col gap-[8px] rounded-[16px] bg-surface px-[16px] pt-[14px] pb-[16px] shadow-[var(--shadow-md)] xl:px-[18px]">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-body text-[18px] font-semibold">Cart</h2>
+            {count > 0 && (
+              <span className="text-[13px] text-neutral-700">
+                {count} {count === 1 ? 'item' : 'items'}
+              </span>
+            )}
+          </div>
+          <CartContents {...cartProps} />
+        </div>
       </aside>
 
       {/* Phone: a bar above the tabs that opens the cart as a sheet. */}
@@ -300,19 +314,15 @@ function SellScreen() {
         <button
           type="button"
           onClick={() => setCartOpen(true)}
-          className="fixed right-[12px] bottom-[88px] left-[12px] z-30 flex h-[60px] items-center gap-[12px] rounded-full bg-text pr-[10px] pl-[22px] text-bg shadow-[var(--shadow-lg)] md:hidden"
+          aria-label={`View cart · ${count} ${count === 1 ? 'item' : 'items'} · ${formatPeso(totalCents / 100)}`}
+          className="fixed right-[12px] bottom-[88px] left-[12px] z-30 flex h-[60px] items-center gap-[10px] rounded-[14px] bg-text px-[18px] text-bg shadow-[var(--shadow-lg)] md:hidden"
         >
-          <ShoppingBasket size={20} strokeWidth={ICON_STROKE} aria-hidden />
-          <span className="flex-1 text-left text-[15px]">
-            <b>
-              {count} {count === 1 ? 'item' : 'items'}
-            </b>{' '}
-            · {formatPeso(totalCents / 100)}
+          <span className="text-[15px] font-semibold">
+            {count} {count === 1 ? 'item' : 'items'}
           </span>
-          <span className="flex h-[44px] items-center gap-[6px] rounded-full bg-accent px-[18px] font-heading text-[16px]">
-            View cart
-            <ChevronUp size={16} strokeWidth={ICON_STROKE} aria-hidden />
-          </span>
+          <span className="flex-1" />
+          <span className="font-heading text-[20px]">{formatPeso(totalCents / 100)}</span>
+          <ChevronUp size={20} strokeWidth={ICON_STROKE} aria-hidden />
         </button>
       )}
       {!wide && (
@@ -376,7 +386,7 @@ function ProductItem({
         type="button"
         onClick={onTap}
         aria-label={`${product.name}, ${formatPeso(product.sellPrice)}${weighed ? ` per ${product.unit}` : ''}`}
-        className="relative flex min-h-[64px] w-full items-center gap-[12px] py-[8px] text-left hover:bg-text/5 md:min-h-[132px] md:flex-col md:items-stretch md:gap-[6px] md:rounded-[24px] md:bg-surface md:p-[12px] md:hover:bg-surface/70"
+        className="relative flex min-h-[64px] w-full items-center gap-[12px] py-[8px] text-left hover:bg-text/5 md:min-h-[120px] md:flex-col md:items-stretch md:gap-[6px] md:rounded-[12px] md:bg-surface md:p-[12px] md:hover:bg-surface/70"
       >
         <ProductPhoto
           productId={product.id}
@@ -393,9 +403,9 @@ function ProductItem({
             <StockNote product={product} state={state} />
           </span>
         </span>
-        <span className="text-[15px] font-bold whitespace-nowrap">
+        <span className="font-heading text-[16px] whitespace-nowrap">
           {formatPeso(product.sellPrice)}
-          {weighed && <span className="text-[12.5px] font-normal">/{product.unit}</span>}
+          {weighed && <span className="font-body text-[12.5px] font-normal">/{product.unit}</span>}
         </span>
         {inCart > 0 && (
           <span
@@ -436,17 +446,18 @@ function CartContents({
   byId,
   rules,
   pricing,
-  totalCents,
+  roundCash,
   onPay,
 }: {
   lines: CartLine[];
   byId: Map<string, Product>;
   rules: DiscountRule[];
   pricing: Pricing;
-  totalCents: number;
+  roundCash: boolean;
   onPay: () => void;
 }) {
-  const { subtotalCents, discountCents } = pricing;
+  const { subtotalCents } = pricing;
+  const summary = cartSummary(pricing, roundCash);
   // POS-03: staff apply a deal the cart offers; the app never adds one by itself.
   const applyDeal = (rule: DealRule) =>
     cart.applyDeal(
@@ -477,200 +488,230 @@ function CartContents({
 
   return (
     <>
-      <ul
-        aria-label="Cart lines"
-        className="flex min-h-0 flex-1 flex-col gap-[8px] overflow-y-auto"
-      >
-        {lines.map((line) => {
-          const product = byId.get(line.productId);
-          if (!product) return null;
-          const weighed = isSoldByMeasure(product.unit);
-          const warning = lineWarning(product, line.qty);
-          const offers = rulesFor(rules, product);
-          const discount = pricing.perLine.get(line.productId);
-          const gross = lineTotalCents(line.qty, product.sellPrice);
-          return (
-            <li
-              key={line.productId}
-              aria-label={product.name}
-              className="flex flex-col gap-[8px] rounded-[22px] bg-surface px-[14px] py-[12px] md:rounded-none md:border-b md:border-text/8 md:bg-transparent md:px-0 md:py-[10px]"
-            >
-              <div className="flex items-start gap-[10px]">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[15px] leading-[1.3] font-semibold md:text-[14px]">
-                    {product.name}
-                  </div>
-                  <div className="text-[13px] text-neutral-700 md:text-[12.5px]">
-                    {formatPeso(product.sellPrice)} {weighed ? `per ${product.unit}` : 'each'}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-[15px] font-bold md:text-[14px]">
-                    {formatPeso((gross - Math.round((discount?.amount ?? 0) * 100)) / 100)}
-                  </div>
-                  {discount && discount.amount > 0 && (
-                    <div className="text-[12.5px] font-semibold text-accent-2-700">
-                      −{formatPeso(discount.amount)} · {discount.name}
+      <div className="flex min-h-0 flex-1 flex-col gap-[10px] overflow-y-auto">
+        {/* Round 3: flat hairline rows; each keeps −/+, Discount and remove (round 1). */}
+        <ul aria-label="Cart lines" className="flex flex-col">
+          {lines.map((line) => {
+            const product = byId.get(line.productId);
+            if (!product) return null;
+            const weighed = isSoldByMeasure(product.unit);
+            const warning = lineWarning(product, line.qty);
+            const offers = rulesFor(rules, product);
+            const price = pricing.perLine.get(line.productId);
+            const inDealLine = price?.kind === 'deal';
+            return (
+              <li
+                key={line.productId}
+                aria-label={product.name}
+                className="flex flex-col gap-[6px] border-b border-divider py-[10px] last:border-b-0"
+              >
+                <div className="flex items-start gap-[10px]">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[15px] leading-[1.3] font-semibold md:text-[14.5px]">
+                      {product.name}
                     </div>
-                  )}
-                  {discount && discount.amount === 0 && (
-                    <div className="text-[12.5px] text-neutral-700">
-                      In {discount.name}, regular price
+                    <div className="text-[13px] text-neutral-700">
+                      {formatPeso(product.sellPrice)} {weighed ? `per ${product.unit}` : 'each'}
                     </div>
-                  )}
+                    {price && !inDealLine && price.amount > 0 && (
+                      <div className="text-[13px] font-semibold text-accent-2-700">
+                        {price.name} · −{formatPeso(price.amount)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="font-heading text-[15.5px] whitespace-nowrap">
+                    {formatPeso(lineTotalCents(line.qty, product.sellPrice) / 100)}
+                  </div>
                 </div>
-              </div>
-              {warning && (
-                <div
-                  className={cn(
-                    'flex items-center gap-[6px] rounded-[12px] px-[10px] py-[6px] text-[12.5px] font-semibold md:rounded-none md:bg-transparent md:p-0 md:text-[12px] md:font-bold',
-                    warning.kind === 'neg'
-                      ? 'bg-danger-bg text-danger-fg'
-                      : 'bg-warn-bg text-warn-fg',
-                  )}
-                >
-                  {warning.kind === 'neg' ? (
-                    <CircleAlert size={14} strokeWidth={ICON_STROKE} aria-hidden />
-                  ) : (
-                    <TriangleAlert size={14} strokeWidth={ICON_STROKE} aria-hidden />
-                  )}
-                  {warning.text}
-                </div>
-              )}
-              <div className="flex items-center gap-[6px]">
-                {weighed ? (
-                  <Button
-                    variant="secondary"
-                    className="min-h-[44px] bg-bg px-[14px]"
-                    onClick={() => setWeighing(product)}
-                    aria-label={`Change the amount of ${product.name}`}
+                {warning && (
+                  <div
+                    className={cn(
+                      'flex items-center gap-[6px] text-[12.5px] font-bold',
+                      warning.kind === 'neg' ? 'text-danger-fg' : 'text-warn-fg',
+                    )}
                   >
-                    <Scale size={16} strokeWidth={ICON_STROKE} aria-hidden />
-                    {qtyWithUnit(line.qty, product.unit)}
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="bg-bg"
-                      aria-label={`One less ${product.name}`}
-                      disabled={line.qty <= 1}
-                      onClick={() => cart.setQty(product.id, line.qty - 1)}
-                    >
-                      <Minus size={17} strokeWidth={ICON_STROKE} aria-hidden />
-                    </Button>
-                    <span
-                      aria-label={`Quantity of ${product.name}`}
-                      className="min-w-[36px] text-center text-[17px] font-bold"
-                    >
-                      {formatQty(line.qty)}
-                    </span>
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="bg-bg"
-                      aria-label={`One more ${product.name}`}
-                      disabled={line.qty >= MAX_QTY}
-                      onClick={() => user && cart.add(user.uid, product)}
-                    >
-                      <Plus size={17} strokeWidth={ICON_STROKE} aria-hidden />
-                    </Button>
-                  </>
+                    {warning.kind === 'neg' ? (
+                      <CircleAlert size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                    ) : (
+                      <TriangleAlert size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                    )}
+                    {warning.text}
+                  </div>
                 )}
-                <span className="flex-1" />
-                {offers.length > 0 && (
+                <div className="flex items-center gap-[6px]">
+                  {weighed ? (
+                    <Button
+                      variant="secondary"
+                      className="min-h-[44px] bg-neutral-200 px-[14px]"
+                      onClick={() => setWeighing(product)}
+                      aria-label={`Change the amount of ${product.name}`}
+                    >
+                      <Scale size={16} strokeWidth={ICON_STROKE} aria-hidden />
+                      {qtyWithUnit(line.qty, product.unit)}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="rounded-[10px] bg-neutral-200"
+                        aria-label={`One less ${product.name}`}
+                        disabled={line.qty <= 1}
+                        onClick={() => cart.setQty(product.id, line.qty - 1)}
+                      >
+                        <Minus size={17} strokeWidth={ICON_STROKE} aria-hidden />
+                      </Button>
+                      <span
+                        aria-label={`Quantity of ${product.name}`}
+                        className="min-w-[32px] text-center text-[16px] font-bold"
+                      >
+                        {formatQty(line.qty)}
+                      </span>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="rounded-[10px] bg-neutral-200"
+                        aria-label={`One more ${product.name}`}
+                        disabled={line.qty >= MAX_QTY}
+                        onClick={() => user && cart.add(user.uid, product)}
+                      >
+                        <Plus size={17} strokeWidth={ICON_STROKE} aria-hidden />
+                      </Button>
+                    </>
+                  )}
+                  <span className="flex-1" />
+                  {/* No double discount: a line in a deal takes no preset (the owner, Nov 27). */}
+                  {inDealLine ? (
+                    <span className="rounded-[6px] bg-accent-2-100 px-[8px] py-[3px] text-[12px] font-bold text-accent-2-800">
+                      In deal
+                    </span>
+                  ) : (
+                    offers.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        className="min-h-[44px] px-[8px] font-body text-[14px] font-semibold underline underline-offset-[3px]"
+                        aria-label={`Discount for ${product.name}`}
+                        onClick={() => setDiscounting(product.id)}
+                      >
+                        Discount
+                      </Button>
+                    )
+                  )}
                   <Button
                     variant="ghost"
-                    className="min-h-[44px] px-[10px] font-body text-[13.5px] font-semibold text-accent-700"
-                    aria-label={`Discount for ${product.name}`}
-                    onClick={() => setDiscounting(product.id)}
+                    size="icon"
+                    className="text-neutral-700"
+                    aria-label={`Remove ${product.name}`}
+                    onClick={() => cart.remove(product.id)}
                   >
-                    <Percent size={15} strokeWidth={ICON_STROKE} aria-hidden />
-                    Discount
+                    <Trash2 size={18} strokeWidth={ICON_STROKE} aria-hidden />
                   </Button>
-                )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+        {(pricing.applied.length > 0 || pricing.offers.length > 0) && (
+          <section aria-label="Deals" className="flex flex-col">
+            <h3 className="flex items-center gap-[6px] font-body text-[15px] font-semibold">
+              Deals
+              <InfoTip label="About deals">
+                A deal shows when the cart fits it. Tap Apply to use it; the app never adds one by
+                itself.
+              </InfoTip>
+            </h3>
+            {pricing.applied.map(({ rule, sets, saving }) => (
+              <div
+                key={rule.id}
+                className="flex items-start gap-[10px] border-b border-divider py-[8px] last:border-b-0"
+              >
+                <Tags size={17} strokeWidth={ICON_STROKE} className="mt-[2px]" aria-hidden />
+                <div className="min-w-0 flex-1 text-[13.5px] leading-[1.3]">
+                  <b className="text-[14.5px]">{rule.name}</b>
+                  <div className="text-neutral-700">
+                    {sets} {sets === 1 ? 'set' : 'sets'}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="-ml-[6px] min-h-[36px] px-[6px] font-body text-[13.5px] font-semibold underline underline-offset-[3px]"
+                    aria-label={`Remove ${rule.name}`}
+                    onClick={() => cart.removeDeal(rule.id)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <span className="font-heading text-[15.5px] whitespace-nowrap text-accent-2-700">
+                  −{formatPeso(saving)}
+                </span>
+              </div>
+            ))}
+            {pricing.offers.map(({ rule, saving }) => (
+              <div
+                key={rule.id}
+                className="flex items-center gap-[10px] border-b border-divider py-[8px] last:border-b-0"
+              >
+                <Tags size={17} strokeWidth={ICON_STROKE} aria-hidden />
+                <div className="min-w-0 flex-1 text-[13.5px] leading-[1.3]">
+                  <b className="text-[14.5px]">Deal: {rule.name}</b>
+                  <div className="text-neutral-700">
+                    {dealSummary(rule, (id) => byId.get(id)?.name)} · save {formatPeso(saving)}
+                  </div>
+                </div>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-neutral-800"
-                  aria-label={`Remove ${product.name}`}
-                  onClick={() => cart.remove(product.id)}
+                  variant="secondary"
+                  className="min-h-[44px] bg-neutral-200 px-[16px]"
+                  aria-label={`Apply ${rule.name}`}
+                  onClick={() => applyDeal(rule)}
                 >
-                  <Trash2 size={18} strokeWidth={ICON_STROKE} aria-hidden />
+                  Apply
                 </Button>
               </div>
-            </li>
-          );
-        })}
-      </ul>
-      {(pricing.applied.length > 0 || pricing.offers.length > 0) && (
-        <section aria-label="Deals" className="flex flex-col gap-[6px]">
-          {pricing.applied.map(({ rule, sets, saving }) => (
-            <div
-              key={rule.id}
-              className="flex items-center gap-[10px] rounded-[18px] bg-accent-2-100 px-[14px] py-[8px] text-accent-2-800"
-            >
-              <Tags size={16} strokeWidth={ICON_STROKE} aria-hidden />
-              <span className="min-w-0 flex-1 text-[13.5px] leading-[1.3]">
-                <b>{rule.name}</b>
-                <br />
-                {sets} {sets === 1 ? 'set' : 'sets'} · −{formatPeso(saving)}
-              </span>
-              <Button
-                variant="ghost"
-                className="min-h-[44px] px-[10px] font-body text-[13.5px] font-semibold"
-                aria-label={`Remove ${rule.name}`}
-                onClick={() => cart.removeDeal(rule.id)}
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
-          {pricing.offers.map(({ rule, saving }) => (
-            <div
-              key={rule.id}
-              className="flex items-center gap-[10px] rounded-[18px] bg-accent-100 px-[14px] py-[8px]"
-            >
-              <Tags size={16} strokeWidth={ICON_STROKE} className="text-accent-700" aria-hidden />
-              <span className="min-w-0 flex-1 text-[13.5px] leading-[1.3]">
-                <b>Deal: {rule.name}</b>
-                <br />
-                {dealSummary(rule, (id) => byId.get(id)?.name)} · save {formatPeso(saving)}
-              </span>
-              <Button
-                variant="secondary"
-                className="min-h-[44px] px-[14px]"
-                aria-label={`Apply ${rule.name}`}
-                onClick={() => applyDeal(rule)}
-              >
-                Apply
-              </Button>
-            </div>
-          ))}
-        </section>
-      )}
-      <div className="flex flex-col gap-[6px] pt-[6px]">
-        {discountCents > 0 && (
-          <>
-            <div className="flex justify-between text-[14px]">
-              <span>Subtotal</span>
-              <span className="tabular-nums">{formatPeso(subtotalCents / 100)}</span>
-            </div>
-            <div className="flex justify-between text-[14px] text-accent-2-700">
-              <span>Discount</span>
-              <span className="tabular-nums">−{formatPeso(discountCents / 100)}</span>
-            </div>
-          </>
+            ))}
+          </section>
+        )}
+      </div>
+      <div className="flex flex-col gap-[3px] border-t border-divider pt-[8px]">
+        {summary.dealsCents + summary.presetCents > 0 && (
+          <div className="flex justify-between text-[13.5px] text-neutral-700">
+            <span>Subtotal</span>
+            <span className="tabular-nums">{formatPeso(subtotalCents / 100)}</span>
+          </div>
+        )}
+        {/* Deals and preset discounts on their own lines (the owner, Nov 27). */}
+        {summary.dealsCents > 0 && (
+          <div className="flex justify-between text-[13.5px] text-accent-2-700">
+            <span>Deals</span>
+            <span className="tabular-nums">−{formatPeso(summary.dealsCents / 100)}</span>
+          </div>
+        )}
+        {summary.presetCents > 0 && (
+          <div className="flex justify-between text-[13.5px] text-accent-2-700">
+            <span>Discount</span>
+            <span className="tabular-nums">−{formatPeso(summary.presetCents / 100)}</span>
+          </div>
         )}
         <div className="flex items-baseline justify-between">
-          <span className="text-[16px] font-bold">Total</span>
-          <span className="font-heading text-[30px] md:text-[28px] xl:text-[32px]">
-            {formatPeso(totalCents / 100)}
+          <span className="text-[16px] font-semibold">Total</span>
+          <span className="font-heading text-[32px] md:text-[28px] xl:text-[32px]">
+            {formatPeso(summary.totalCents / 100)}
           </span>
         </div>
-        <Button variant="money" className="min-h-[56px] w-full text-[20px]" onClick={onPay}>
-          Pay {formatPeso(totalCents / 100)}
+        {summary.cashRoundingCents !== 0 && (
+          <div className="flex justify-between text-[13px] text-neutral-700">
+            <span>Rounding if paid in cash</span>
+            <span className="tabular-nums">
+              {summary.cashRoundingCents > 0 ? '+' : '−'}
+              {formatPeso(Math.abs(summary.cashRoundingCents) / 100)} (cash{' '}
+              {formatPeso((summary.totalCents + summary.cashRoundingCents) / 100)})
+            </span>
+          </div>
+        )}
+        <Button
+          variant="money"
+          className="mt-[6px] min-h-[56px] w-full text-[19px]"
+          onClick={onPay}
+        >
+          Pay {formatPeso(summary.totalCents / 100)}
         </Button>
       </div>
       {weighing && (
@@ -703,7 +744,8 @@ function CartContents({
 
 /**
  * POS-03: staff pick one of the Owner's presets for a line, or none. Only the presets that fit
- * this product are offered; nothing is typed.
+ * this product are offered; nothing is typed. Round 3 (pop-up set 1): flat rows, the chosen
+ * one raised, the amount off in green; the rule sits behind (i).
  */
 function DiscountPicker({
   product,
@@ -727,26 +769,41 @@ function DiscountPicker({
       aria-checked={current === id}
       onClick={() => onPick(id)}
       className={cn(
-        'flex min-h-[56px] w-full items-center gap-[12px] rounded-[20px] px-[16px] py-[10px] text-left',
-        current === id ? 'bg-accent-100 ring-[1.5px] ring-accent' : 'bg-surface hover:bg-text/5',
+        'flex min-h-[60px] w-full items-center gap-[12px] rounded-[14px] px-[14px] py-[10px] text-left',
+        current === id ? 'bg-surface shadow-[var(--shadow-md)]' : 'hover:bg-text/5',
       )}
     >
+      <span
+        aria-hidden
+        className={cn(
+          'size-[22px] flex-none rounded-full',
+          current === id ? 'border-[7px] border-text' : 'border-2 border-neutral-600',
+        )}
+      />
       <span className="min-w-0 flex-1">
-        <b className="block text-[15px]">{title}</b>
+        <b className="block text-[15.5px]">{title}</b>
         <span className="block text-[13px] text-neutral-700">{detail}</span>
       </span>
-      {off && <span className="font-bold whitespace-nowrap text-accent-2-700">{off}</span>}
+      {off && (
+        <span className="font-heading text-[17px] whitespace-nowrap text-accent-2-700">{off}</span>
+      )}
     </button>
   );
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
-        <DialogTitle>Discount for {product.name}</DialogTitle>
+        <DialogTitle className="flex items-center gap-[8px]">
+          Discount
+          <InfoTip label="About discounts">
+            Only the Owner’s discounts that fit this product are listed. Tap one to use it; it shows
+            on the line and the slip.
+          </InfoTip>
+        </DialogTitle>
         <DialogDescription>
-          {qtyWithUnit(line.qty, product.unit)} ·{' '}
-          {formatPeso(lineTotalCents(line.qty, product.sellPrice) / 100)} before any discount
+          {product.name} · {qtyWithUnit(line.qty, product.unit)} ·{' '}
+          {formatPeso(lineTotalCents(line.qty, product.sellPrice) / 100)} before discount
         </DialogDescription>
-        <div role="radiogroup" aria-label="Discounts" className="flex flex-col gap-[8px]">
+        <div role="radiogroup" aria-label="Discounts" className="flex flex-col gap-[4px]">
           {option(null, 'No discount', 'The regular price', null)}
           {rules.map((rule) =>
             option(
@@ -762,7 +819,10 @@ function DiscountPicker({
   );
 }
 
-/** A product sold by weight or volume: "How many kg?" (PROD-01, up to 3 decimals). */
+/**
+ * A product sold by weight or volume: "How many kg?" (PROD-01, up to 3 decimals). Round 3
+ * (pop-up set 1): the line total is the big number; a wrong amount keeps its red line.
+ */
 function WeighDialog({
   product,
   current,
@@ -798,10 +858,13 @@ function WeighDialog({
           {product.name} · {formatPeso(product.sellPrice)} per {unit}
         </DialogDescription>
         <form onSubmit={submit} noValidate className="flex flex-col gap-[12px]">
-          <div>
-            <Label htmlFor="weigh-qty" className="text-[13px]">
-              Amount ({unit})
-            </Label>
+          <div className="flex flex-col gap-[6px]">
+            <span className="flex items-center gap-[6px]">
+              <Label htmlFor="weigh-qty" className="text-[13px]">
+                Amount ({unit})
+              </Label>
+              <InfoTip label="About the amount">Up to 3 decimals, for example 0.5 or 1.25.</InfoTip>
+            </span>
             <Input
               id="weigh-qty"
               inputMode="decimal"
@@ -814,39 +877,51 @@ function WeighDialog({
                 setError(null);
               }}
               aria-invalid={!!error || undefined}
-              aria-describedby={error ? 'weigh-error' : 'weigh-total'}
-              className="min-h-[48px] bg-surface text-[15px]"
+              aria-describedby={error ? 'weigh-error' : ok ? 'weigh-total' : undefined}
+              className="min-h-[60px] rounded-[12px] bg-neutral-200 font-heading text-[26px]"
             />
-            {error ? (
-              <p id="weigh-error" className="mt-[5px] text-[13px] text-danger-fg">
-                {error}
-              </p>
-            ) : (
-              <p id="weigh-total" className="mt-[5px] text-[13px] text-neutral-700">
-                {ok && qty !== null
-                  ? `${qtyWithUnit(qty, unit)} = ${formatPeso(lineTotalCents(qty, product.sellPrice) / 100)}`
-                  : 'Up to 3 decimals, for example 0.5 or 1.25.'}
-              </p>
-            )}
           </div>
-          <div className="flex flex-wrap gap-[10px]">
-            <Button type="submit" className="min-h-[48px] px-[22px]">
-              {current > 0 ? 'Update cart' : 'Add to cart'}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="min-h-[48px] px-[18px]"
-              onClick={onClose}
+          {error ? (
+            <p
+              id="weigh-error"
+              className="m-0 rounded-[12px] bg-danger-bg px-[14px] py-[10px] text-[14px] font-semibold text-danger-fg"
             >
-              Cancel
-            </Button>
-          </div>
+              {error}
+            </p>
+          ) : (
+            ok &&
+            qty !== null && (
+              <div
+                id="weigh-total"
+                className="flex items-baseline justify-between rounded-[16px] bg-surface px-[16px] py-[14px] shadow-[var(--shadow-md)]"
+              >
+                <span className="font-semibold">{qtyWithUnit(qty, unit)}</span>
+                <span className="font-heading text-[30px]">
+                  {formatPeso(lineTotalCents(qty, product.sellPrice) / 100)}
+                </span>
+              </div>
+            )
+          )}
+          <Button type="submit" className="min-h-[56px] w-full text-[17px]">
+            {current > 0 ? 'Update cart' : 'Add to cart'}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            className="mx-auto min-h-[44px] px-[12px] underline underline-offset-[3px]"
+            onClick={onClose}
+          >
+            Cancel
+          </Button>
         </form>
       </DialogContent>
     </Dialog>
   );
 }
+
+/** The action at the end of a one-line strip: a text button, 44 px tall for the thumb. */
+const STRIP_LINK =
+  '-my-[10px] inline-flex min-h-[44px] items-center px-[6px] font-bold text-current underline underline-offset-[3px]';
 
 /**
  * POS-14: online with no drawer open, selling is allowed; a banner says so and opens one.
@@ -859,11 +934,16 @@ function DrawerBanner() {
   const drawer = useDrawerToday();
   const role = useSession((s) => s.user?.role);
   const canCount = role === 'owner' || role === 'special_sales';
+  // Round 3: one short line; what it means sits behind (i). The line itself always shows.
   if (!online) {
     return (
       <Alert variant="offline">
-        <b>Offline.</b> You can still sell. Sales are kept on this phone and join the drawer when
-        they’re sent.
+        <span className="inline-flex items-center gap-[8px]">
+          <b>Offline · you can still sell</b>
+          <InfoTip label="About selling offline">
+            Sales are kept on this phone and join the drawer when they’re sent.
+          </InfoTip>
+        </span>
       </Alert>
     );
   }
@@ -881,28 +961,32 @@ function DrawerBanner() {
   if (stale && canCount) {
     const day = `${shortDay(stale.businessDate)}’s`;
     return (
-      <Alert
-        variant="warn"
-        action={
-          <AlertAction asChild>
-            <Link to="/drawer/count">Count {day} drawer</Link>
-          </AlertAction>
-        }
-      >
-        <b>{day} drawer was never counted.</b> Count it, then open today’s. You can still sell.
+      <Alert variant="warn">
+        <span className="flex w-full items-center gap-[8px]">
+          <b>{day} drawer was never counted</b>
+          <InfoTip label="About the uncounted drawer">
+            Count it, then open today’s. You can still sell meanwhile.
+          </InfoTip>
+          <span className="flex-1" />
+          <Link to="/drawer/count" aria-label={`Count ${day} drawer`} className={STRIP_LINK}>
+            Count it
+          </Link>
+        </span>
       </Alert>
     );
   }
   return (
-    <Alert
-      variant="warn"
-      action={
-        <AlertAction asChild>
-          <Link to="/drawer">Open the drawer</Link>
-        </AlertAction>
-      }
-    >
-      <b>Drawer not open.</b> You can still sell.
+    <Alert variant="warn">
+      <span className="flex w-full items-center gap-[8px]">
+        <b>Drawer not open</b>
+        <InfoTip label="About the drawer">
+          You can still sell. Open today’s drawer when you can.
+        </InfoTip>
+        <span className="flex-1" />
+        <Link to="/drawer" aria-label="Open the drawer" className={STRIP_LINK}>
+          Open
+        </Link>
+      </span>
     </Alert>
   );
 }

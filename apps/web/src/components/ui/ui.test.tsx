@@ -10,6 +10,7 @@ import { Card } from './card';
 import { Checkbox, CheckboxField } from './checkbox';
 import { ConnectionPill } from './connection-pill';
 import { EmptyState } from './empty-state';
+import { InfoTip } from './info-tip';
 import { FilterChip, FilterChips } from './filter-chips';
 import { LoadMore } from './load-more';
 import { Sheet, SheetContent, SheetTitle } from './sheet';
@@ -280,5 +281,30 @@ describe('Status and empty states', () => {
     );
     expect(screen.getByRole('status')).toHaveTextContent('This will be sent to the Owner');
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+  });
+});
+
+describe('InfoTip (round 3: help behind (i))', () => {
+  it('opens on a tap, closes on a second tap, Escape or a tap outside', async () => {
+    const user = userEvent.setup();
+    render(
+      <div>
+        <InfoTip label="About deals">A deal shows when the cart fits it.</InfoTip>
+        <p>Outside</p>
+      </div>,
+    );
+    const button = screen.getByRole('button', { name: 'About deals' });
+    expect(screen.queryByRole('note')).toBeNull();
+    await user.click(button);
+    expect(screen.getByRole('note')).toHaveTextContent('A deal shows when the cart fits it.');
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    await user.click(button);
+    expect(screen.queryByRole('note')).toBeNull();
+    await user.click(button);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('note')).toBeNull();
+    await user.click(button);
+    await user.click(screen.getByText('Outside'));
+    expect(screen.queryByRole('note')).toBeNull();
   });
 });
