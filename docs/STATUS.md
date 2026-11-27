@@ -5,7 +5,7 @@ history. **Update this file in every PR that changes the state** (a step done, a
 made, a date moved). Confirm it against `git log origin/dev` and `gh pr list` before acting:
 those win when they disagree with this file.
 
-Last updated: Nov 23, 2026.
+Last updated: Nov 27, 2026.
 
 ## Who does what
 
@@ -26,7 +26,7 @@ Last updated: Nov 23, 2026.
 | Production            | https://pos-duz.pages.dev (Supabase project `pos-prod`), at v1.3.0 (steps 0-5)   |
 | Requirements          | [SRS.md](SRS.md) (WHAT the app does)                                             |
 | Go-live checklist     | [GO-LIVE.md](GO-LIVE.md)                                                         |
-| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0, release Thu Dec 3)                 |
+| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0, release Thu Dec 10, proposed)      |
 | Plan after go-live    | [PLAN-AFTER-GO-LIVE.md](PLAN-AFTER-GO-LIVE.md) (with the owner's open questions) |
 | Backups, restore      | [RESTORE.md](RESTORE.md)                                                         |
 | Polish list           | [POLISH.md](POLISH.md) (build step 15)                                           |
@@ -57,20 +57,23 @@ Also after go-live, before step 12: **sale corrections** and the **archive of ol
 
 | PR   | What                                                   | When to merge                                                    |
 | ---- | ------------------------------------------------------ | ---------------------------------------------------------------- |
-| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)      | After the switch (Dec 14), then check sign-in and settings forms |
-| #117 | Dependabot: dev-tooling group (tests and lint only)    | After the release (Dec 3)                                        |
-| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)   | After the release (Dec 3)                                        |
-| #116 | Dependabot: runtime group (supabase-js, router, icons) | After the switch (Dec 14)                                        |
+| #119 | Dependabot: @hookform/resolvers 7.0.7 (the forms)      | After the switch (Dec 21), then check sign-in and settings forms |
+| #117 | Dependabot: dev-tooling group (tests and lint only)    | After the release (Dec 10)                                       |
+| #118 | Dependabot: @testing-library/jest-dom 8 (tests only)   | After the release (Dec 10)                                       |
+| #116 | Dependabot: runtime group (supabase-js, router, icons) | After the switch (Dec 21)                                        |
 | #120 | Dependabot: Supabase CLI 3.2.0                         | HOLD until backup and deploy are tested with it                  |
 
 The Dependabot ones change the same lock file: one at a time, green before the next; the
 others may need a rebase. #99 and #101 were closed by Dependabot (replaced by #119 and #120).
 
-**Release freeze:** until the switch on Mon Dec 14 (moved Nov 27), `dev` only takes work for the v1.4.0 release; the design cleanup (#127, #129, Sell) and #130 are part of it (the owner, Nov 27)
-(fixes, docs, Dependabot on its dates). Post-go-live features wait on their own pull requests.
+**Release freeze:** until the switch (Mon Dec 21, proposed Nov 27), `dev` only takes work for
+the v1.4.0 release (fixes, docs, Dependabot on its dates). The design's Round 3 is part of it
+(the owner, Nov 27). Post-go-live features wait on their own pull requests.
 
-The design session's cleanup pull requests (#127, #129, then Sell) go in before the release, one
-at a time, each tested by the owner; #129 needs #130.
+The design session's Round 3 pull requests (every page: navigation, then Sell, cart, Pay and
+slip, then the cash drawer, attendance and the rest) go in before the release, at most 2 open at
+a time; the owner tests the Owner screens. The design session says "Round 3 done" when all are
+merged.
 
 ## Step 11: the owner's answers of Nov 23, 2026 (built in #115)
 
@@ -96,30 +99,35 @@ yet.
 
 ## Next, in order
 
-**Paused (the owner, Nov 27, 2026):** #127, #130 and #129 are merged and on staging. The owner's
-tests are paused while the design session does a full UI update first (mockups, then small pull
-requests). Staging keeps its test data; **no restore rehearsal yet**. The design session tells
-the owner the effect on the dates, and the owner confirms new dates; until then the dates below
-are on hold.
+**Round 3 approved (the owner, Nov 27, 2026):** #127, #130 and #129 are merged and on staging.
+The design's Round 3 (a full UI update of every page) is built before the release, and the dates
+move about one week. Claude proposed the dates below on Nov 27; **they wait for the owner's
+yes** ([GO-LIVE.md](GO-LIVE.md)). Staging keeps its test data; **no restore rehearsal yet**.
 
-The owner's new order of Nov 27, 2026 (the design cleanup goes in before the release); the dates in
-[GO-LIVE.md](GO-LIVE.md) were confirmed the same day:
-
-1. **Design cleanup, one at a time, each tested by the owner (Nov 27 - 30):** the design session
-   merges #127; Claude merges #130 (the freeze is lifted for it); the design session then
-   merges #129 (it needs #130), then its Sell cleanup.
-2. **Dec 1 - 2: the owner's demo to the store owner on staging**, after the design cleanup and
+1. **Round 3, Sat Nov 28 - Fri Dec 4:** the design session's small pull requests; the owner
+   tests the Owner screens; the design session says "Round 3 done".
+2. **Fri Dec 4: feature checklist.** After "Round 3 done", Claude gives the owner every SRS
+   requirement against what is built: ID, short name, priority (Must / Should / Could), status
+   (Built + tested by the owner / Built, not tested yet / Partly built / Not built / Moved to
+   after go-live, with its step), and where to test it (screen and user). Then: the Must haves
+   not fully done before go-live, the features in the app that are not in the SRS, and the open
+   questions for the store owner or the accountant.
+3. **Sat Dec 5 - Mon Dec 7:** the owner tests the checklist's "Built, not tested yet" items.
+4. **Tue Dec 8:** the owner finishes the step 11 re-test of #132 (checks 5-7; 1-4 passed
+   Nov 27) and writes "step 11 test finished".
+5. **Tue Dec 8 - Wed Dec 9: the owner's demo to the store owner on staging**, after Round 3 and
    before the release; their answers go into production setup (questions below).
-3. **Tue Dec 1:** the owner finishes the step 11 re-test of #132 (checks 5-7; 1-4 passed Nov 27) and writes "step 11 test finished".
-4. **Wed Dec 2: restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), never before step 3 ("step 11 test finished"):
-   staging keeps the test data until then.
-5. **Thu Dec 3: release** steps 7-11 and the new look ([GO-LIVE.md](GO-LIVE.md), "Release"; notes
-   in [RELEASE-NOTES.md](RELEASE-NOTES.md)). Claude opens the `dev` to `main` pull request; the
-   owner merges, tags and approves.
-6. **Dec 3 - 4: production setup** ([GO-LIVE.md](GO-LIVE.md)), with the location check at the shop.
-7. **Trial week Mon Dec 7 - Sun Dec 13**, beside the store's current method.
-8. **Switch Mon Dec 14.**
-9. After go-live: sale corrections, the archive of old sales, then steps 12 to 15.
+6. **Wed Dec 9: restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), never before step 4
+   ("step 11 test finished") and after the demo: staging keeps the test data until then.
+7. **Thu Dec 10: release** steps 7-11 and the new look ([GO-LIVE.md](GO-LIVE.md), "Release";
+   notes in [RELEASE-NOTES.md](RELEASE-NOTES.md)). Claude opens the `dev` to `main` pull
+   request; the owner merges, tags and approves.
+8. **Dec 10 - 11: production setup** ([GO-LIVE.md](GO-LIVE.md)), with the location check at the
+   shop.
+9. **Trial week Mon Dec 14 - Sun Dec 20**, beside the store's current method.
+10. **Switch Mon Dec 21** (the week before Christmas; if it slips again, after New Year).
+11. After go-live: sale corrections, the archive of old sales (by the end of January 2027), then
+    steps 12 to 15.
 
 ## Answered: Q-ATT-1 (Nov 25, 2026)
 
@@ -127,7 +135,7 @@ The owner's new order of Nov 27, 2026 (the design cleanup goes in before the rel
 first record; an Owner's mark shows on its day but never moves anyone's start (SRS ATT-14).
 Built in #132 (merged Nov 27).
 
-## Questions for the store-owner demo (Dec 1 - 2)
+## Questions for the store-owner demo (Dec 8 - 9, proposed)
 
 Their answers go into production setup ([GO-LIVE.md](GO-LIVE.md)) or the plan after go-live:
 
@@ -142,9 +150,9 @@ Their answers go into production setup ([GO-LIVE.md](GO-LIVE.md)) or the plan af
 
 ## Other open items
 
-- **Design copy before Dec 14, 2026**, when standalone Claude Design closes: the canvas boards
-  are saved locally; the old Organic project's files are 3 of 17 saved (next Payroll, Stock-in,
-  then the rest and its design system). The local copy is in the git-ignored `.design-local/`.
+- **Design copy before Dec 14, 2026**, when standalone Claude Design closes: done Nov 27 (the
+  canvas boards and all 17 old Organic files with their design system), in the git-ignored
+  `.design-local/`.
 - **Before go-live, for the owner:** Senior citizen and PWD discounts, and VAT, with the store's
   accountant (SRS 8, open questions). The store's product list (about 100 products) is entered
   by hand.
