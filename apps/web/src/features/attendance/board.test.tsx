@@ -411,7 +411,7 @@ describe('what a late day costs: one source (ATT-06)', () => {
       [day('flat', '18:00')],
       { from: '2026-11-21', to: '2026-11-21' },
       TODAY,
-      '2026-11-01',
+      new Map([['two', '2026-11-01']]),
     );
     expect(totalsFor(person(), days).flatDeductions).toBe(50);
     expect(daysCsv(days).split(/\r?\n/)[1]?.split(',')).toContain('50');
