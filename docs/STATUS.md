@@ -26,7 +26,7 @@ Last updated: Nov 23, 2026.
 | Production            | https://pos-duz.pages.dev (Supabase project `pos-prod`), at v1.3.0 (steps 0-5)   |
 | Requirements          | [SRS.md](SRS.md) (WHAT the app does)                                             |
 | Go-live checklist     | [GO-LIVE.md](GO-LIVE.md)                                                         |
-| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0, release proposed Thu Dec 3)        |
+| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0, release Thu Dec 3)                 |
 | Plan after go-live    | [PLAN-AFTER-GO-LIVE.md](PLAN-AFTER-GO-LIVE.md) (with the owner's open questions) |
 | Backups, restore      | [RESTORE.md](RESTORE.md)                                                         |
 | Polish list           | [POLISH.md](POLISH.md) (build step 15)                                           |
@@ -99,28 +99,43 @@ yet.
 
 ## Next, in order
 
-The owner's new order of Nov 27, 2026 (the design cleanup goes in before the release); dates
-proposed in [GO-LIVE.md](GO-LIVE.md):
+The owner's new order of Nov 27, 2026 (the design cleanup goes in before the release); the dates in
+[GO-LIVE.md](GO-LIVE.md) were confirmed the same day:
 
 1. **Design cleanup, one at a time, each tested by the owner (Nov 27 - 30):** the design session
    merges #127; Claude merges #130 (the freeze is lifted for it); the design session then
    merges #129 (it needs #130), then its Sell cleanup.
-2. **Tue Dec 1:** the owner finishes the step 11 re-test of #132 (checks 5-7; 1-4 passed Nov 27) and writes "step 11 test finished".
-3. **Wed Dec 2: restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), never before step 2:
+2. **Dec 1 - 2: the owner's demo to the store owner on staging**, after the design cleanup and
+   before the release; their answers go into production setup (questions below).
+3. **Tue Dec 1:** the owner finishes the step 11 re-test of #132 (checks 5-7; 1-4 passed Nov 27) and writes "step 11 test finished".
+4. **Wed Dec 2: restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), never before step 3 ("step 11 test finished"):
    staging keeps the test data until then.
-4. **Thu Dec 3: release** steps 7-11 and the new look ([GO-LIVE.md](GO-LIVE.md), "Release"; notes
+5. **Thu Dec 3: release** steps 7-11 and the new look ([GO-LIVE.md](GO-LIVE.md), "Release"; notes
    in [RELEASE-NOTES.md](RELEASE-NOTES.md)). Claude opens the `dev` to `main` pull request; the
    owner merges, tags and approves.
-5. **Dec 3 - 4: production setup** ([GO-LIVE.md](GO-LIVE.md)), with the location check at the shop.
-6. **Trial week Mon Dec 7 - Sun Dec 13**, beside the store's current method.
-7. **Switch Mon Dec 14.** Dates may move after the store-owner demo.
-8. After go-live: sale corrections, the archive of old sales, then steps 12 to 15.
+6. **Dec 3 - 4: production setup** ([GO-LIVE.md](GO-LIVE.md)), with the location check at the shop.
+7. **Trial week Mon Dec 7 - Sun Dec 13**, beside the store's current method.
+8. **Switch Mon Dec 14.**
+9. After go-live: sale corrections, the archive of old sales, then steps 12 to 15.
 
 ## Answered: Q-ATT-1 (Nov 25, 2026)
 
 "Absent · no time in" counts from each person's own first clock-in, not from the store's
 first record; an Owner's mark shows on its day but never moves anyone's start (SRS ATT-14).
-Built on the branch for the part F fixes pull request.
+Built in #132 (merged Nov 27).
+
+## Questions for the store-owner demo (Dec 1 - 2)
+
+Their answers go into production setup ([GO-LIVE.md](GO-LIVE.md)) or the plan after go-live:
+
+- Shift times and the late rule (latest time in, grace, late deduction: none, minutes or flat).
+- Who approves requests when the Owner can't be reached.
+- Payroll: P1 overtime pay (paid or not, at what rate) and P7 overtime only on a whole day
+  (recommended); daily rates; holiday pay ([PLAN-AFTER-GO-LIVE.md](PLAN-AFTER-GO-LIVE.md), step 14).
+- Items sold in two units (per piece and per pack): two products for now.
+- Utang terms U1 to U6 ([PLAN-AFTER-GO-LIVE.md](PLAN-AFTER-GO-LIVE.md), step 12).
+- With the accountant: Senior citizen and PWD discounts, VAT, and whether unofficial slips are
+  enough.
 
 ## Other open items
 

@@ -200,7 +200,7 @@ A lightweight payroll turns attendance into payslips each pay period. Government
 | ID | Requirement | Priority |
 | --- | --- | --- |
 | PAY-01 | No fixed pay schedule. When starting a run, the Owner picks the period with a date range picker (start and end date). The start date is pre-filled with the day after the last run's end; a range that overlaps a finalized run is refused. | M |
-| PAY-02 | The Owner starts a payroll run for the chosen date range. The system drafts one payslip per active staff member from attendance: full and half days, daily rate, gross pay, late penalties. | M |
+| PAY-02 | The Owner starts a payroll run for the chosen date range. The system drafts one payslip per active staff member from attendance: full and half days, daily rate, gross pay, late penalties. Late minutes on a day with no time out are not priced until the day is fixed: payroll uses closed days only, and the attendance Summary shows those minutes apart from the rest (the owner's decision P6 of Nov 27, 2026). | M |
 | PAY-03 | Before finalizing, the Owner can add per-person additions (bonus, allowance, holiday pay, other) and deductions (cash advance, shortage, other), each with an amount and a note. | M |
 | PAY-04 | Cash advances (vale): the Owner records an advance at any time, with an amount and note. It is deducted automatically in the next payroll run, in full or split across runs. | S |
 | PAY-05 | The run warns about pending attendance corrections in the period and about any payslip with negative net pay. | M |

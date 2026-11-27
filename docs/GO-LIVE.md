@@ -4,17 +4,18 @@ The steps to take the app from staging to the store, in order. No secrets, links
 projects or passwords belong in this file (the repository is public). Where the project stands
 today is in [STATUS.md](STATUS.md).
 
-## Dates (proposed Nov 27, 2026, after the owner's new order; may move after the store-owner demo)
+## Dates (confirmed by the owner on Nov 27, 2026)
 
-| When                    | What                                                                                                  |
-| ----------------------- | ----------------------------------------------------------------------------------------------------- |
-| Fri Nov 27 - Mon Nov 30 | The design cleanup, one pull request at a time, each tested by the owner: #127, #130, #129, then Sell |
-| **Tue Dec 1**           | The rest of the step 11 re-test (#132 checks 5-7), then "step 11 test finished"                       |
-| Wed Dec 2               | Restore rehearsal on staging (only after "step 11 test finished")                                     |
-| **Thu Dec 3**           | Release steps 7-11 and the new look to production                                                     |
-| Dec 3 - Dec 4           | Production setup, with the location check at the shop                                                 |
-| **Mon Dec 7**           | Trial week starts, beside the store's current method (Mon Dec 7 - Sun Dec 13)                         |
-| **Mon Dec 14**          | Switch                                                                                                |
+| When                      | What                                                                                                         |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Fri Nov 27 - Mon Nov 30   | The design cleanup, one pull request at a time, each tested by the owner: #127, #130, #129, then Sell        |
+| **Tue Dec 1 - Wed Dec 2** | **The demo to the store owner on staging**, after the design cleanup; their answers go into production setup |
+| **Tue Dec 1**             | The rest of the step 11 re-test (#132 checks 5-7), then "step 11 test finished"                              |
+| Wed Dec 2                 | Restore rehearsal on staging (only after "step 11 test finished")                                            |
+| **Thu Dec 3**             | Release steps 7-11 and the new look to production                                                            |
+| Dec 3 - Dec 4             | Production setup, with the location check at the shop                                                        |
+| **Mon Dec 7**             | Trial week starts, beside the store's current method (Mon Dec 7 - Sun Dec 13)                                |
+| **Mon Dec 14**            | Switch                                                                                                       |
 
 If something slips, each later date moves by the same number of days; the trial always runs a
 full week before the switch.
