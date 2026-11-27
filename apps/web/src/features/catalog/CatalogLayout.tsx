@@ -20,6 +20,8 @@ export function CatalogLayout() {
       ? [
           { to: '/products/categories', label: 'Categories', end: false },
           { to: '/products/suppliers', label: 'Suppliers', end: false },
+          // INV-02: Stock-in shares the "Products & stock-in" menu item, so it is reached here.
+          { to: '/stock-in', label: 'Stock-in', end: false },
         ]
       : []),
   ];

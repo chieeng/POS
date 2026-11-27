@@ -121,3 +121,32 @@ describe('the outbox on every screen (NFR-02)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent("1 sale on this device couldn't be saved");
   });
 });
+
+describe('round 3 menu (SRS 7.2)', () => {
+  it('keeps Products & stock-in open on the Stock-in pages', () => {
+    signInAs('special_sales');
+    renderAt('/stock-in/new');
+    const [sidebar, bar] = screen.getAllByRole('navigation', { name: 'Main' });
+    expect(within(sidebar!).getByRole('link', { name: 'Products & stock-in' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    // Phone: it lives in More, so More is the open tab.
+    expect(within(bar!).getByRole('button', { name: 'More' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  it('puts Products & stock-in and My requests in the staff More sheet', async () => {
+    signInAs('sales');
+    const user = renderAt('/sell');
+    await user.click(screen.getByRole('button', { name: 'More' }));
+    const sheet = within(screen.getByRole('dialog', { name: 'More' }));
+    expect(sheet.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Products',
+      'My requests',
+    ]);
+    expect(sheet.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
+  });
+});
