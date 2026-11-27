@@ -10,6 +10,7 @@ import {
   daysCsv,
   fetchDays,
   flatDeduction,
+  lateCost,
   PAGE,
   peopleIn,
   personDays,
@@ -364,6 +365,56 @@ describe('totals and CSV', () => {
       ),
     );
     expect(text).toContain('12:10 AM (next day)');
+  });
+});
+
+describe('what a late day costs: one source (ATT-06)', () => {
+  const day = (rule: 'none' | 'minutes' | 'flat', timeOut: string | null, late = 40) =>
+    toDayRow(
+      worked('two', '2026-11-21', '08:40', timeOut, {
+        late_minutes: late,
+        rules: { lateRule: rule, lateFlat: 50 },
+      }),
+    );
+
+  it('flat: the amount once the day is closed; "expected" while still in', () => {
+    expect(lateCost(day('flat', '18:00'))).toEqual({ kind: 'flat', amount: 50 });
+    expect(lateCost(day('flat', null))).toEqual({ kind: 'none' }); // counts nothing yet
+    expect(lateCost(day('flat', null), { open: true })).toEqual({ kind: 'flat', amount: 50 });
+    expect(flatDeduction(day('flat', '18:00'))).toBe(50);
+    expect(flatDeduction(day('flat', null))).toBe(0);
+  });
+
+  it('per minute: minutes for payroll to price, never pesos (no daily rates before step 14)', () => {
+    expect(lateCost(day('minutes', '18:00'))).toEqual({ kind: 'minutes', minutes: 40 });
+    expect(lateCost(day('minutes', null), { open: true })).toEqual({
+      kind: 'minutes',
+      minutes: 40,
+    });
+    expect(flatDeduction(day('minutes', '18:00'))).toBe(0);
+  });
+
+  it('nothing: no deduction setting, not late, or not a worked day', () => {
+    expect(lateCost(day('none', '18:00'))).toEqual({ kind: 'none' });
+    expect(lateCost(day('flat', '18:00', 0))).toEqual({ kind: 'none' });
+    expect(lateCost(null, { open: true })).toEqual({ kind: 'none' });
+    expect(
+      lateCost(toDayRow({ ...worked('two', '2026-11-21', '08:00', null), kind: 'absent' }), {
+        open: true,
+      }),
+    ).toEqual({ kind: 'none' });
+  });
+
+  it('Summary and the CSV use the same numbers', () => {
+    const days = personDays(
+      [person()],
+      [day('flat', '18:00')],
+      { from: '2026-11-21', to: '2026-11-21' },
+      TODAY,
+      new Map([['two', '2026-11-01']]),
+    );
+    expect(totalsFor(person(), days).flatDeductions).toBe(50);
+    expect(daysCsv(days).split(/\r?\n/)[1]?.split(',')).toContain('50');
   });
 });
 
