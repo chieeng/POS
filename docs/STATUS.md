@@ -110,7 +110,11 @@ yet**.
    tests the Owner screens; the design session says "Round 3 done". The product History pop-up
    (the owner's request of Nov 27; SRS PROD-05, INV-06) is part of it: Claude's read-only data
    pull request first (receipt numbers, damaged rows, adjustment reasons, a date filter on price
-   history), then the design session's Products pull request draws the pop-up on it.
+   history; merged in #139), then the design session's Products pull request draws the pop-up
+   on it. The drawer opening count (the owner's decisions of Nov 27; SRS SHIFT-01) is part of
+   it too: Claude's pull request makes the opening a blind count by denomination, from empty,
+   compared with the last count only after it is entered; then the design session's drawer pull
+   request builds the new look on it.
 2. **Fri Dec 4: feature checklist.** After "Round 3 done", Claude gives the owner every SRS
    requirement against what is built: ID, short name, priority (Must / Should / Could), status
    (Built + tested by the owner / Built, not tested yet / Partly built / Not built / Moved to

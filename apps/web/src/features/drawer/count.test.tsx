@@ -65,7 +65,6 @@ beforeEach(() => {
       opened_at: '2026-11-01T07:52:00+08:00',
       opening_cash: 2000,
     },
-    lastCount: null,
     staleOpen: false,
     stale: null,
   };

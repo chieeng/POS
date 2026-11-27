@@ -6,7 +6,7 @@ select * from no_plan();
 select tests.fixture();
 
 -- Yesterday's drawer, opened with ₱1,000 and never closed.
-select is(tests.run('sales', $$select public.open_drawer(1000, null, 'A1B2')$$), 'ok 1', 'a drawer opens');
+select is(tests.run('sales', $$select public.open_drawer('{"1": 1000}', null, 'A1B2')$$), 'ok 1', 'a drawer opens');
 update public.drawer_sessions set business_date = business_date - 1 where branch_id = 'tmain';
 create function pg_temp.stale() returns uuid language sql as $$
   select id from public.drawer_sessions where branch_id = 'tmain' and status = 'open'
@@ -81,16 +81,22 @@ select is(
   'this morning''s sale did not join yesterday''s drawer'
 );
 
--- ---- Today's drawer then opens from that count -----------------------------------------------
+-- ---- Today's drawer then opens, compared with that count -------------------------------------
 select is(
-  tests.run('sales', $$select public.open_drawer(1045, null, 'A1B2')$$),
+  (select jsonb_build_object('last', d #> '{lastCount,amount}', 'difference', d -> 'difference')
+   from tests.detail('sales', $$select public.open_drawer('{"1000": 1}')$$) d),
+  '{"last": 1045.00, "difference": -45.00}'::jsonb,
+  'an opening count of ₱1,000 is compared with the morning''s "counted later" count'
+);
+select is(
+  tests.run('sales', $$select public.open_drawer('{"1": 1045}', null, 'A1B2')$$),
   'ok 1',
   'today''s drawer opens with the counted ₱1,045 and needs no reason'
 );
 select is(
   (select array[s.prefill_cash::text, coalesce(s.opening_reason, '-')] from public.drawer_sessions s where s.branch_id = 'tmain' and s.business_date = private.manila_today()),
   array['1045.00', '-'],
-  'pre-filled from the morning count'
+  'compared with the morning count'
 );
 select is(
   (select count(*) from public.audit_logs where action = 'drawer.notCounted' and branch_id = 'tmain'),

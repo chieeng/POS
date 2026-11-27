@@ -48,7 +48,7 @@ end;
 $$;
 grant execute on all functions in schema pg_temp to authenticated;
 
-select is(tests.run('sales', $$select public.open_drawer(1000, null, 'A1B2')$$), 'ok 1', 'Sales opens the drawer');
+select is(tests.run('sales', $$select public.open_drawer('{"1": 1000}', null, 'A1B2')$$), 'ok 1', 'Sales opens the drawer');
 
 -- ---- Who may read it -------------------------------------------------------------------------
 select is(

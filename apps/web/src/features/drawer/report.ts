@@ -14,6 +14,12 @@ export interface DrawerRecord {
   openedByName: string;
   openedAt: Date;
   openingCash: number;
+  /**
+   * The opening count by denomination ({"1000": 2, ...}); null for a drawer opened before
+   * Nov 27, 2026, when the opening was one typed amount.
+   */
+  openingCounts: Record<string, number> | null;
+  /** The last real count the opening was compared with. */
   prefillCash: number | null;
   prefillDifference: number | null;
   openingReason: string | null;
@@ -55,6 +61,16 @@ const money = (value: unknown) => (value === null || value === undefined ? null 
 const text = (value: unknown) => (typeof value === 'string' && value !== '' ? value : null);
 const when = (value: unknown) => (value ? new Date(String(value)) : null);
 
+const toCounts = (value: unknown): Record<string, number> | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? Object.fromEntries(
+        Object.entries(value as Record<string, unknown>).map(([bill, count]) => [
+          bill,
+          Number(count ?? 0),
+        ]),
+      )
+    : null;
+
 const toRecord = (row: Row): DrawerRecord => ({
   id: String(row.id),
   businessDate: String(row.business_date),
@@ -62,6 +78,7 @@ const toRecord = (row: Row): DrawerRecord => ({
   openedByName: String(row.opened_by_name ?? ''),
   openedAt: new Date(String(row.opened_at)),
   openingCash: Number(row.opening_cash ?? 0),
+  openingCounts: toCounts(row.opening_counts),
   prefillCash: money(row.prefill_cash),
   prefillDifference: money(row.prefill_difference),
   openingReason: text(row.opening_reason),
@@ -84,7 +101,7 @@ const toEntry = (row: Row): DrawerEntryRecord => ({
 });
 
 const SESSION_COLUMNS =
-  'id, business_date, status, opened_by_name, opened_at, opening_cash, prefill_cash, prefill_difference, opening_reason, closed_by_name, closed_at, counted_cash, expected_cash, over_short, closing_note';
+  'id, business_date, status, opened_by_name, opened_at, opening_cash, opening_counts, prefill_cash, prefill_difference, opening_reason, closed_by_name, closed_at, counted_cash, expected_cash, over_short, closing_note';
 
 /** The drawer of one business day ("YYYY-MM-DD"), live. */
 export function useDrawerDay(day: string) {
@@ -417,6 +434,18 @@ export function earlierCount(record: DrawerRecord, events: DrawerEvent[]): strin
 
 const noteOf = (...parts: (string | null)[]) => parts.filter(Boolean).join(' · ');
 
+/**
+ * A count by denomination as words, largest bill first, leaving out what wasn't there:
+ * "₱1,000 × 2, ₱100 × 1, ₱20 × 2", or "nothing" for an empty drawer.
+ */
+export function countsText(counts: Readonly<Record<string, number>>): string {
+  const parts = Object.entries(counts)
+    .filter(([, count]) => count > 0)
+    .sort(([a], [b]) => Number(b) - Number(a))
+    .map(([bill, count]) => `₱${Number(bill).toLocaleString('en-PH')} × ${count}`);
+  return parts.length > 0 ? parts.join(', ') : 'nothing';
+}
+
 const METHOD_NAMES = { cash: 'cash', gcash: 'GCash', maya: 'Maya' } as const;
 
 /** "Chips Classic × 2 damaged, Rice × 1.25 kg back to stock". */
@@ -501,7 +530,10 @@ export function movements(
       at: record.openedAt,
       kind: 'opened',
       type: 'Opened',
-      note: record.openingReason ?? '',
+      note: noteOf(
+        record.openingCounts ? `Counted ${countsText(record.openingCounts)}` : null,
+        record.openingReason,
+      ),
       by: record.openedByName,
       amount: record.openingCash,
     },

@@ -13,6 +13,8 @@ const server = vi.hoisted(() => ({
   expected: 2000 as number | null,
   failWith: null as string | null,
   offline: false,
+  /** The last real count, as open_drawer compares with it (never sent before the count). */
+  lastCount: null as Json | null,
   calls: [] as { fn: string; args: Json | undefined }[],
 }));
 
@@ -33,6 +35,21 @@ vi.mock('@/lib/supabase', () => ({
       }
       if (server.failWith) {
         return Promise.resolve({ data: null, error: { message: server.failWith } });
+      }
+      if (fn === 'open_drawer' && server.lastCount && !args?.p_reason) {
+        const counted = Object.entries(args?.p_counts as Record<string, number>).reduce(
+          (sum, [bill, count]) => sum + Number(bill) * count,
+          0,
+        );
+        const last = Number(server.lastCount.amount);
+        if (counted !== last) {
+          const details = JSON.stringify({
+            counted,
+            lastCount: server.lastCount,
+            difference: counted - last,
+          });
+          return Promise.resolve({ data: null, error: { message: 'reason_required', details } });
+        }
       }
       return Promise.resolve({ data: 'new-id', error: null });
     },
@@ -78,7 +95,8 @@ beforeEach(() => {
   server.expected = 2000;
   server.failWith = null;
   server.offline = false;
-  server.today = { today: '2026-11-01', session: null, lastCount: null, staleOpen: false };
+  server.lastCount = null;
+  server.today = { today: '2026-11-01', session: null, staleOpen: false };
   signInAs('sales');
 });
 
@@ -91,97 +109,129 @@ describe('opening the drawer (SHIFT-01)', () => {
     expect(screen.queryByText(/Open today/)).toBeNull();
   });
 
-  it('opens with the cash entered when there is no earlier count', async () => {
+  it('starts empty and opens with the count by denomination when there is no earlier count', async () => {
     const user = renderPage();
     expect(await screen.findByText('Sunday, Nov 1, 2026')).toBeInTheDocument();
-    await user.type(screen.getByLabelText('Opening cash'), '2,000');
+    expect(screen.getByLabelText('Opening cash')).toHaveTextContent('₱0.00');
+    await user.type(screen.getByRole('spinbutton', { name: 'Number of ₱1,000' }), '2');
+    expect(screen.getByLabelText('Opening cash')).toHaveTextContent('₱2,000.00');
     await user.click(screen.getByRole('button', { name: 'Open drawer' }));
     expect(called('open_drawer')[0]?.args).toEqual({
-      p_opening_cash: 2000,
+      p_counts: {
+        '1000': 2,
+        '500': 0,
+        '200': 0,
+        '100': 0,
+        '50': 0,
+        '20': 0,
+        '10': 0,
+        '5': 0,
+        '1': 0,
+      },
       p_reason: null,
       p_device_tag: 'A1B2',
     });
     expect(await screen.findByRole('status')).toHaveTextContent('Today’s drawer is open.');
   });
 
-  it('says when the last count was taken before the drawer was reopened', async () => {
-    server.today.lastCount = {
+  it('is blind: nothing about the last count shows before the count, the Owner included', async () => {
+    signInAs('owner');
+    server.lastCount = {
+      amount: 2000,
+      counted_by_name: 'Maricel',
+      closed_at: '2026-10-31T20:14:00+08:00',
+      business_date: '2026-10-31',
+      before_reopen: false,
+    };
+    renderPage();
+    expect(await screen.findByLabelText('Opening cash')).toHaveTextContent('₱0.00');
+    expect(screen.queryByText(/Maricel|2,000|closing count/)).toBeNull();
+  });
+
+  it('after the count, a difference from yesterday’s count shows and needs a reason', async () => {
+    server.lastCount = {
+      amount: 2000,
+      counted_by_name: 'Maricel',
+      closed_at: '2026-10-31T20:14:00+08:00',
+      business_date: '2026-10-31',
+      before_reopen: false,
+    };
+    const user = renderPage();
+    await user.type(await screen.findByRole('spinbutton', { name: 'Number of ₱1,000' }), '1');
+    await user.type(screen.getByRole('spinbutton', { name: 'Number of ₱500' }), '1');
+    await user.type(screen.getByRole('spinbutton', { name: 'Number of ₱100' }), '3');
+    await user.click(screen.getByRole('button', { name: 'Open drawer' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '₱200.00 less than yesterday’s closing count (₱2,000.00, Maricel, 8:14 PM). Count again, or say why. The Owner will see this on the drawer report.',
+    );
+    await user.click(screen.getByRole('button', { name: 'Open drawer' }));
+    expect(screen.getByText('Say why the count differs from the last count.')).toBeInTheDocument();
+    expect(called('open_drawer')).toHaveLength(1);
+
+    await user.type(screen.getByLabelText(/Reason/), 'Ice delivery before opening');
+    await user.click(screen.getByRole('button', { name: 'Open drawer' }));
+    expect(called('open_drawer')[1]?.args).toMatchObject({
+      p_counts: { '1000': 1, '500': 1, '100': 3 },
+      p_reason: 'Ice delivery before opening',
+    });
+    expect(await screen.findByRole('status')).toHaveTextContent('Today’s drawer is open.');
+  });
+
+  it('a new count after the difference is checked again, without the old warning', async () => {
+    server.lastCount = {
+      amount: 2000,
+      counted_by_name: 'Maricel',
+      closed_at: '2026-10-31T20:14:00+08:00',
+      business_date: '2026-10-31',
+      before_reopen: false,
+    };
+    const user = renderPage();
+    const thousands = await screen.findByRole('spinbutton', { name: 'Number of ₱1,000' });
+    await user.type(thousands, '1');
+    await user.click(screen.getByRole('button', { name: 'Open drawer' }));
+    expect(await screen.findByText(/₱1,000.00 less than/)).toBeInTheDocument();
+    await user.clear(thousands);
+    await user.type(thousands, '2');
+    expect(screen.queryByText(/less than/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Open drawer' }));
+    expect(called('open_drawer')[1]?.args).toMatchObject({ p_reason: null });
+    expect(await screen.findByRole('status')).toHaveTextContent('Today’s drawer is open.');
+  });
+
+  it('says when it was compared with the count taken before a reopen', async () => {
+    server.lastCount = {
       amount: 1140,
       counted_by_name: 'Test Special 5',
       closed_at: '2026-10-31T19:33:00+08:00',
       business_date: '2026-10-31',
       before_reopen: true,
     };
-    renderPage();
-    expect(await screen.findByLabelText('Opening cash')).toHaveValue('1140.00');
-    expect(
-      screen.getByText(
-        'Last count: ₱1,140.00 (Test Special 5, Oct 31 7:33 PM, before the drawer was reopened)',
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it('pre-fills yesterday’s count, and a different amount needs a reason', async () => {
-    server.today.lastCount = {
-      amount: 2000,
-      counted_by_name: 'Maricel',
-      closed_at: '2026-10-31T20:14:00+08:00',
-      business_date: '2026-10-31',
-    };
     const user = renderPage();
-    const input = await screen.findByLabelText('Opening cash');
-    expect(input).toHaveValue('2000.00');
-    expect(
-      screen.getByText('Yesterday’s closing count: ₱2,000.00 (Maricel, 8:14 PM)'),
-    ).toBeInTheDocument();
-
-    await user.clear(input);
-    await user.type(input, '1800');
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      '₱200.00 less than yesterday’s count. The Owner will see this on the drawer report.',
-    );
+    await user.type(await screen.findByRole('spinbutton', { name: 'Number of ₱1,000' }), '1');
     await user.click(screen.getByRole('button', { name: 'Open drawer' }));
-    expect(screen.getByText('Say why the amount differs from the last count.')).toBeInTheDocument();
-    expect(called('open_drawer')).toHaveLength(0);
-
-    await user.type(screen.getByLabelText(/Reason/), 'Ice delivery before opening');
-    await user.click(screen.getByRole('button', { name: 'Open drawer' }));
-    expect(called('open_drawer')[0]?.args).toMatchObject({
-      p_opening_cash: 1800,
-      p_reason: 'Ice delivery before opening',
-    });
-  });
-
-  it('a count made the next day says when (review of Nov 19)', async () => {
-    server.today.lastCount = {
-      amount: 1648,
-      counted_by_name: 'Test Special 5',
-      closed_at: '2026-11-01T12:05:00+08:00',
-      business_date: '2026-10-31',
-    };
-    renderPage();
     expect(
       await screen.findByText(
-        'Oct 31’s closing count: ₱1,648.00 (counted today 12:05 PM by Test Special 5)',
+        '₱140.00 less than the count taken before the drawer was reopened (₱1,140.00, Test Special 5, Oct 31 7:33 PM).',
       ),
     ).toBeInTheDocument();
   });
 
-  it('puts the amount back to the last count', async () => {
-    server.today.lastCount = {
-      amount: 2000,
-      counted_by_name: 'Maricel',
-      closed_at: '2026-10-29T20:14:00+08:00',
-      business_date: '2026-10-29',
+  it('says when it was compared with a drawer counted later (overnight count)', async () => {
+    server.lastCount = {
+      amount: 1648,
+      counted_by_name: 'Test Special 5',
+      closed_at: '2026-11-01T07:05:00+08:00',
+      business_date: '2026-10-31',
+      before_reopen: false,
     };
     const user = renderPage();
-    const input = await screen.findByLabelText('Opening cash');
-    expect(screen.getByText(/Last \(Oct 29\) closing count/)).toBeInTheDocument();
-    await user.clear(input);
-    await user.type(input, '2500');
-    await user.click(screen.getByRole('button', { name: 'Reset to ₱2,000.00' }));
-    expect(input).toHaveValue('2000.00');
-    expect(screen.queryByRole('alert')).toBeNull();
+    await user.type(await screen.findByRole('spinbutton', { name: 'Number of ₱1,000' }), '1');
+    await user.click(screen.getByRole('button', { name: 'Open drawer' }));
+    expect(
+      await screen.findByText(
+        '₱648.00 less than Oct 31’s count (₱1,648.00, counted later, today 7:05 AM, by Test Special 5).',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('says an earlier drawer was never counted', async () => {
@@ -193,7 +243,7 @@ describe('opening the drawer (SHIFT-01)', () => {
   it('explains when someone else opened it first', async () => {
     server.failWith = 'already_open';
     const user = renderPage();
-    await user.type(await screen.findByLabelText('Opening cash'), '2000');
+    await user.type(await screen.findByRole('spinbutton', { name: 'Number of ₱1,000' }), '2');
     await user.click(screen.getByRole('button', { name: 'Open drawer' }));
     expect(await screen.findByText('Someone already opened today’s drawer.')).toBeInTheDocument();
   });

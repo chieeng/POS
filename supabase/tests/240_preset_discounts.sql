@@ -287,7 +287,7 @@ select is(
 );
 
 -- ---- The drawer report counts them -----------------------------------------------------------
-select is(tests.run('sales', $$select public.open_drawer(1000, null, 'A1B2')$$), 'ok 1', 'a drawer opens');
+select is(tests.run('sales', $$select public.open_drawer('{"1": 1000}', null, 'A1B2')$$), 'ok 1', 'a drawer opens');
 select is(
   pg_temp.sale(20, 'a1', 3, 45, pg_temp.disc('Grains ₱10/kg'), 30, 105, 105),
   'ok',

@@ -198,6 +198,26 @@ begin
 end;
 $$;
 
+-- The DETAIL of the error a statement fails with, as JSON (null when it succeeds).
+create function tests.detail(p_caller text, p_statement text)
+returns jsonb
+language plpgsql
+as $$
+declare
+  v_detail text;
+begin
+  begin
+    perform tests.as(p_caller);
+    execute p_statement;
+  exception
+    when others then
+      get stacked diagnostics v_detail = pg_exception_detail;
+  end;
+  perform tests.as_admin();
+  return nullif(v_detail, '')::jsonb;
+end;
+$$;
+
 -- Like tests.run, but returns the error message, for functions that report by message.
 create function tests.message(p_caller text, p_statement text)
 returns text

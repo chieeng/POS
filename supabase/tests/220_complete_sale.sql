@@ -310,7 +310,7 @@ select is(
   12::bigint,
   'every sale so far waits for a drawer'
 );
-select is(tests.run('sales', $$select public.open_drawer(1000, null, 'A1B2')$$), 'ok 1', 'Sales opens the drawer with ₱1,000');
+select is(tests.run('sales', $$select public.open_drawer('{"1": 1000}', null, 'A1B2')$$), 'ok 1', 'Sales opens the drawer with ₱1,000');
 select is(
   (select count(*) from public.sales where session_id is null),
   0::bigint,
