@@ -1,4 +1,4 @@
-import { Clock, LogIn, LogOut, MapPin } from 'lucide-react';
+import { ChevronDown, Clock, Info, LogIn, LogOut, MapPin } from 'lucide-react';
 import { useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -108,12 +108,41 @@ const refusedWhen = (at: Date) =>
     timeZone: 'Asia/Manila',
   });
 
-/** The day's rules in plain words, from the Owner's settings. */
+/**
+ * The day's rules in plain words, from the Owner's settings, behind "How days count" (cleanup
+ * round 1: standing rules are one tap away, not on the screen every day).
+ */
 function Rules({ state }: { state: ClockState }) {
+  const [open, setOpen] = useState(false);
   const rules = state.rules;
   if (!rules) return null;
   return (
+    <div className="flex flex-col gap-[6px]">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls="day-rules"
+        onClick={() => setOpen((was) => !was)}
+        className="flex min-h-[44px] cursor-pointer items-center gap-[6px] self-start bg-transparent p-0 text-[14px] font-bold text-text"
+      >
+        <Info size={18} strokeWidth={ICON_STROKE} aria-hidden />
+        How days count
+        <ChevronDown
+          size={16}
+          strokeWidth={ICON_STROKE}
+          aria-hidden
+          className={cn('transition-transform', open && 'rotate-180')}
+        />
+      </button>
+      {open && <RulesText rules={rules} />}
+    </div>
+  );
+}
+
+function RulesText({ rules }: { rules: NonNullable<ClockState['rules']> }) {
+  return (
     <section
+      id="day-rules"
       aria-label="Today’s times"
       className="flex flex-col gap-[4px] rounded-[12px] bg-surface px-[16px] py-[12px] text-[14px]"
     >
@@ -194,7 +223,6 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
 
   return (
     <div className="flex flex-col gap-[14px]">
-      {!compact && <Rules state={state} />}
       {!state.storeLocationSet && (
         <Alert variant="info">
           The store’s location isn’t set yet, so where you clock in isn’t checked.
@@ -213,7 +241,7 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
             </span>
             {record?.inAt ? (
               record.lateMinutes > 0 ? (
-                <StatusBadge tone="warn">Late by {record.lateMinutes} min</StatusBadge>
+                <StatusBadge tone="warn">Late {record.lateMinutes} min</StatusBadge>
               ) : (
                 <StatusBadge tone="ok">On time</StatusBadge>
               )
@@ -317,6 +345,7 @@ export function ClockPanel({ state, compact = false }: { state: ClockState; comp
           </DialogActions>
         </DialogContent>
       </Dialog>
+      {!compact && <Rules state={state} />}
     </div>
   );
 }

@@ -1,9 +1,18 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { LoadMore } from '@/components/ui/load-more';
-import { manilaDay, timeText, type ClockState } from './clock';
-import { DayBadges } from './DayBadges';
-import { addDays, dayName, daysBetween, outText, stateOf, useDays } from './report';
+import { manilaDay, type ClockState } from './clock';
+import { DayMore, DayTags } from './DayBadges';
+import { dayParts, dayText, useMore } from './dayRow';
+import {
+  addDays,
+  dayName,
+  daysBetween,
+  stateOf,
+  useDays,
+  weekdayOf,
+  type DayRow,
+  type DayState,
+} from './report';
 
 const WEEK = 7;
 const MONTH = 30;
@@ -68,36 +77,93 @@ export function RecentDays({
             person ? person.firstIn : today,
           );
           return (
-            <li key={day} className="flex flex-col gap-[5px] border-b border-divider py-[10px]">
-              <span className="flex flex-wrap items-baseline justify-between gap-x-[10px] text-[14px]">
-                <span className="font-bold">{dayName(day)}</span>
-                {row?.inAt && (
-                  <span className="text-[13px] text-neutral-700 tabular-nums">
-                    In {timeText(row.inAt)}
-                    {row.outAt ? ` · Out ${outText(row)}` : ''}
-                  </span>
-                )}
-              </span>
-              <DayBadges state={state} row={row} />
-              {onAskFix && ((state === 'absent' && !row) || state === 'no_out') && (
-                <Button
-                  variant="quiet"
-                  size="touch"
-                  className="self-start"
-                  aria-label={`Ask to fix ${dayName(day)}`}
-                  onClick={() => onAskFix(day)}
-                >
-                  Ask to fix
-                </Button>
-              )}
-              {row?.note && (
-                <span className="text-[13px] break-words text-neutral-700">Reason: {row.note}</span>
-              )}
-            </li>
+            <DayLine
+              key={day}
+              day={day}
+              state={state}
+              row={row}
+              onAskFix={
+                onAskFix && ((state === 'absent' && !row) || state === 'no_out')
+                  ? () => onAskFix(day)
+                  : undefined
+              }
+            />
           );
         })}
       </ul>
       <LoadMore shown={shown} total={days.length} onLoadMore={() => setShown(MONTH)} />
     </section>
+  );
+}
+
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** One day (the "Last 7 days" board): the date, the times big, one tag and "+N". */
+function DayLine({
+  day,
+  state,
+  row,
+  onAskFix,
+}: {
+  day: string;
+  state: DayState;
+  row: DayRow | null;
+  onAskFix?: () => void;
+}) {
+  const parts = dayParts({ state, row });
+  const text = dayText({ state, row });
+  const more = useMore();
+  const quiet = state === 'rest' || state === 'none';
+  return (
+    <li className="flex flex-col border-b border-divider" {...more.rowProps}>
+      <div className="grid min-h-[58px] grid-cols-[40px_minmax(0,1fr)] items-center gap-[12px] py-[8px]">
+        <span className="flex flex-col items-center leading-[1.1]" aria-hidden>
+          <span className="text-[12.5px] font-semibold text-neutral-700">
+            {WEEKDAY[weekdayOf(day)]}
+          </span>
+          <span className="text-[18px] font-bold tabular-nums">{Number(day.slice(8))}</span>
+        </span>
+        {/* The tag sits at the right, and drops under the times when the phone is narrow. */}
+        <span className="flex min-w-0 flex-wrap items-center gap-x-[12px] gap-y-[6px]">
+          <span className="flex min-w-0 flex-col gap-[2px]">
+            <span className="sr-only">{dayName(day)}: </span>
+            <span
+              className={
+                quiet
+                  ? 'text-[15px] font-bold text-neutral-700'
+                  : 'text-[15px] font-bold whitespace-nowrap tabular-nums'
+              }
+            >
+              {text.title}
+            </span>
+            {(text.sub || onAskFix) && (
+              <span className="flex flex-wrap items-center gap-x-[10px] text-[13px] text-neutral-700">
+                {text.sub}
+                {onAskFix && (
+                  <button
+                    type="button"
+                    onClick={onAskFix}
+                    aria-label={`Ask to fix ${dayName(day)}`}
+                    className="mt-[4px] inline-flex min-h-[40px] cursor-pointer items-center rounded-[10px] border border-divider bg-surface px-[12px] text-[13.5px] font-bold text-danger-fg hover:bg-text/4"
+                  >
+                    Ask to fix ›
+                  </button>
+                )}
+              </span>
+            )}
+          </span>
+          <DayTags
+            parts={parts}
+            open={more.open}
+            onToggle={more.toggle}
+            label={dayName(day)}
+            className="ml-auto justify-end"
+          />
+        </span>
+      </div>
+      {more.open && parts.more.length > 0 && (
+        <DayMore parts={parts} className="mb-[8px] ml-[52px]" />
+      )}
+    </li>
   );
 }

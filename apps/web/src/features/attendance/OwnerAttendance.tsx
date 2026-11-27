@@ -13,7 +13,8 @@ import { formatPeso } from '@/lib/money';
 import { cn, ICON_STROKE } from '@/lib/utils';
 import { useSession } from '@/stores/session';
 import { manilaDay, timeText } from './clock';
-import { DayBadges } from './DayBadges';
+import { DayMore, DayTags } from './DayBadges';
+import { dayParts, dayText, useMore } from './dayRow';
 import { OwnerFixPanel } from './FixForms';
 import { useStaff } from './fixes';
 import {
@@ -24,6 +25,7 @@ import {
   outText,
   peopleIn,
   personDays,
+  stateLabel,
   summaryCsv,
   toReview,
   totalsFor,
@@ -202,7 +204,7 @@ function BoardOf({ today, staff, firstIns }: ViewProps & { today: string }) {
                     </span>
                     <Times row={row} />
                   </span>
-                  <DayBadges state={state} row={row} />
+                  <DayKind state={state} row={row} />
                 </Link>
               </li>
             ))}
@@ -260,6 +262,44 @@ function Times({ row }: { row: DayRow | null }) {
       In {timeText(row.inAt)}
       {row.outAt ? ` · Out ${outText(row)}` : ''}
     </span>
+  );
+}
+
+/** What the day is in words (not a tag), then its tags; "+N" opens on the day's history. */
+function DayKind({
+  state,
+  row,
+  more,
+  label,
+}: Pick<PersonDay, 'state' | 'row'> & { more?: ReturnType<typeof useMore>; label?: string }) {
+  const parts = dayParts({ state, row });
+  // The red tag already says "No time out" or "Absent"; the kind of absent stays in words.
+  const kind =
+    state === 'no_out'
+      ? null
+      : state === 'absent'
+        ? dayText({ state, row }).sub
+        : stateLabel({ state, row });
+  return (
+    <span className="flex min-w-0 flex-wrap items-center gap-x-[10px] gap-y-[6px]">
+      {kind && <span className="text-[13px] text-neutral-700">{kind}</span>}
+      <DayTags parts={parts} open={more?.open} onToggle={more?.toggle} label={label} />
+    </span>
+  );
+}
+
+function HistoryDay({ day, row, state }: Pick<PersonDay, 'day' | 'state' | 'row'>) {
+  const more = useMore();
+  const parts = dayParts({ state, row });
+  return (
+    <li className="flex flex-col gap-[5px] border-b border-divider py-[10px]" {...more.rowProps}>
+      <span className="flex flex-wrap items-baseline justify-between gap-x-[10px]">
+        <span className="text-[15px] font-bold">{dayName(day)}</span>
+        <Times row={row} />
+      </span>
+      <DayKind state={state} row={row} more={more} label={dayName(day)} />
+      {more.open && parts.more.length > 0 && <DayMore parts={parts} />}
+    </li>
   );
 }
 
@@ -398,16 +438,7 @@ function History({ staff, firstIns, today, from, to, person }: RangeProps & { pe
       />
       <ul aria-label="Days" className="m-0 flex list-none flex-col p-0">
         {newest.slice(0, shown).map(({ day, row, state }) => (
-          <li key={day} className="flex flex-col gap-[5px] border-b border-divider py-[10px]">
-            <span className="flex flex-wrap items-baseline justify-between gap-x-[10px]">
-              <span className="text-[15px] font-bold">{dayName(day)}</span>
-              <Times row={row} />
-            </span>
-            <DayBadges state={state} row={row} />
-            {row?.note && (
-              <span className="text-[13px] break-words text-neutral-700">Reason: {row.note}</span>
-            )}
-          </li>
+          <HistoryDay key={day} day={day} row={row} state={state} />
         ))}
       </ul>
       <LoadMore
