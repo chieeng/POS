@@ -706,7 +706,11 @@ function CartContents({
             </span>
           </div>
         )}
-        <Button variant="money" className="mt-[6px] min-h-[56px] w-full text-[19px]" onClick={onPay}>
+        <Button
+          variant="money"
+          className="mt-[6px] min-h-[56px] w-full text-[19px]"
+          onClick={onPay}
+        >
           Pay {formatPeso(summary.totalCents / 100)}
         </Button>
       </div>
@@ -791,8 +795,8 @@ function DiscountPicker({
         <DialogTitle className="flex items-center gap-[8px]">
           Discount
           <InfoTip label="About discounts">
-            Only the Owner’s discounts that fit this product are listed. Tap one to use it; it
-            shows on the line and the slip.
+            Only the Owner’s discounts that fit this product are listed. Tap one to use it; it shows
+            on the line and the slip.
           </InfoTip>
         </DialogTitle>
         <DialogDescription>

@@ -94,7 +94,10 @@ export function SaleSlip({ slip, onNewSale }: { slip: Slip; onNewSale: () => voi
             aria-hidden
           />
         </button>
-        <Button className="order-last min-h-[56px] w-full text-[18px] md:order-none" onClick={onNewSale}>
+        <Button
+          className="order-last min-h-[56px] w-full text-[18px] md:order-none"
+          onClick={onNewSale}
+        >
           New sale
         </Button>
       </div>

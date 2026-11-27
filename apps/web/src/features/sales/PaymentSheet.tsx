@@ -280,11 +280,7 @@ export function PaymentSheet({
                   : 'text-neutral-700 hover:text-text',
               )}
             >
-              <Icon
-                size={17}
-                strokeWidth={ICON_STROKE}
-                aria-hidden
-              />
+              <Icon size={17} strokeWidth={ICON_STROKE} aria-hidden />
               {label}
             </button>
           ))}

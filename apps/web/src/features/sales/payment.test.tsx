@@ -416,7 +416,9 @@ describe('preset discounts (POS-03)', () => {
     const cart = await chipsInCart();
     await user.click(cart.getByRole('button', { name: 'Discount for Chips Classic' }));
     const picker = within(screen.getByRole('dialog'));
-    expect(picker.getByText('Chips Classic · 3 pack · ₱135.00 before discount')).toBeInTheDocument();
+    expect(
+      picker.getByText('Chips Classic · 3 pack · ₱135.00 before discount'),
+    ).toBeInTheDocument();
     // Only the presets that fit chips: not the rice one.
     expect(picker.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
       'No discountThe regular price',
