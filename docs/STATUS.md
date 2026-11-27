@@ -26,7 +26,8 @@ Last updated: Nov 27, 2026.
 | Production            | https://pos-duz.pages.dev (Supabase project `pos-prod`), at v1.3.0 (steps 0-5)   |
 | Requirements          | [SRS.md](SRS.md) (WHAT the app does)                                             |
 | Go-live checklist     | [GO-LIVE.md](GO-LIVE.md)                                                         |
-| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0, release Thu Dec 10, proposed)      |
+| Release notes         | [RELEASE-NOTES.md](RELEASE-NOTES.md) (v1.4.0, release Thu Dec 10)                |
+| Demo checklist        | [DEMO-CHECKLIST.md](DEMO-CHECKLIST.md) (the store owner, Sat Dec 5 - Sun Dec 6)  |
 | Plan after go-live    | [PLAN-AFTER-GO-LIVE.md](PLAN-AFTER-GO-LIVE.md) (with the owner's open questions) |
 | Backups, restore      | [RESTORE.md](RESTORE.md)                                                         |
 | Polish list           | [POLISH.md](POLISH.md) (build step 15)                                           |
@@ -66,7 +67,7 @@ Also after go-live, before step 12: **sale corrections** and the **archive of ol
 The Dependabot ones change the same lock file: one at a time, green before the next; the
 others may need a rebase. #99 and #101 were closed by Dependabot (replaced by #119 and #120).
 
-**Release freeze:** until the switch (Mon Dec 21, proposed Nov 27), `dev` only takes work for
+**Release freeze:** until the switch (Mon Dec 21, or Mon Jan 4, 2027, decided at the demo), `dev` only takes work for
 the v1.4.0 release (fixes, docs, Dependabot on its dates). The design's Round 3 is part of it
 (the owner, Nov 27). Post-go-live features wait on their own pull requests.
 
@@ -101,8 +102,9 @@ yet.
 
 **Round 3 approved (the owner, Nov 27, 2026):** #127, #130 and #129 are merged and on staging.
 The design's Round 3 (a full UI update of every page) is built before the release, and the dates
-move about one week. Claude proposed the dates below on Nov 27; **they wait for the owner's
-yes** ([GO-LIVE.md](GO-LIVE.md)). Staging keeps its test data; **no restore rehearsal yet**.
+move about one week. The owner confirmed the dates below on Nov 27, with the demo moved to right
+after Round 3 ([GO-LIVE.md](GO-LIVE.md)). Staging keeps its test data; **no restore rehearsal
+yet**.
 
 1. **Round 3, Sat Nov 28 - Fri Dec 4:** the design session's small pull requests; the owner
    tests the Owner screens; the design session says "Round 3 done".
@@ -112,11 +114,15 @@ yes** ([GO-LIVE.md](GO-LIVE.md)). Staging keeps its test data; **no restore rehe
    after go-live, with its step), and where to test it (screen and user). Then: the Must haves
    not fully done before go-live, the features in the app that are not in the SRS, and the open
    questions for the store owner or the accountant.
-3. **Sat Dec 5 - Mon Dec 7:** the owner tests the checklist's "Built, not tested yet" items.
-4. **Tue Dec 8:** the owner finishes the step 11 re-test of #132 (checks 5-7; 1-4 passed
-   Nov 27) and writes "step 11 test finished".
-5. **Tue Dec 8 - Wed Dec 9: the owner's demo to the store owner on staging**, after Round 3 and
-   before the release; their answers go into production setup (questions below).
+3. **Sat Dec 5 - Sun Dec 6: the owner's demo to the store owner on staging**, right after
+   "Round 3 done", so their answers and change requests have time before the release
+   ([DEMO-CHECKLIST.md](DEMO-CHECKLIST.md): what to show and the questions below).
+4. **Sat Dec 5 - Mon Dec 7:** the owner tests the checklist's "Built, not tested yet" items and
+   the rest of the step 11 re-test of #132 (checks 5-7; 1-4 passed Nov 27), then writes
+   "step 11 test finished".
+5. **Mon Dec 7 - Tue Dec 8:** Claude records the store owner's answers (SRS, production setup,
+   plan after go-live) and sorts their change requests: money, stock and daily work before the
+   release, the rest after go-live.
 6. **Wed Dec 9: restore rehearsal on staging** ([RESTORE.md](RESTORE.md)), never before step 4
    ("step 11 test finished") and after the demo: staging keeps the test data until then.
 7. **Thu Dec 10: release** steps 7-11 and the new look ([GO-LIVE.md](GO-LIVE.md), "Release";
@@ -125,7 +131,8 @@ yes** ([GO-LIVE.md](GO-LIVE.md)). Staging keeps its test data; **no restore rehe
 8. **Dec 10 - 11: production setup** ([GO-LIVE.md](GO-LIVE.md)), with the location check at the
    shop.
 9. **Trial week Mon Dec 14 - Sun Dec 20**, beside the store's current method.
-10. **Switch Mon Dec 21** (the week before Christmas; if it slips again, after New Year).
+10. **Switch Mon Dec 21, or Mon Jan 4, 2027:** the owner asks the store owner at the demo
+    (Christmas week is busy). Dec 21 stays in the plan until then.
 11. After go-live: sale corrections, the archive of old sales (by the end of January 2027), then
     steps 12 to 15.
 
@@ -135,10 +142,12 @@ yes** ([GO-LIVE.md](GO-LIVE.md)). Staging keeps its test data; **no restore rehe
 first record; an Owner's mark shows on its day but never moves anyone's start (SRS ATT-14).
 Built in #132 (merged Nov 27).
 
-## Questions for the store-owner demo (Dec 8 - 9, proposed)
+## Questions for the store-owner demo (Sat Dec 5 - Sun Dec 6)
 
-Their answers go into production setup ([GO-LIVE.md](GO-LIVE.md)) or the plan after go-live:
+The owner's script is [DEMO-CHECKLIST.md](DEMO-CHECKLIST.md). Their answers go into production
+setup ([GO-LIVE.md](GO-LIVE.md)) or the plan after go-live:
 
+- The switch date: Mon Dec 21 or Mon Jan 4, 2027.
 - Shift times and the late rule (latest time in, grace, late deduction: none, minutes or flat).
 - Who approves requests when the Owner can't be reached.
 - Payroll: P1 overtime pay (paid or not, at what rate) and P7 overtime only on a whole day

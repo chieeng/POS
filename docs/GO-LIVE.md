@@ -4,24 +4,23 @@ The steps to take the app from staging to the store, in order. No secrets, links
 projects or passwords belong in this file (the repository is public). Where the project stands
 today is in [STATUS.md](STATUS.md).
 
-## Dates (proposed Nov 27, 2026, one week later for the design's Round 3; waiting for the owner's yes)
+## Dates (confirmed by the owner on Nov 27, 2026, for the design's Round 3)
 
-| When                      | What                                                                                                           |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Sat Nov 28 - Fri Dec 4    | The design's Round 3 (every page), small pull requests; the owner tests the Owner screens; then "Round 3 done" |
-| Fri Dec 4                 | Claude gives the owner the feature checklist (every SRS requirement against what is built)                     |
-| Sat Dec 5 - Mon Dec 7     | The owner tests the checklist's "Built, not tested yet" items                                                  |
-| **Tue Dec 8**             | The rest of the step 11 re-test (#132 checks 5-7), then "step 11 test finished"                                |
-| **Tue Dec 8 - Wed Dec 9** | **The demo to the store owner on staging**, after Round 3; their answers go into production setup              |
-| Wed Dec 9                 | Restore rehearsal on staging (only after "step 11 test finished" and the demo)                                 |
-| **Thu Dec 10**            | Release steps 7-11 and the new look to production                                                              |
-| Dec 10 - Dec 11           | Production setup, with the location check at the shop                                                          |
-| **Mon Dec 14**            | Trial week starts, beside the store's current method (Mon Dec 14 - Sun Dec 20)                                 |
-| **Mon Dec 21**            | Switch                                                                                                         |
+| When                      | What                                                                                                                       |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Sat Nov 28 - Fri Dec 4    | The design's Round 3 (every page), small pull requests; the owner tests the Owner screens; then "Round 3 done"             |
+| Fri Dec 4                 | Claude gives the owner the feature checklist (every SRS requirement against what is built)                                 |
+| **Sat Dec 5 - Sun Dec 6** | **The demo to the store owner on staging** ([DEMO-CHECKLIST.md](DEMO-CHECKLIST.md)), right after "Round 3 done"            |
+| Sat Dec 5 - Mon Dec 7     | The owner tests the checklist's "Built, not tested yet" items and #132 checks 5-7, then "step 11 test finished"            |
+| Mon Dec 7 - Tue Dec 8     | The store owner's answers go into the SRS and production setup; their change requests are sorted and the urgent ones fixed |
+| Wed Dec 9                 | Restore rehearsal on staging (only after "step 11 test finished" and the demo)                                             |
+| **Thu Dec 10**            | Release steps 7-11 and the new look to production                                                                          |
+| Dec 10 - Dec 11           | Production setup, with the location check at the shop                                                                      |
+| **Mon Dec 14**            | Trial week starts, beside the store's current method (Mon Dec 14 - Sun Dec 20)                                             |
+| **Mon Dec 21**            | Switch, or Mon Jan 4, 2027: the owner asks the store owner at the demo (Christmas week is busy). Dec 21 until then         |
 
 If something slips, each later date moves by the same number of days; the trial always runs a
-full week before the switch. The switch falls in the week before Christmas; if it slips again,
-the next switch date is proposed after New Year (Mon Jan 4, 2027) rather than Christmas week.
+full week before the switch.
 
 Earlier dates (confirmed Nov 27, replaced the same day by Round 3): demo Dec 1-2, release
 Thu Dec 3, trial Mon Dec 7, switch Mon Dec 14.
