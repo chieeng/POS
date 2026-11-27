@@ -101,7 +101,6 @@ const OPEN: DrawerToday = {
     openedAt: new Date(),
     openingCash: 1000,
   },
-  lastCount: null,
   staleOpen: false,
   stale: null,
 };

@@ -15,7 +15,7 @@ values
 insert into public.product_costs (product_id, branch_id, cost_price)
 values ('00000000-0000-4000-8000-0000000000a1', 'tmain', 30), ('00000000-0000-4000-8000-0000000000a2', 'tmain', 40);
 
-select is(tests.run('sales', $$select public.open_drawer(1000, null, 'A1B2')$$), 'ok 1', 'today''s drawer opens');
+select is(tests.run('sales', $$select public.open_drawer('{"1": 1000}', null, 'A1B2')$$), 'ok 1', 'today''s drawer opens');
 
 create function pg_temp.drawer() returns uuid language sql as $$
   select id from public.drawer_sessions where branch_id = 'tmain' and business_date = private.manila_today();

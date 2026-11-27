@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DrawerReportPage } from './DrawerReportPage';
 import {
   countedLater,
+  countsText,
   drawerCsv,
   earlierCount,
   expectedFrom,
@@ -51,6 +52,7 @@ const CLOSED: DrawerRecord = {
   openedByName: 'Jun',
   openedAt: new Date('2026-11-01T07:52:00+08:00'),
   openingCash: 1800,
+  openingCounts: null,
   prefillCash: 2000,
   prefillDifference: -200,
   openingReason: 'Ice before opening',
@@ -152,6 +154,7 @@ const OPEN: DrawerRecord = {
   businessDate: '2026-11-08',
   status: 'open',
   openingCash: 1000,
+  openingCounts: null,
   prefillCash: null,
   prefillDifference: null,
   openingReason: null,
@@ -379,6 +382,21 @@ describe('voids, returns and damaged items (SHIFT-04, POS-10)', () => {
     renderReport();
     expect(screen.queryByRole('region', { name: 'Voids and returns' })).toBeNull();
     expect(screen.queryByText('Cash refunds')).toBeNull();
+  });
+});
+
+describe('the opening count by denomination (SHIFT-01, Nov 27)', () => {
+  it('shows each bill and coin counted at opening, with the reason, in the table and the CSV', () => {
+    const counted = {
+      ...CLOSED,
+      openingCounts: { '1000': 1, '500': 1, '100': 3, '20': 0, '1': 0 },
+    };
+    expect(movements(counted, [])[0]).toMatchObject({
+      type: 'Opened',
+      note: 'Counted ₱1,000 × 1, ₱500 × 1, ₱100 × 3 · Ice before opening',
+      amount: 1800,
+    });
+    expect(countsText({ '1': 0 })).toBe('nothing');
   });
 });
 

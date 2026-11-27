@@ -12,6 +12,7 @@ export interface DrawerSession {
   openingCash: number;
 }
 
+/** The last real count an opening count is compared with, told only after the count. */
 export interface LastCount {
   amount: number;
   countedByName: string;
@@ -25,8 +26,6 @@ export interface DrawerToday {
   /** "YYYY-MM-DD", the store's business day (Asia/Manila). */
   today: string;
   session: DrawerSession | null;
-  /** The last closing count before today; the opening cash is pre-filled from it. */
-  lastCount: LastCount | null;
   /** A drawer from an earlier day is still open; opening today's closes it as not counted. */
   staleOpen: boolean;
   /**
@@ -44,7 +43,6 @@ const asObject = (value: unknown): Json | null =>
 export function toDrawerToday(raw: unknown): DrawerToday {
   const data = asObject(raw) ?? {};
   const session = asObject(data.session);
-  const last = asObject(data.lastCount);
   const stale = asObject(data.stale);
   return {
     today: String(data.today ?? ''),
@@ -56,15 +54,6 @@ export function toDrawerToday(raw: unknown): DrawerToday {
           openedByName: String(session.opened_by_name ?? ''),
           openedAt: new Date(String(session.opened_at)),
           openingCash: Number(session.opening_cash ?? 0),
-        }
-      : null,
-    lastCount: last
-      ? {
-          amount: Number(last.amount ?? 0),
-          countedByName: String(last.counted_by_name ?? ''),
-          closedAt: new Date(String(last.closed_at)),
-          businessDate: String(last.business_date),
-          beforeReopen: last.before_reopen === true,
         }
       : null,
     staleOpen: data.staleOpen === true,
@@ -144,9 +133,47 @@ async function call<T>(fn: string, args: Json): Promise<T> {
   return data as T;
 }
 
-/** SHIFT-01: open today's drawer. `reason` is needed when the amount differs from the last count. */
-export const openDrawer = (openingCash: number, reason: string | null) =>
-  call<string>('open_drawer', { p_opening_cash: openingCash, p_reason: reason });
+const countsArg = (counts: Counts) =>
+  Object.fromEntries(DENOMINATIONS.map((bill) => [String(bill), counts[bill]]));
+
+/**
+ * SHIFT-01 (the owner's decisions of Nov 27, 2026): open today's drawer with a blind count by
+ * denomination. When it differs from the last count and no reason is given, the server refuses
+ * with reason_required and only then tells the difference (see openingMismatch).
+ */
+export const openDrawer = (counts: Counts, reason: string | null) =>
+  call<string>('open_drawer', { p_counts: countsArg(counts), p_reason: reason });
+
+/** What the server told after an opening count that differs from the last count. */
+export interface OpeningMismatch {
+  counted: number;
+  difference: number;
+  lastCount: LastCount;
+}
+
+/** The difference from a reason_required refusal of open_drawer, or null for any other error. */
+export function openingMismatch(error: unknown): OpeningMismatch | null {
+  const { message, details } = (error ?? {}) as { message?: unknown; details?: unknown };
+  if (message !== 'reason_required' || typeof details !== 'string') return null;
+  try {
+    const data = asObject(JSON.parse(details));
+    const last = asObject(data?.lastCount);
+    if (!data || !last) return null;
+    return {
+      counted: Number(data.counted ?? 0),
+      difference: Number(data.difference ?? 0),
+      lastCount: {
+        amount: Number(last.amount ?? 0),
+        countedByName: String(last.counted_by_name ?? ''),
+        closedAt: new Date(String(last.closed_at)),
+        businessDate: String(last.business_date),
+        beforeReopen: last.before_reopen === true,
+      },
+    };
+  } catch {
+    return null;
+  }
+}
 
 /** SHIFT-02: cash in or out of today's drawer. */
 export const recordDrawerEntry = (
@@ -187,7 +214,7 @@ export function describeDrawerError(error: unknown): string {
     case 'already_closed':
       return 'Today’s drawer was already counted and closed. Later sales go to tomorrow’s drawer.';
     case 'reason_required':
-      return 'Say why the amount differs from the last count.';
+      return 'Say why the count differs from the last count.';
     case 'drawer_not_open':
       return 'Today’s drawer isn’t open. Open it first.';
     case 'invalid_input':
@@ -197,7 +224,7 @@ export function describeDrawerError(error: unknown): string {
   }
 }
 
-/** SHIFT-03: the bills and coins counted at closing, largest first. No 25-centavo coins. */
+/** SHIFT-01, SHIFT-03: the bills and coins counted, largest first. No 25-centavo coins. */
 export const DENOMINATIONS = [1000, 500, 200, 100, 50, 20, 10, 5, 1] as const;
 
 export type Counts = Record<(typeof DENOMINATIONS)[number], number>;
@@ -229,7 +256,7 @@ export async function closeDrawer(
   sessionId: string,
 ): Promise<CloseResult> {
   const result = await call<Json>('close_drawer', {
-    p_counts: Object.fromEntries(DENOMINATIONS.map((bill) => [String(bill), counts[bill]])),
+    p_counts: countsArg(counts),
     p_note: note,
     p_session_id: sessionId,
   });

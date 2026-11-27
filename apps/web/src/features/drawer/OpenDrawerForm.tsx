@@ -5,16 +5,25 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { formatPeso } from '@/lib/money';
 import { useSession } from '@/stores/session';
-import { describeDrawerError, openDrawer, parsePeso, type DrawerToday } from './data';
+import {
+  countedTotal,
+  describeDrawerError,
+  emptyCounts,
+  openDrawer,
+  openingMismatch,
+  type Counts,
+  type DrawerToday,
+  type LastCount,
+  type OpeningMismatch,
+} from './data';
+import { DenominationList } from './DenominationList';
 import { dayBefore, manilaDay, shortDay, timeLabel } from './format';
-import { PesoInput } from './PesoInput';
-
-const plain = (amount: number) => amount.toFixed(2);
 
 /**
- * Cash Drawer.dc.html 8a (SHIFT-01): the first staff member of the day enters the opening
- * cash, pre-filled from the last closing count. An amount that differs needs a reason; the
- * Owner sees the difference on the drawer report.
+ * Cash Drawer.dc.html 8a (SHIFT-01; the owner's decisions of Nov 27, 2026): the first staff
+ * member of the day counts the drawer by denomination, from empty. The count is blind, for the
+ * Owner too: the last count shows only when the opening count differs from it, and then a
+ * reason is needed; the Owner sees the difference on the drawer report.
  */
 export function OpenDrawerForm({
   drawer,
@@ -26,39 +35,30 @@ export function OpenDrawerForm({
   const role = useSession((s) => s.user?.role);
   // SHIFT-03: only the Owner and Special Sales count a drawer.
   const canCount = role === 'owner' || role === 'special_sales';
-  const last = drawer.lastCount;
-  const [amount, setAmount] = useState(last ? plain(last.amount) : '');
+  const [counts, setCounts] = useState<Counts>(emptyCounts);
+  const [mismatch, setMismatch] = useState<OpeningMismatch | null>(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const value = parsePeso(amount);
-  const difference = last && value !== null ? value - last.amount : 0;
-  const yesterday = last?.businessDate === dayBefore(drawer.today);
-  // A count made on a later day than its drawer's (the overnight count) says when it was made.
-  const countedDay = last ? manilaDay(last.closedAt) : '';
-  const today = drawer.today;
-  const countedLater = !!last && countedDay > last.businessDate;
-  const lastName = yesterday
-    ? 'yesterday’s count'
-    : `the ${shortDay(last?.businessDate ?? '')} count`;
+  const counted = countedTotal(counts);
+  // A difference the server told belongs to the count it was told for; a new count asks again.
+  const shown = mismatch && mismatch.counted === counted ? mismatch : null;
 
   const submit = async () => {
     setError(null);
-    if (value === null) {
-      setError('Enter the cash in the drawer, for example 2000.');
-      return;
-    }
-    if (difference !== 0 && !reason.trim()) {
-      setError('Say why the amount differs from the last count.');
+    if (shown && !reason.trim()) {
+      setError('Say why the count differs from the last count.');
       return;
     }
     setBusy(true);
     try {
-      await openDrawer(value, difference !== 0 ? reason.trim() : null);
+      await openDrawer(counts, shown ? reason.trim() : null);
       onOpened();
     } catch (caught) {
-      setError(describeDrawerError(caught));
+      const told = openingMismatch(caught);
+      if (told) setMismatch(told);
+      else setError(describeDrawerError(caught));
       setBusy(false);
     }
   };
@@ -91,57 +91,31 @@ export function OpenDrawerForm({
             opening today’s closes it as “not counted”, and the Owner sees it on the drawer report.
           </Alert>
         ))}
-      <div className="flex flex-col gap-[6px]">
-        <Label htmlFor="opening-cash" className="text-[13px]">
-          Opening cash
-        </Label>
-        <PesoInput
-          id="opening-cash"
-          value={amount}
-          placeholder="0.00"
-          warn={difference !== 0}
-          onChange={(event) => setAmount(event.target.value)}
-        />
-        {last && (
-          <p className="px-[8px] text-[13px] text-neutral-700">
-            {last.beforeReopen ? (
-              <>
-                Last count: {formatPeso(last.amount)} ({last.countedByName},{' '}
-                {shortDay(last.businessDate)} {timeLabel(last.closedAt)}, before the drawer was
-                reopened)
-              </>
-            ) : (
-              <>
-                {countedLater ? (
-                  <>
-                    {shortDay(last.businessDate)}’s closing count: {formatPeso(last.amount)}{' '}
-                    (counted {countedDay === today ? 'today' : shortDay(countedDay)}{' '}
-                    {timeLabel(last.closedAt)} by {last.countedByName})
-                  </>
-                ) : (
-                  <>
-                    {yesterday ? 'Yesterday’s' : `Last (${shortDay(last.businessDate)})`} closing
-                    count: {formatPeso(last.amount)} ({last.countedByName},{' '}
-                    {timeLabel(last.closedAt)})
-                  </>
-                )}
-              </>
-            )}
-          </p>
-        )}
+
+      <p className="px-[4px] text-[14px] text-neutral-700">
+        Count the cash in the drawer, bill by bill. It is checked against the last count when you
+        open the drawer.
+      </p>
+      <DenominationList counts={counts} onChange={setCounts} />
+      <div className="flex justify-between px-[4px] text-[16px] font-bold">
+        <span>Opening cash</span>
+        <span className="tabular-nums" aria-label="Opening cash">
+          {formatPeso(counted)}
+        </span>
       </div>
 
-      {difference !== 0 && (
+      {shown && (
         <>
           <Alert variant="warn">
             <b>
-              {formatPeso(Math.abs(difference))} {difference < 0 ? 'less' : 'more'} than {lastName}.
+              {formatPeso(Math.abs(shown.difference))} {shown.difference < 0 ? 'less' : 'more'} than{' '}
+              {lastCountText(shown.lastCount, drawer.today)}.
             </b>{' '}
-            The Owner will see this on the drawer report.
+            Count again, or say why. The Owner will see this on the drawer report.
           </Alert>
           <div className="flex flex-col gap-[6px]">
             <Label htmlFor="opening-reason" className="text-[13px]">
-              Reason · required when changed
+              Reason · required when it differs
             </Label>
             <textarea
               id="opening-reason"
@@ -160,18 +134,25 @@ export function OpenDrawerForm({
       <Button needsInternet type="submit" variant="money" size="lg" disabled={busy}>
         {busy ? 'Opening…' : 'Open drawer'}
       </Button>
-      {last && difference !== 0 && (
-        <Button
-          variant="ghost"
-          className="min-h-11 w-full font-body font-semibold text-accent-700"
-          onClick={() => {
-            setAmount(plain(last.amount));
-            setError(null);
-          }}
-        >
-          Reset to {formatPeso(last.amount)}
-        </Button>
-      )}
     </form>
   );
+}
+
+/**
+ * Which count the opening was compared with: yesterday's, an earlier day's, one counted on a
+ * later day (the overnight count), or one taken before the drawer was reopened.
+ */
+function lastCountText(last: LastCount, today: string): string {
+  const amount = formatPeso(last.amount);
+  if (last.beforeReopen) {
+    return `the count taken before the drawer was reopened (${amount}, ${last.countedByName}, ${shortDay(last.businessDate)} ${timeLabel(last.closedAt)})`;
+  }
+  const countedDay = manilaDay(last.closedAt);
+  if (countedDay > last.businessDate) {
+    const when = countedDay === today ? 'today' : shortDay(countedDay);
+    return `${shortDay(last.businessDate)}’s count (${amount}, counted later, ${when} ${timeLabel(last.closedAt)}, by ${last.countedByName})`;
+  }
+  const day =
+    last.businessDate === dayBefore(today) ? 'yesterday’s' : `${shortDay(last.businessDate)}’s`;
+  return `${day} closing count (${amount}, ${last.countedByName}, ${timeLabel(last.closedAt)})`;
 }

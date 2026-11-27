@@ -12,23 +12,20 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Stepper } from '@/components/ui/stepper';
 import { PageHeader } from '@/features/settings/PageHeader';
 import { formatPeso } from '@/lib/money';
 import { cn, ICON_STROKE } from '@/lib/utils';
 import {
   closeDrawer,
   countedTotal,
-  DENOMINATIONS,
   describeDrawerError,
   emptyCounts,
   useDrawerToday,
   type CloseResult,
   type Counts,
 } from './data';
+import { DenominationList } from './DenominationList';
 import { shortDay, timeLabel } from './format';
-
-const billLabel = (bill: number) => `₱${bill.toLocaleString('en-PH')}`;
 
 /**
  * Cash Drawer.dc.html 8c/8d (SHIFT-03): the Owner or Special Sales counts the drawer by
@@ -101,35 +98,7 @@ export function CountDrawerPage() {
         </>
       ) : (
         <div className="grid gap-[18px] md:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
-          <ul
-            aria-label="Bills and coins"
-            className="grid content-start md:grid-cols-2 md:gap-x-[24px]"
-          >
-            {DENOMINATIONS.map((bill) => (
-              <li
-                key={bill}
-                className="flex min-h-[52px] items-center gap-[8px] border-b border-text/8 md:min-h-[60px]"
-              >
-                <span className="w-[68px] text-[15px] font-bold md:w-[60px]">
-                  {billLabel(bill)}
-                </span>
-                <span aria-hidden className="text-[13px] text-neutral-700 md:hidden">
-                  ×
-                </span>
-                <Stepper
-                  editable
-                  label={`Number of ${billLabel(bill)}`}
-                  value={counts[bill]}
-                  max={100000}
-                  onChange={(value) => setCounts((current) => ({ ...current, [bill]: value }))}
-                  className="w-[118px] border-0 md:w-[124px]"
-                />
-                <span className="flex-1 text-right text-[14.5px] tabular-nums">
-                  {formatPeso(bill * counts[bill])}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <DenominationList counts={counts} onChange={setCounts} />
 
           <div className="flex flex-col gap-[10px] md:rounded-[30px] md:bg-neutral-100 md:p-[20px]">
             <h2 className="hidden text-[20px] md:block first-letter:uppercase">

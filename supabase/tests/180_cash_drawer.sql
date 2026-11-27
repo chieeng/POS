@@ -15,7 +15,7 @@ select is(
 from unnest(tests.no_access()) as caller;
 
 select is(
-  tests.run(caller, 'select public.open_drawer(100)'),
+  tests.run(caller, 'select public.open_drawer(''{"1": 100}'')'),
   '42501',
   caller || ' cannot open the drawer'
 )
@@ -24,11 +24,11 @@ from unnest(tests.no_access()) as caller;
 -- ---- Open --------------------------------------------------------------------------------
 select tests.as('sales');
 select is(public.drawer_today() -> 'session', 'null'::jsonb, 'no drawer is open yet today');
-select is(public.drawer_today() -> 'lastCount', 'null'::jsonb, 'and there is no earlier count');
+select ok(not public.drawer_today() ? 'lastCount', 'the last count is never sent: the opening count is blind');
 select tests.as_admin();
 
 select is(
-  tests.run('sales', $$select public.open_drawer(2000, null, 'A1B2')$$),
+  tests.run('sales', $$select public.open_drawer('{"1": 2000}', null, 'A1B2')$$),
   'ok 1',
   'Sales opens today''s drawer; with no earlier count no reason is needed'
 );
@@ -49,7 +49,7 @@ select is(
 );
 
 select is(
-  tests.message('special', 'select public.open_drawer(2000)'),
+  tests.message('special', 'select public.open_drawer(''{"1": 2000}'')'),
   'already_open',
   'only one drawer a day (SHIFT-01)'
 );
@@ -217,7 +217,7 @@ select is(
   'nothing goes into a closed drawer'
 );
 select is(
-  tests.message('sales', 'select public.open_drawer(2140)'),
+  tests.message('sales', 'select public.open_drawer(''{"1": 2140}'')'),
   'already_closed',
   'and it does not open again the same day'
 );
@@ -271,21 +271,19 @@ select public.close_drawer('{"1000": 2, "100": 1, "20": 2}');
 select tests.as_admin();
 update public.drawer_sessions set business_date = business_date - 2 where branch_id = 'tmain';
 
-select tests.as('sales');
 select is(
-  public.drawer_today() #>> '{lastCount,amount}',
-  '2140.00',
-  'the next day, the last closing count is offered as the opening cash'
-);
-select tests.as_admin();
-
-select is(
-  tests.message('sales', 'select public.open_drawer(2000)'),
+  tests.message('sales', 'select public.open_drawer(''{"1": 2000}'')'),
   'reason_required',
-  'an opening cash that differs from the last count needs a reason'
+  'an opening count that differs from the last count needs a reason'
 );
 select is(
-  tests.run('sales', $$select public.open_drawer(2000, 'Owner took 140 for ice', 'A1B2')$$),
+  (select jsonb_build_object('counted', d -> 'counted', 'last', d #> '{lastCount,amount}', 'difference', d -> 'difference')
+   from tests.detail('sales', $$select public.open_drawer('{"1000": 2}')$$) d),
+  '{"counted": 2000, "last": 2140.00, "difference": -140.00}'::jsonb,
+  'only after the count: ₱140 less than the last closing count (₱2,140)'
+);
+select is(
+  tests.run('sales', $$select public.open_drawer('{"1": 2000}', 'Owner took 140 for ice', 'A1B2')$$),
   'ok 1',
   'with a reason it opens'
 );
@@ -313,7 +311,7 @@ select is(
 select tests.as_admin();
 
 select is(
-  tests.run('sales', $$select public.open_drawer(2140, 'Not counted last night')$$),
+  tests.run('sales', $$select public.open_drawer('{"1": 2140}', 'Not counted last night')$$),
   'ok 1',
   'today''s drawer still opens: selling is never blocked'
 );

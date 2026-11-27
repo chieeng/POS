@@ -15,11 +15,11 @@ insert into public.product_costs (product_id, branch_id, cost_price)
 values ('00000000-0000-4000-8000-0000000000a1', 'tmain', 30), ('00000000-0000-4000-8000-0000000000a2', 'tmain', 60);
 
 -- Yesterday's drawer, counted and closed; today's, open with ₱1,000.
-select is(tests.run('sales', $$select public.open_drawer(500, null, 'A1B2')$$), 'ok 1', 'yesterday''s drawer opens');
+select is(tests.run('sales', $$select public.open_drawer('{"1": 500}', null, 'A1B2')$$), 'ok 1', 'yesterday''s drawer opens');
 update public.drawer_sessions set business_date = business_date - 1, status = 'closed',
   closed_at = now() - interval '1 day', counted_cash = 500, expected_cash = 500, over_short = 0
 where branch_id = 'tmain';
-select is(tests.run('sales', $$select public.open_drawer(1000, 'test', 'A1B2')$$), 'ok 1', 'today''s drawer opens');
+select is(tests.run('sales', $$select public.open_drawer('{"1": 1000}', 'test', 'A1B2')$$), 'ok 1', 'today''s drawer opens');
 
 create function pg_temp.drawer(p_today boolean) returns uuid language sql as $$
   select id from public.drawer_sessions where branch_id = 'tmain'

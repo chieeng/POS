@@ -13,7 +13,7 @@ values ('00000000-0000-4000-8000-0000000000a1', 'tmain', 'CK-12', 'Chips Classic
 insert into public.product_costs (product_id, branch_id, cost_price)
 values ('00000000-0000-4000-8000-0000000000a1', 'tmain', 30);
 
-select is(tests.run('sales', $$select public.open_drawer(1000, null, 'A1B2')$$), 'ok 1', 'today''s drawer opens');
+select is(tests.run('sales', $$select public.open_drawer('{"1": 1000}', null, 'A1B2')$$), 'ok 1', 'today''s drawer opens');
 
 create function pg_temp.pid() returns uuid language sql as $$
   select '00000000-0000-4000-8000-0000000000a1'::uuid;
