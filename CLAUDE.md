@@ -39,6 +39,10 @@ laptops. Roles: owner, special_sales, sales.
 - The design canvas decides HOW it looks: layout, components, colours, wording style. Since
   Nov 13, 2026 that is the approved "price card and peso note" canvas (SRS 7.2); the old
   Organic design project is kept only as the record of what each screen holds.
+- Since Nov 27, 2026 the canvas page "Round 3" is the approved layout of every page (SRS 7.2:
+  main thing raised, working area flat, secondary grey; help behind (i)). A screen follows its
+  Round 3 board where one exists; it is look and wording only, and behaviour changes go to the
+  developer as requests.
 - Lime is for money actions only (the `money` button: Pay, Complete sale, Open drawer, Close
   drawer). Every other main action is ink (`primary`).
 - A feature the design shows but the SRS doesn't have is not built (design-only features are
